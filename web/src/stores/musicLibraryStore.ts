@@ -22,6 +22,8 @@ interface MusicLibraryState {
     addReceivedTracks: (incoming: IncomingTrack[]) => Track[];
     /** Merge an AirShare-received playlist: dedupes songs, adds a folder. */
     addReceivedPlaylist: (name: string, incoming: IncomingTrack[]) => void;
+    /** Factory reset: reseed from (now cleared) storage defaults. */
+    reset: () => void;
 }
 
 export const useMusicLibrary = create<MusicLibraryState>()(
@@ -32,6 +34,10 @@ export const useMusicLibrary = create<MusicLibraryState>()(
 
             setTracks: (next) => {
                 set(s => ({ tracks: typeof next === 'function' ? next(s.tracks) : next }));
+            },
+
+            reset: () => {
+                set({ tracks: loadTracks(), folders: loadFolders() });
             },
 
             setFolders: (next) => {

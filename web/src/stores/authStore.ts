@@ -60,3 +60,7 @@ export function signOut(appKey: string): void {
     useAuthStore.getState().signOut(appKey);
 }
 
+export function resetAuth(): void {
+    useAuthStore.setState({ records: {} });
+}
+

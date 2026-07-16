@@ -2,39 +2,9 @@ import { useState } from 'react';
 
 import { t } from '@/i18n';
 import { AlertDialog } from '@/ui/AlertDialog';
-import { fetchNui } from '@/core/nui';
+import { requestPhoneReset } from '@/core/phoneReset';
 import { ListGroup, ListRow } from '@/ui/ListGroup';
 import { SubPage } from '../SettingsSubPage';
-
-async function eraseAllContent(): Promise<void> {
-    const keys: string[] = [];
-    for (let i = 0; i < window.localStorage.length; i++) {
-        const k = window.localStorage.key(i);
-        if (k && k.startsWith('sd-phone:')) keys.push(k);
-    }
-    for (const k of keys) window.localStorage.removeItem(k);
-
-    try { await fetchNui('sd-phone:close'); } catch { /* ignore */ }
-
-    window.location.reload();
-}
-
-async function resetAllSettings(): Promise<void> {
-    const PREFIXES = [
-        'sd-phone:setup:',
-        'sd-phone:mail:folderOrder',
-        'sd-phone:mail:activeAccount',
-    ];
-    const keys: string[] = [];
-    for (let i = 0; i < window.localStorage.length; i++) {
-        const k = window.localStorage.key(i);
-        if (k && PREFIXES.some(p => k.startsWith(p))) keys.push(k);
-    }
-    for (const k of keys) window.localStorage.removeItem(k);
-
-    try { await fetchNui('sd-phone:close'); } catch { /* ignore */ }
-    window.location.reload();
-}
 
 export function ResetPhonePage({ onBack }: { onBack: () => void }) {
     const [confirm, setConfirm] = useState<'reset' | 'erase' | null>(null);
@@ -71,7 +41,7 @@ export function ResetPhonePage({ onBack }: { onBack: () => void }) {
                     confirmLabel={t('settings.resetConfirm', 'Reset')}
                     destructive
                     onCancel={() => setConfirm(null)}
-                    onConfirm={() => { setConfirm(null); void resetAllSettings(); }}
+                    onConfirm={() => { setConfirm(null); requestPhoneReset('settings'); }}
                 />
             )}
 
@@ -82,7 +52,7 @@ export function ResetPhonePage({ onBack }: { onBack: () => void }) {
                     confirmLabel={t('settings.eraseConfirm', 'Erase')}
                     destructive
                     onCancel={() => setConfirm(null)}
-                    onConfirm={() => { setConfirm(null); void eraseAllContent(); }}
+                    onConfirm={() => { setConfirm(null); requestPhoneReset('erase'); }}
                 />
             )}
         </>

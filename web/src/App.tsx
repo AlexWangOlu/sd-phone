@@ -24,6 +24,8 @@ import { useNuiEvent } from '@/hooks/useNuiEvent';
 import { seedSessionState } from '@/hooks/useSessionState';
 import { onOpenMail, onOpenMaps, onOpenMessages } from '@/shell/deeplink';
 import { fetchNui, isFiveM } from '@/core/nui';
+import { usePhoneReset } from '@/core/phoneReset';
+import { resetAuth } from '@/stores/authStore';
 import { setMailDomain } from '@/core/accountsApi';
 import { voiceHub, setLocalTalking } from '@/media/nearbyVoice';
 import { useMusicLibrary } from '@/stores/musicLibraryStore';
@@ -796,6 +798,42 @@ function AppContent() {
             document.removeEventListener('focusout', onBlur);
         };
     }, []);
+
+    const resetNonce = usePhoneReset(s => s.nonce);
+    useEffect(() => {
+        if (!resetNonce) return;
+        const scope = usePhoneReset.getState().scope;
+        const prefixes = scope === 'erase'
+            ? ['sd-phone:']
+            : ['sd-phone:setup:', 'sd-phone:mail:folderOrder', 'sd-phone:mail:activeAccount'];
+        const doomed: string[] = [];
+        for (let i = 0; i < window.localStorage.length; i++) {
+            const k = window.localStorage.key(i);
+            if (k && prefixes.some(p => k.startsWith(p))) doomed.push(k);
+        }
+        for (const k of doomed) window.localStorage.removeItem(k);
+        if (scope === 'erase') {
+            resetAuth();
+            useMusicLibrary.getState().reset();
+            useLocaleStore.getState().hydrate();
+        }
+        setCurrentApp(null);
+        setLaunchOrigin(null);
+        setLaunchExpand(false);
+        setIsClosing(false);
+        setRecentApps([]);
+        setRetained([]);
+        setForegroundKeys({});
+        setSwitcherOpen(false);
+        setSwitcherClosing(false);
+        setSwitcherReady(false);
+        setHomeEditing(false);
+        setCcOpen(false);
+        setFinishingSetup(false);
+        setSetupHello(true);
+        setLocked(false);
+        setSetup({ completed: false });
+    }, [resetNonce]);
 
     // The keep-alive deck is rendered ABOVE the shell (in both the closed and open
     // branches, under a stable key) so it is never unmounted by a holster/lock/locale
