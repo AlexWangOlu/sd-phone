@@ -1,12 +1,31 @@
 
-export const isFiveM = (() => {
-    return typeof window !== 'undefined' && typeof (window as { GetParentResourceName?: () => string }).GetParentResourceName === 'function';
-})();
+interface FiveMWindowish {
+    GetParentResourceName?: () => string;
+    location?: { hostname?: string; protocol?: string };
+}
 
-const resourceName: string =
-    isFiveM
-        ? (window as unknown as { GetParentResourceName: () => string }).GetParentResourceName()
-        : 'sd-phone';
+export function detectFiveM(win: FiveMWindowish | undefined): boolean {
+    if (!win) return false;
+    if (typeof win.GetParentResourceName === 'function') return true;
+    const hostname = win.location?.hostname ?? '';
+    const protocol = win.location?.protocol ?? '';
+    return /^cfx-nui-/.test(hostname) || protocol === 'nui:';
+}
+
+export function parseResourceName(win: FiveMWindowish | undefined): string {
+    if (win && typeof win.GetParentResourceName === 'function') {
+        return win.GetParentResourceName();
+    }
+    const hostname = win?.location?.hostname ?? '';
+    const match = /^cfx-nui-(.+)$/.exec(hostname);
+    return match ? match[1] : 'sd-phone';
+}
+
+const currentWindow = typeof window !== 'undefined' ? (window as FiveMWindowish) : undefined;
+
+export const isFiveM = detectFiveM(currentWindow);
+
+const resourceName: string = parseResourceName(currentWindow);
 
 export async function fetchNui<TResp = unknown>(event: string, payload?: unknown): Promise<TResp> {
     if (!isFiveM) {
