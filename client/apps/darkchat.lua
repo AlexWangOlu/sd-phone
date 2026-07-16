@@ -2,7 +2,7 @@
 local proxy = require 'client.nui'
 
 -- Thin delegates into server/darkchat: room lifecycle, membership, messaging, reactions and
--- nicknames - validation + persistence live in each server handler, documented there.
+-- nicknames.
 proxy('sd-phone:darkchat:rooms',    'sd-phone:server:darkchat:rooms')
 proxy('sd-phone:darkchat:open',     'sd-phone:server:darkchat:open')
 proxy('sd-phone:darkchat:close',    'sd-phone:server:darkchat:close')
@@ -14,22 +14,19 @@ proxy('sd-phone:darkchat:leave',    'sd-phone:server:darkchat:leave')
 proxy('sd-phone:darkchat:nickname', 'sd-phone:server:darkchat:nickname')
 proxy('sd-phone:darkchat:exit',     'sd-phone:server:darkchat:exit')
 
----Server push: a message landed in a room we're a member of - relay it so an open room
----updates live. Server-originated, so the payload is trusted as-is.
+---Server push: a message landed in a room we're a member of; relays it to an open room.
 ---@param data table message record from server/darkchat
 RegisterNetEvent('sd-phone:client:darkchat:message', function(data)
     SendNUIMessage({ action = 'sd-phone:darkchat:message', data = data })
 end)
 
----Server push: a room's active-member presence changed - relay so the app updates who's
----currently in the room.
+---Server push: a room's active-member presence changed; relays the updated presence.
 ---@param data table presence patch from server/darkchat
 RegisterNetEvent('sd-phone:client:darkchat:active', function(data)
     SendNUIMessage({ action = 'sd-phone:darkchat:active', data = data })
 end)
 
----Server push: a reaction changed on a message in one of our rooms - relay the updated set so
----the bubble patches in place.
+---Server push: a reaction changed on a message in one of our rooms; relays the updated set.
 ---@param data table reaction patch from server/darkchat
 RegisterNetEvent('sd-phone:client:darkchat:reaction', function(data)
     SendNUIMessage({ action = 'sd-phone:darkchat:reaction', data = data })

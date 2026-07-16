@@ -2,8 +2,7 @@
 local proxyCallback = require 'client.nui'
 
 -- Thin delegates into server/mail: account session, mailbox listing, composing, drafts,
--- flags and folder moves - validation + persistence live in each server handler, documented
--- there.
+-- flags and folder moves.
 proxyCallback('sd-phone:mail:list',       'sd-phone:server:mail:list')
 proxyCallback('sd-phone:mail:signUp',     'sd-phone:server:mail:signUp')
 proxyCallback('sd-phone:mail:signIn',     'sd-phone:server:mail:signIn')
@@ -16,7 +15,7 @@ proxyCallback('sd-phone:mail:moveToBin',  'sd-phone:server:mail:moveToBin')
 proxyCallback('sd-phone:mail:move',       'sd-phone:server:mail:move')
 proxyCallback('sd-phone:mail:deleteAccount', 'sd-phone:server:mail:deleteAccount')
 
----Server push: a mail landed in our signed-in inbox - relay it so the app updates live.
+---Server push: a mail landed in our signed-in inbox; relays it to the app.
 ---@param message table mail record from server/mail
 RegisterNetEvent('sd-phone:client:mail:received', function(message)
     SendNUIMessage({ action = 'sd-phone:mail:received', data = message })

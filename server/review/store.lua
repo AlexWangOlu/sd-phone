@@ -1,13 +1,8 @@
 ---@type table Store module; the table returned at end of file.
 local store = {}
 
----Create the review tables if they don't exist, so the resource is drop-in. Run once at boot.
----Three tables: one review row per (business, character) - the UNIQUE (business_id, citizenid)
----key is the hard backstop against a double-submit race; a helpful-vote join table with
----PRIMARY KEY (review_id, citizenid) so one character can never count twice on a review; and
----boss-edited display overrides keyed by the config business id, whose NULL columns fall back
----to the config value. Businesses themselves live in configs/review.lua - only reviews, votes
----and the three mutable display fields (hours/blurb/logo) are stored here.
+---Create the review tables if they don't exist. Run once at boot. Three tables: reviews, a
+---helpful-vote join table, and boss-edited display overrides.
 function store.ensureSchema()
     MySQL.query.await([[
         CREATE TABLE IF NOT EXISTS `phone_review_reviews` (
@@ -43,16 +38,14 @@ function store.ensureSchema()
     ]])
 end
 
----Every saved boss override, one { business_id, hours, blurb, logo } row each. Caller merges
----them over the config records; we keep the data layer dumb. Read-only.
+---Every saved boss override, one { business_id, hours, blurb, logo } row each. Read-only.
 ---@return table rows override rows (possibly empty)
 function store.overrides()
     return MySQL.query.await('SELECT business_id, hours, blurb, logo FROM `phone_review_business_meta`') or {}
 end
 
----Insert or replace a business's overridden display fields (upsert). Nil fields store as NULL,
----which reads back as "fall through to the config value". `cid`/`ts` record who last edited and
----when, for accountability - they're never sent to clients.
+---Insert or replace a business's overridden display fields (upsert). Nil fields store as NULL.
+---`cid`/`ts` record who last edited and when.
 ---@param businessId string config business id
 ---@param hours string|nil override opening hours
 ---@param blurb string|nil override one-line description
@@ -68,7 +61,7 @@ function store.setOverride(businessId, hours, blurb, logo, cid, ts)
     ]], { businessId, hours, blurb, logo, cid, ts })
 end
 
----The caller's existing review id for a business, or nil - the one-review-per-character check.
+---The caller's existing review id for a business, or nil.
 ---@param businessId string config business id
 ---@param citizenid string author's citizenid
 ---@return integer|nil id existing review id, nil when they haven't reviewed it
@@ -78,10 +71,7 @@ function store.reviewIdFor(businessId, citizenid)
         { businessId, citizenid })
 end
 
----Insert a new review. Reviews are one-and-done: there's no edit path, so a caller must delete
----their existing review before posting another. The UNIQUE (business_id, citizenid) key is the
----hard backstop against a double-submit race; `actions.create` checks first to surface a
----friendly message.
+---Insert a new review.
 ---@param businessId string config business id
 ---@param citizenid string author's citizenid (server-stamped)
 ---@param author string author display name (server-stamped)
@@ -106,16 +96,14 @@ function store.reviewsFor(businessId, limit)
         { businessId, limit }) or {}
 end
 
----Per-business { business_id, cnt, avg } across every review. Stamps the directory list with a
----star rating + count in one query instead of one per business. Read-only.
+---Per-business { business_id, cnt, avg } across every review. Read-only.
 ---@return table rows aggregate rows (possibly empty)
 function store.aggregate()
     return MySQL.query.await(
         'SELECT business_id, COUNT(*) AS cnt, AVG(rating) AS avg FROM `phone_review_reviews` GROUP BY business_id') or {}
 end
 
----{ business_id, rating } rows for the caller's own reviews, so the directory can show
----"You rated this". Read-only.
+---{ business_id, rating } rows for the caller's own reviews. Read-only.
 ---@param citizenid string caller's citizenid
 ---@return table rows (possibly empty)
 function store.myRatings(citizenid)
@@ -123,25 +111,21 @@ function store.myRatings(citizenid)
         'SELECT business_id, rating FROM `phone_review_reviews` WHERE citizenid = ?', { citizenid }) or {}
 end
 
----The citizenid that authored a review (nil when the review doesn't exist) - the ownership
----check behind delete and the self-vote check behind helpful. Read-only.
+---The citizenid that authored a review (nil when the review doesn't exist). Read-only.
 ---@param id integer review id
 ---@return string|nil citizenid
 function store.ownerOf(id)
     return MySQL.scalar.await('SELECT citizenid FROM `phone_review_reviews` WHERE id = ?', { id })
 end
 
----Remove a review and its helpful votes. Not transactional: a vote racing between the two
----deletes can at worst leave an orphan vote row, which every read JOINs back to the (now gone)
----review and so never surfaces.
+---Remove a review and its helpful votes.
 ---@param id integer review id (ownership already verified by the caller)
 function store.delete(id)
     MySQL.query.await('DELETE FROM `phone_review_reviews` WHERE id = ?', { id })
     MySQL.query.await('DELETE FROM `phone_review_helpful` WHERE review_id = ?', { id })
 end
 
----{ review_id, cnt } helpful-vote counts for one business's reviews, in one grouped query.
----Read-only.
+---{ review_id, cnt } helpful-vote counts for one business's reviews. Read-only.
 ---@param businessId string config business id
 ---@return table rows (possibly empty)
 function store.helpfulMapForBusiness(businessId)
@@ -175,8 +159,6 @@ function store.helpfulCount(reviewId)
 end
 
 ---Toggle the caller's helpful vote on a review: delete the vote if it exists, insert it if not.
----Check-then-write, but the PRIMARY KEY (review_id, citizenid) backstops the race - a doubled
----insert errors instead of counting twice, so a replayed toggle can never inflate the count.
 ---@param reviewId integer review id
 ---@param citizenid string voter's citizenid
 ---@param ts integer unix seconds of the vote

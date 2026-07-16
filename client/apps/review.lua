@@ -2,8 +2,7 @@
 local proxy = require 'client.nui'
 
 -- Thin delegates into server/review: business listings, review CRUD, helpful votes and the
--- boss-gated manage view - validation + permission checks live in each server handler,
--- documented there.
+-- boss-gated manage view.
 proxy('sd-phone:review:list',     'sd-phone:server:review:list')
 proxy('sd-phone:review:business', 'sd-phone:server:review:business')
 proxy('sd-phone:review:create',   'sd-phone:server:review:create')

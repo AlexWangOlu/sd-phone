@@ -14,7 +14,7 @@ CreateThread(function()
 end)
 
 -- Live presence, in memory only: who is tabbed into which room, and who is sitting on the
--- rooms list. Resets on resource restart; keyed by src, scrubbed on playerDropped.
+-- rooms list.
 ---@type table<string, table<integer, boolean>> Viewers currently inside a room, per room id.
 local present  = {}
 ---@type table<integer, boolean> Viewers currently on the rooms list, by src.
@@ -61,8 +61,7 @@ local function countPresent(roomId)
     return n
 end
 
----Live viewer count per room id, for listRooms' public-room member figures. May include private
----rooms that happen to have viewers; listRooms only reads the public ids.
+---Live viewer count per room id.
 ---@return table<string, integer> counts
 local function publicCounts()
     local counts = {}
@@ -147,8 +146,7 @@ lib.callback.register('sd-phone:server:darkchat:open', function(src, payload)
 end)
 
 ---A room view closed back to the rooms list: the caller becomes a homepage viewer again and the
----room's active count refreshes for everyone still watching. Tolerates a missing or garbage
----roomId - presence is only ever looked up here, never created.
+---room's active count refreshes for everyone still watching.
 ---@param payload table { roomId: string }
 lib.callback.register('sd-phone:server:darkchat:close', function(src, payload)
     joinHomepage(src)
@@ -161,8 +159,7 @@ lib.callback.register('sd-phone:server:darkchat:close', function(src, payload)
 end)
 
 ---The Dark Chat app itself closed (home button / app switch): scrub the viewer from all presence,
----then refresh the active count of each public room they were tabbed into so the remaining
----viewers' counts drop. Idempotent - a replayed exit finds nothing to remove.
+---then refresh the active count of each public room they were tabbed into. Idempotent.
 lib.callback.register('sd-phone:server:darkchat:exit', function(src)
     leaveHomepage(src)
     local affected = {}
@@ -175,8 +172,7 @@ lib.callback.register('sd-phone:server:darkchat:exit', function(src)
 end)
 
 ---Post a message (validated + stored in actions.send) and push it to the room's other live viewers
----on success. The broadcast reuses the exact client-shaped message from the callback result - the
----author field is the sender's nickname, never an identity field.
+---on success.
 ---@param payload table { roomId, kind?, body?, meta? }
 lib.callback.register('sd-phone:server:darkchat:send', function(src, payload)
     if type(payload) ~= 'table' then payload = {} end
@@ -197,9 +193,7 @@ lib.callback.register('sd-phone:server:darkchat:react', function(src, payload)
     return res
 end)
 
--- Thin delegates into server.darkchat.actions, which owns all validation (each handler is
--- documented there). The table-guard keeps a crafted non-table payload from erroring before that
--- validation runs.
+-- Thin delegates into server.darkchat.actions.
 lib.callback.register('sd-phone:server:darkchat:create', function(src, payload)
     if type(payload) ~= 'table' then payload = {} end
     return actions.create(src, payload.name, payload.code)
@@ -210,8 +204,8 @@ lib.callback.register('sd-phone:server:darkchat:join', function(src, payload)
     return actions.join(src, payload.code)
 end)
 
----Leave a private room: drop the caller's presence in it first (so active counts stay honest even
----when the membership delete finds nothing), then remove their membership via actions.leave.
+---Leave a private room: drop the caller's presence in it first, then remove their membership via
+---actions.leave.
 ---@param payload table { roomId: string }
 lib.callback.register('sd-phone:server:darkchat:leave', function(src, payload)
     if type(payload) ~= 'table' then payload = {} end
@@ -226,9 +220,8 @@ lib.callback.register('sd-phone:server:darkchat:nickname', function(src, payload
     return actions.setNickname(src, payload.nickname)
 end)
 
----A disconnecting player is scrubbed from all presence state (srcs recycle across sessions, so a
----stale entry would count a future stranger as present), and each public room they were tabbed
----into gets its active count refreshed for the remaining viewers.
+---A disconnecting player is scrubbed from all presence state, and each public room they were
+---tabbed into gets its active count refreshed for the remaining viewers.
 AddEventHandler('playerDropped', function()
     local src = source
     local affected = {}

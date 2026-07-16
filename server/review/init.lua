@@ -3,8 +3,7 @@ local store = require 'server.review.store'
 ---@type table Authoritative review handlers (server.review.actions): validation + row mutation.
 local actions = require 'server.review.actions'
 
----Schema bootstrap. Threaded so it yields until oxmysql is ready without blocking resource
----start; a SQL failure is caught and reported instead of killing the resource. Runs once.
+---Schema bootstrap. Runs once at boot.
 CreateThread(function()
     local ok, err = pcall(store.ensureSchema)
     if not ok then
@@ -14,11 +13,7 @@ CreateThread(function()
     print('^2[sd-phone:review]^0 schema ready')
 end)
 
--- Authoritative NUI-facing callbacks: thin delegates into server.review.actions, which owns the
--- validation + row mutation (each handler is documented there). Payloads are attacker-controlled:
--- id fields are unpacked behind a type guard so a scalar payload can't index-error before the
--- action's own validation runs. Reviews are plain persisted rows re-fetched whenever the app
--- opens, so beyond the owner notification inside create there is no push/broadcast surface here.
+-- App callbacks: thin delegates into server.review.actions.
 lib.callback.register('sd-phone:server:review:list', function(src) return actions.list(src) end)
 lib.callback.register('sd-phone:server:review:business', function(src, payload) return actions.business(src, type(payload) == 'table' and payload.id or nil) end)
 lib.callback.register('sd-phone:server:review:create', function(src, payload) return actions.create(src, payload) end)

@@ -8,8 +8,7 @@ local config = require 'configs.config'
 ---@type table Actions module; the table returned at end of file.
 local actions = {}
 
----True when `job` appears in a range's allowed-jobs list. A nil list never matches, so a
----restricted range with no jobs configured stays closed rather than falling open.
+---True when `job` appears in a range's allowed-jobs list. A nil list never matches.
 ---@param job string|nil the caller's current job name (nil when the bridge can't resolve one)
 ---@param jobs table|nil the range's allowed job names
 ---@return boolean listed
@@ -24,12 +23,11 @@ local DEFAULT_FREQ   = 1.0
 ---@type integer Volume (0-100) handed out when a player has never saved prefs.
 local DEFAULT_VOLUME = 50
 
----@type integer Saved-channel cap per character - keeps the list UI-sized and bounds how many
----rows one client can insert.
+---@type integer Saved-channel cap per character.
 local SAVED_CAP = 24
 
----Stable per-character key (framework citizenid) scoping every read/write. Resolved from src via
----the bridge - never from the payload - so a client can't act on another character's rows.
+---Stable per-character key (framework citizenid) scoping every read/write, resolved from src via
+---the bridge.
 ---@param src integer player server id
 ---@return string|nil citizenid (nil when the player can't be resolved)
 local function cidOf(src) return player.getIdentifier(src) end
@@ -38,9 +36,7 @@ local util = require 'server.util'
 local trim = util.trim
 
 ---Clamp a client-supplied frequency to the app's 1.0-999.9 band, snapped to one decimal place.
----tonumber-coerces first; NaN is rejected explicitly (it passes both boundary comparisons and
----would otherwise reach the DECIMAL column as an unencodable parameter), so garbage collapses to
----the default instead.
+---NaN collapses to the default.
 ---@param f any raw client value
 ---@return number frequency one-decimal in-band frequency
 local function clampFreq(f)
@@ -50,8 +46,7 @@ local function clampFreq(f)
     return math.floor(f * 10 + 0.5) / 10
 end
 
----Clamp a client-supplied volume to an integer 0-100, with the same explicit NaN rejection as
----clampFreq (NaN would otherwise pass both boundary checks and error the INT column write).
+---Clamp a client-supplied volume to an integer 0-100. NaN collapses to the default.
 ---@param v any raw client value
 ---@return integer volume
 local function clampVolume(v)
@@ -63,12 +58,7 @@ local function clampVolume(v)
 end
 
 ---Whether `src` may tune to `freq`, per config.Radio.RestrictedRanges: a band is open unless a
----range covers it, and a covered band needs the caller's CURRENT job to match ANY covering
----range. The job comes from the bridge (never the payload) so a client can't claim one it
----doesn't hold. Both the pre-tune callback and the presence event route through here, so
----bypassing the UI's check still hits the rule. Read-only. Returns an { allowed, message? }
----verdict rather than the success envelope - the client reads it as a yes/no answer, not an
----action result.
+---range covers it, and a covered band needs the caller's CURRENT job to match ANY covering range.
 ---@param src integer player server id
 ---@param freq any raw client frequency (clamped here)
 ---@return table verdict { allowed: boolean, message?: string }
@@ -92,9 +82,8 @@ function actions.canTune(src, freq)
     return { allowed = true }
 end
 
----The caller's persisted prefs (last frequency + volume), re-clamped on the way out so a
----hand-edited row can't push out-of-band values to the UI. Defaults when they've never saved.
----Read-only.
+---The caller's persisted prefs (last frequency + volume), re-clamped on the way out. Defaults
+---when they've never saved. Read-only.
 ---@param src integer player server id
 ---@return table result { success, data = { frequency, volume } }
 function actions.get(src)
@@ -110,9 +99,8 @@ function actions.get(src)
     }
 end
 
----Persist the caller's last frequency + volume so the app restores them next session. Both are
----clamped server-side; the response echoes what was actually stored so the UI converges on the
----server's version.
+---Persist the caller's last frequency + volume. Both are clamped server-side; the response echoes
+---what was stored.
 ---@param src integer player server id
 ---@param payload table { frequency?: number, volume?: number }
 ---@return table result { success, data = { frequency, volume } }
@@ -126,8 +114,7 @@ function actions.save(src, payload)
     return { success = true, data = { frequency = freq, volume = vol } }
 end
 
----Shape one saved-channel row for the UI: the id stringified (the web layer keys rows by string
----id) and the stored frequency re-clamped so a hand-edited row can't leak an out-of-band value.
+---Shape one saved-channel row for the UI: the id stringified and the stored frequency re-clamped.
 ---@param row table store row { id, label, frequency }
 ---@return table saved { id: string, label: string, freq: number }
 local function savedOut(row)
@@ -145,9 +132,8 @@ function actions.listSaved(src)
     return { success = true, data = { saved = out } }
 end
 
----Save a named channel. The label is trimmed + capped to the column width (VARCHAR(40)), the
----frequency clamped, and the per-character SAVED_CAP enforced server-side so a modified client
----can't flood the table. Accepts `freq` or `frequency` - the UI call sites send different keys.
+---Save a named channel. The label is trimmed + capped to the column width, the frequency clamped,
+---and the per-character SAVED_CAP enforced. Accepts `freq` or `frequency`.
 ---@param src integer player server id
 ---@param payload table { label: string, freq?: number, frequency?: number }
 ---@return table result { success, data? = { id, label, freq }, message? }
@@ -163,10 +149,7 @@ function actions.addSaved(src, payload)
     return { success = true, data = { id = tostring(id), label = label, freq = freq } }
 end
 
----Rename/retune one saved channel. The id must be a plain integer - NaN/inf survive tonumber
----(they're truthy) and would otherwise reach the SQL layer as unencodable parameters. Ownership
----is enforced in the store (WHERE id AND citizenid), so a forged id belonging to another
----character updates nothing.
+---Rename/retune one saved channel. The id must be a plain integer.
 ---@param src integer player server id
 ---@param payload table { id: number|string, label: string, freq?: number, frequency?: number }
 ---@return table result { success, data? = { id, label, freq }, message? }
@@ -183,8 +166,7 @@ function actions.updateSaved(src, payload)
     return { success = true, data = { id = tostring(id), label = label, freq = freq } }
 end
 
----Delete one saved channel. Same integer-id validation as updateSaved; the DELETE is scoped to
----the caller in the store, so a forged id can't remove another character's row.
+---Delete one saved channel. Same integer-id validation as updateSaved.
 ---@param src integer player server id
 ---@param payload table { id: number|string }
 ---@return table result { success, data? = { id }, message? }

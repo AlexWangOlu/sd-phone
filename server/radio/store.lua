@@ -1,10 +1,8 @@
 ---@type table Store module; the table returned at end of file.
 local store = {}
 
----Create the radio tables if they don't exist, so the resource is drop-in. `phone_radio` holds
----one prefs row per character (last frequency + volume); `phone_radio_saved` holds their named
----channels, keyed by citizenid so every read/write below can scope to the owner. Run once at
----boot.
+---Create the radio tables if they don't exist. `phone_radio` holds one prefs row per character
+---(last frequency + volume); `phone_radio_saved` holds their named channels. Run once at boot.
 function store.ensureSchema()
     MySQL.query.await([[
         CREATE TABLE IF NOT EXISTS `phone_radio` (
@@ -33,8 +31,7 @@ function store.get(citizenid)
     return MySQL.single.await('SELECT frequency, volume FROM `phone_radio` WHERE citizenid = ?', { citizenid })
 end
 
----Persist a character's last frequency + volume (upsert). Values arrive pre-clamped from the
----actions layer; the data layer stays dumb.
+---Persist a character's last frequency + volume (upsert).
 ---@param citizenid string framework per-character id
 ---@param frequency number one-decimal frequency
 ---@param volume integer volume 0-100
@@ -44,7 +41,7 @@ function store.save(citizenid, frequency, volume)
         { citizenid, frequency, volume })
 end
 
----A character's saved (named) channels, oldest-first (insertion order by id). Read-only.
+---A character's saved (named) channels, oldest-first. Read-only.
 ---@param citizenid string framework per-character id
 ---@return table rows { id, label, frequency }[]
 function store.listSaved(citizenid)
@@ -53,8 +50,7 @@ function store.listSaved(citizenid)
         { citizenid }) or {}
 end
 
----How many saved channels a character has - the actions layer checks this against its cap
----before inserting.
+---How many saved channels a character has.
 ---@param citizenid string framework per-character id
 ---@return integer n
 function store.countSaved(citizenid)
@@ -74,8 +70,7 @@ function store.addSaved(citizenid, label, frequency, ts)
         { citizenid, label, frequency, ts })
 end
 
----Update one saved channel. Scoped to the owner (id AND citizenid), so a forged id belonging to
----another character matches nothing.
+---Update one saved channel. Scoped to the owner (id AND citizenid).
 ---@param citizenid string framework per-character id
 ---@param id integer saved-channel row id
 ---@param label string display name

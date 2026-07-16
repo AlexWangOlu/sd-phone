@@ -1,10 +1,7 @@
 ---@type table Store module; the table returned at end of file.
 local store = {}
 
----Create the three Streaks tables if they don't exist, so the resource is drop-in. Run once at
----boot. Two keys are load-bearing: uniq_player_day on (citizenid, post_date) is the authoritative
----one-post-per-day gate actions.post falls back on when two posts race the same day, and
----uniq_like on (post_id, citizenid) is what makes like toggles idempotent under replay.
+---Create the three Streaks tables if they don't exist. Run once at boot.
 function store.ensureSchema()
     MySQL.query.await([[
         CREATE TABLE IF NOT EXISTS phone_streaks (
@@ -44,8 +41,7 @@ function store.ensureSchema()
 end
 
 ---A character's streak row (nil if they've never posted). last_post_date is read back as a
----'YYYY-MM-DD' string via DATE_FORMAT so date comparisons never have to deal with a driver date
----table. Read-only.
+---'YYYY-MM-DD' string via DATE_FORMAT. Read-only.
 ---@param cid string citizenid
 ---@return table|nil row { citizenid, current_streak, longest_streak, last_post_date }
 function store.getStreak(cid)
@@ -56,8 +52,7 @@ function store.getStreak(cid)
     ]], { cid })
 end
 
----Persist a character's streak counters + last post date (upsert). Caller computes; the data
----layer stays dumb.
+---Persist a character's streak counters + last post date (upsert).
 ---@param cid string citizenid
 ---@param current integer current consecutive-day streak
 ---@param longest integer lifetime best streak
@@ -84,12 +79,8 @@ local POST_SELECT = [[
     FROM phone_streak_posts p
 ]]
 
----Insert a day's post. Returns nil when the insert fails - notably on the uniq_player_day
----(citizenid, post_date) key - which the caller treats as "already posted today"; nothing that
----depends on the post existing may run before checking this. The pcall is load-bearing: oxmysql's
----await RAISES on query errors (the rejected promise re-errors out of Citizen.Await), so without
----it a same-day race would crash the post callback instead of returning nil (the failure still
----reaches oxmysql's error logger).
+---Insert a day's post. Returns nil when the insert fails (notably on the uniq_player_day key),
+---which the caller treats as "already posted today".
 ---@param cid string author citizenid
 ---@param authorName string display-name snapshot (VARCHAR(80))
 ---@param imageUrl string photo url (VARCHAR(512))
@@ -123,8 +114,7 @@ function store.getPostRow(id)
     return MySQL.single.await('SELECT id, citizenid, like_count FROM phone_streak_posts WHERE id = ?', { id })
 end
 
----The character's post id for a given day, if any - the cheap pre-check in front of the
----uniq_player_day unique key. Read-only.
+---The character's post id for a given day, if any. Read-only.
 ---@param cid string citizenid
 ---@param postDate string 'YYYY-MM-DD'
 ---@return integer|nil id
@@ -133,10 +123,7 @@ function store.postForDay(cid, postDate)
 end
 
 ---A page of the global gallery, newest first. `before` (a created_at unix int) pages backward;
----nil/0 means the first page. The LIMIT is concatenated rather than bound: `n` is floored to an
----integer first so that's safe, and string.format can't build this query because POST_SELECT
----contains a DATE_FORMAT '%Y-%m-%d' literal that format() would misread as its own directives.
----Both callers pass config.Streaks.GalleryPageSize as the limit, never a client value. Read-only.
+---nil/0 means the first page. Read-only.
 ---@param viewer string viewer citizenid (for likedByMe)
 ---@param before integer|nil created_at cursor - only strictly older rows return
 ---@param limit integer page size (config-fed)
@@ -170,23 +157,21 @@ function store.addLike(postId, cid)
     MySQL.query.await('INSERT IGNORE INTO phone_streak_likes (post_id, citizenid) VALUES (?, ?)', { postId, cid })
 end
 
----Remove a like, scoped to the (post, character) pair so nobody can unlike on another's behalf.
+---Remove a like, scoped to the (post, character) pair.
 ---@param postId integer post id
 ---@param cid string citizenid
 function store.removeLike(postId, cid)
     MySQL.update.await('DELETE FROM phone_streak_likes WHERE post_id = ? AND citizenid = ?', { postId, cid })
 end
 
----Persist the cached like_count display column. Callers re-derive `count` from likeCount after
----every toggle, so the cache tracks truth instead of incrementing (and drifting).
+---Persist the cached like_count display column.
 ---@param postId integer post id
 ---@param count integer authoritative like total
 function store.setLikeCount(postId, count)
     MySQL.update.await('UPDATE phone_streak_posts SET like_count = ? WHERE id = ?', { count, postId })
 end
 
----Authoritative like total: COUNT(*) over the likes table, not the cached column, so concurrent
----toggles self-heal. Read-only.
+---Authoritative like total: COUNT(*) over the likes table, not the cached column. Read-only.
 ---@param postId integer post id
 ---@return integer count
 function store.likeCount(postId)
@@ -195,9 +180,7 @@ function store.likeCount(postId)
 end
 
 ---Top current streaks (only players actively on one), best first. The display name is the
----author_name of the character's most recent post - the streaks table stores no name. The LIMIT
----is concatenated after flooring to an integer (see galleryPosts); the only caller passes
----config.Streaks.LeaderboardSize. Read-only.
+---author_name of the character's most recent post. Read-only.
 ---@param limit integer row cap (config-fed)
 ---@return table[] rows { citizenid, current_streak, author_name }
 function store.leaderboard(limit)
@@ -213,8 +196,7 @@ function store.leaderboard(limit)
         LIMIT ]] .. n) or {}
 end
 
----Admin/testing: wipe every Streaks table (all players). Reached only through the group.admin
----/streakwipe command - never by a client callback.
+---Admin/testing: wipe every Streaks table (all players). Not a client callback.
 function store.wipeAll()
     MySQL.query.await('DELETE FROM phone_streak_likes')
     MySQL.query.await('DELETE FROM phone_streak_posts')

@@ -2,8 +2,7 @@
 local proxy = require 'client.nui'
 
 -- Thin delegates into server/cookie: cookie-clicker save/load, the leaderboard and the
--- leaderboard nickname - validation + persistence live in each server handler, documented
--- there.
+-- leaderboard nickname.
 proxy('sd-phone:cookie:load',        'sd-phone:server:cookie:load')
 proxy('sd-phone:cookie:save',        'sd-phone:server:cookie:save')
 proxy('sd-phone:cookie:leaderboard', 'sd-phone:server:cookie:leaderboard')

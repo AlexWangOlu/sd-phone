@@ -1,11 +1,10 @@
 ---@type table Shared helpers for the lb-phone compat shim; the table returned at end of file.
 local shim = {}
 
----@type table<string, boolean> Warn keys that already printed, so each breadcrumb appears once per session.
+---@type table<string, boolean> Warn keys that already printed.
 local warned = {}
 
----@type any[] AddEventHandler cookies for every registered export handler, kept so
----shim.deregisterAll can pull the whole registration if the real lb-phone starts mid-session.
+---@type any[] AddEventHandler cookies for every registered export handler.
 local cookies = {}
 
 ---Registers a function on the server export registry under lb-phone's resource name via a raw

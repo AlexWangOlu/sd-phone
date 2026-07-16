@@ -4,8 +4,7 @@
 local compatConvar = GetConvar('sd_phone_lbcompat', 'true')
 if compatConvar == 'false' or compatConvar == '0' then return end
 
----Whether a REAL resource named `name` exists on this server, found by enumerating the resource
----list (which, server-side, includes stopped resources).
+---Whether a REAL resource named `name` exists on this server.
 ---@param name string
 ---@return boolean
 local function hasRealResource(name)
@@ -26,8 +25,7 @@ end
 ---@type table Shared shim helpers (server.compat.lbphone.shared): mid-session deregistration.
 local shim = require 'server.compat.lbphone.shared'
 
----Deregisters the shim's export handlers when the real lb-phone starts mid-session; new
----exports['lb-phone'] lookups then resolve to the real resource.
+---Deregisters the shim's export handlers when the real lb-phone starts mid-session.
 AddEventHandler('onResourceStart', function(resource)
     if resource ~= 'lb-phone' then return end
     shim.deregisterAll()

@@ -2,8 +2,7 @@
 local proxyCallback = require 'client.nui'
 
 -- Thin delegates into server/settings: per-player setting reads/writes persisted to the
--- phone_settings table - validation + persistence live in each server handler, documented
--- there.
+-- phone_settings table.
 proxyCallback('sd-phone:settings:get',      'sd-phone:server:settings:get')
 proxyCallback('sd-phone:settings:setTones', 'sd-phone:server:settings:setTones')
 proxyCallback('sd-phone:settings:tones:add',    'sd-phone:server:settings:tones:add')

@@ -5,8 +5,7 @@ local actions = require 'server.streaks.actions'
 ---@type table Live-push module (server.streaks.live): the gallery presence set + scoped pushes.
 local live    = require 'server.streaks.live'
 
--- One-shot boot thread: create/verify the Streaks tables before players start hitting the
--- callbacks. A failed bootstrap is printed and swallowed so the rest of the phone still boots.
+-- Boot thread: creates the Streaks tables.
 CreateThread(function()
     local ok, err = pcall(store.ensureSchema)
     if not ok then
@@ -23,23 +22,21 @@ local function register(action, fn)
     lib.callback.register('sd-phone:server:streaks:' .. action, fn)
 end
 
--- Authoritative app callbacks: thin delegates into server.streaks.actions, which owns the
--- validation + world mutation (each handler is documented there).
+-- App callbacks: thin delegates into server.streaks.actions.
 register('sync',        function(src) return actions.sync(src) end)
 register('post',        function(src, payload) return actions.post(src, payload) end)
 register('gallery',     function(src, payload) return actions.gallery(src, payload) end)
 register('like',        function(src, payload) return actions.like(src, payload) end)
 register('leaderboard', function(src) return actions.leaderboard(src) end)
 
----The gallery flips this on while it's open and off when it closes, so live post/like pushes go
----only to players actually viewing it. Self-scoped: the payload can only sub/unsub the CALLER.
+---Toggles the caller's gallery-open presence for live post/like pushes. Self-scoped.
 register('watch', function(src, payload)
     payload = type(payload) == 'table' and payload or {}
     live.watch(src, payload.on == true)
     return { success = true }
 end)
 
----A departing viewer's presence is dropped so a recycled src can't inherit the subscription.
+---Drops a departing viewer's presence.
 AddEventHandler('playerDropped', function()
     live.drop(source)
 end)
@@ -52,8 +49,7 @@ local function notify(src, msg)
 end
 
 ---/streakset <days> - force the caller's own streak to a given day count (admin/testing).
----Restricted to group.admin; the day math, persistence and live-refresh push live in
----actions.setStreak.
+---Restricted to group.admin; delegates to actions.setStreak.
 ---@param source integer player server id
 ---@param args table parsed command args { days: number }
 lib.addCommand('streakset', {
@@ -66,8 +62,7 @@ lib.addCommand('streakset', {
 end)
 
 ---/streakadd <amount> - raise (or, with a negative amount, revert) the caller's own streak days
----(admin/testing). Restricted to group.admin; delegates clamping + persistence to
----actions.addStreak.
+---(admin/testing). Restricted to group.admin; delegates to actions.addStreak.
 ---@param source integer player server id
 ---@param args table parsed command args { amount: number }
 lib.addCommand('streakadd', {
@@ -79,8 +74,7 @@ lib.addCommand('streakadd', {
     if ok then notify(source, ('Streak now day %d. Reopen the app.'):format(days)) end
 end)
 
----/streakwipe - wipe ALL Streaks data for every player (admin/testing), for a clean slate.
----Restricted to group.admin.
+---/streakwipe - wipe ALL Streaks data for every player (admin/testing). Restricted to group.admin.
 ---@param source integer player server id
 lib.addCommand('streakwipe', {
     help = 'Wipe ALL Streaks data for everyone (admin/testing)',

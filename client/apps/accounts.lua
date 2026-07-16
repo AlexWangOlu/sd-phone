@@ -2,8 +2,7 @@
 local proxyCallback = require 'client.nui'
 
 -- Thin delegates into server/accounts: the shared app-accounts engine (registration, login,
--- password resets, the saved-passwords vault) every account-based app authenticates through -
--- validation + persistence live in each server handler, documented there.
+-- password resets, the saved-passwords vault) every account-based app authenticates through.
 proxyCallback('sd-phone:accounts:register',     'sd-phone:server:accounts:register')
 proxyCallback('sd-phone:accounts:login',        'sd-phone:server:accounts:login')
 proxyCallback('sd-phone:accounts:logout',       'sd-phone:server:accounts:logout')

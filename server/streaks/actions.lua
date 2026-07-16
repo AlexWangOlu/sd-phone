@@ -20,17 +20,13 @@ local actions = {}
 local util = require 'server.util'
 local ok, fail, trim = util.ok, util.fail, util.trim
 
-
-
----Stable per-character key (citizenid on qb/qbx, identifier on ESX), resolved from the server id
----the callback system injects - never from the payload, so a client can't act as another player.
+---Stable per-character key (citizenid on qb/qbx, identifier on ESX), resolved from the server id.
 ---@param src integer player server id
 ---@return string|nil citizenid nil when the player can't be resolved
 local function cidOf(src) return player.getIdentifier(src) end
 
 ---Coerce a client-supplied id/cursor to a positive integer. Rejects non-numbers, NaN, infinities
----and non-positives (all craftable by a modded client, and all able to error a parameterized
----query into console spam), flooring what survives.
+---and non-positives, flooring what survives.
 ---@param v any client-supplied value
 ---@return integer|nil n positive integer, or nil when unusable
 local function posInt(v)
@@ -75,9 +71,8 @@ local function clientConfig()
     }
 end
 
----DB row -> the React post shape (camelCase). isMine and likedByMe are computed HERE against the
----viewer's cid, so the same row serializes differently per caller and the payload a client
----receives never carries anyone's raw citizenid.
+---DB row -> the React post shape (camelCase). isMine and likedByMe are computed against the
+---viewer's cid.
 ---@param row table post row (store's POST_SELECT projection)
 ---@param cid string viewer citizenid
 ---@return table post
@@ -99,8 +94,7 @@ local function serializePost(row, cid)
 end
 
 ---The caller's streak snapshot, including today's post if they've made one. resetInSeconds counts
----down to the next SERVER midnight - the same os.date clock every date string in this module comes
----from, so postedToday and the countdown can't disagree. Read-only.
+---down to the next server midnight. Read-only.
 ---@param cid string citizenid
 ---@param today string server-local 'YYYY-MM-DD'
 ---@return table state
@@ -152,18 +146,8 @@ function actions.sync(src)
     })
 end
 
----Create today's photo post and advance the caller's streak. One-post-per-day is enforced twice:
----a cheap pre-check, then the (citizenid, post_date) unique key at insert time - the insert is the
----authoritative gate, and NOTHING that assumes the post exists (streak upsert, milestone payout,
----broadcast) runs unless it succeeded, so a replayed or racing call can't double-pay a milestone
----or clobber the streak it just advanced. Streak math is all server-side (server dates vs the
----stored last_post_date); the payload contributes only the image URL (http-prefixed, capped to
----its 512-char column) and the optional caption (trimmed, capped to config.Streaks.
----MaxCaptionLength). A milestone day pays config.Streaks.Milestones[day] into config.Streaks.
----RewardAccount - amounts come from config, never the client - and bank payouts also log a Wallet
----statement row (the 'streaks' category renders the app icon; notify pops the in-phone "you
----received X" line, while money.add above is what actually moves the cash). The live broadcast
----carries only fields the gallery UI renders - never the poster's citizenid.
+---Create today's photo post and advance the caller's streak. A milestone day pays
+---config.Streaks.Milestones[day] into config.Streaks.RewardAccount and logs a Wallet statement row.
 ---@param src integer player server id
 ---@param payload table { imageUrl: string, caption?: string }
 ---@return table result { state, post, reward? }
@@ -238,9 +222,7 @@ function actions.post(src, payload)
 end
 
 ---One older page of the global gallery, keyed by the client's `before` cursor (the created_at of
----the last row it already has; absent for the first page). The cursor is coerced through posInt
----so a crafted value can't error the query; the page size comes from config, never the payload.
----Read-only.
+---the last row it already has; absent for the first page). Read-only.
 ---@param src integer player server id
 ---@param payload table { before?: integer }
 ---@return table result
@@ -257,11 +239,8 @@ function actions.gallery(src, payload)
     return ok(out)
 end
 
----Toggle the caller's like on a post. The likes table's (post_id, citizenid) unique key makes the
----toggle idempotent under replay (INSERT IGNORE on add, pair-scoped DELETE on remove), and the
----cached like_count is re-derived from an authoritative COUNT(*) after every toggle so it can't
----drift. Any player may like any post - only the postId is client-supplied, and it's coerced to a
----positive integer before touching the store.
+---Toggle the caller's like on a post. The cached like_count is re-derived from a COUNT(*) after
+---every toggle.
 ---@param src integer player server id
 ---@param payload table { postId: integer }
 ---@return table result { likeCount, likedByMe }
@@ -292,7 +271,7 @@ function actions.like(src, payload)
 end
 
 ---Top current streaks for the leaderboard tab. Rows carry a display name, day count and a
----server-computed isMe only, so the payload never exposes other players' citizenids. Read-only.
+---server-computed isMe. Read-only.
 ---@param src integer player server id
 ---@return table result
 function actions.leaderboard(src)
@@ -312,10 +291,7 @@ function actions.leaderboard(src)
 end
 
 ---Admin/testing: force a player's streak to a given day count. last_post_date is set to yesterday
----(when days > 0) so the player hasn't "posted today" and a fresh post advances them to days + 1;
----cleared when days = 0 (a brand-new streak). Ends with a live refresh push so an open app updates
----without reopening. Not a client callback - only the group.admin-restricted /streakset and
----/streakadd commands (server/streaks/init.lua) reach it.
+---(when days > 0), cleared when days = 0, then pushes a live refresh. Not a client callback.
 ---@param src integer player server id
 ---@param days number day count to force (floored, clamped at 0)
 ---@return boolean ok, integer? days
@@ -332,9 +308,8 @@ function actions.setStreak(src, days)
     return true, days
 end
 
----Admin/testing: wipe ALL streak data (every player) for a clean slate, then live-refresh the
----caller's open app. Not a client callback - only the group.admin-restricted /streakwipe command
----reaches it.
+---Admin/testing: wipe ALL streak data (every player), then live-refresh the caller's open app.
+---Not a client callback.
 ---@param src integer|nil admin's server id (nil skips the refresh push)
 ---@return boolean ok
 function actions.wipeAll(src)
@@ -345,8 +320,7 @@ function actions.wipeAll(src)
 end
 
 ---Admin/testing: add (or subtract, with a negative amount) days on top of the current streak.
----Delegates clamping, persistence and the refresh push to setStreak. Not a client callback - only
----the group.admin-restricted /streakadd command reaches it.
+---Delegates clamping, persistence and the refresh push to setStreak. Not a client callback.
 ---@param src integer player server id
 ---@param amount number days to add (negative reverts)
 ---@return boolean ok, integer? days

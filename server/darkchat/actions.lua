@@ -13,15 +13,14 @@ local actions = {}
 -- Seed the shared RNG once at load.
 math.randomseed(GetGameTimer() + os.time())
 
----@type table<string, table> Public-room config rows keyed by room id, for O(1) access checks.
+---@type table<string, table> Public-room config rows keyed by room id.
 local PUBLIC_BY_ID = {}
 for _, r in ipairs(DC.PublicRooms) do PUBLIC_BY_ID[r.id] = r end
 
 ---@type string Room-code alphabet; ambiguous 0/O/1/I excluded.
 local CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
----Mint a random room code of DC.CodeLength characters from CODE_ALPHABET. Uniqueness is the
----caller's job (actions.create retries until store.roomByCode misses).
+---Mint a random room code of DC.CodeLength characters from CODE_ALPHABET.
 ---@return string code
 local function genCode()
     local t = {}
@@ -35,8 +34,7 @@ end
 local util = require 'server.util'
 local trim = util.trim
 
----Trims a client string and caps its byte length; nil for non-strings and empties. The cap
----runs after trimming.
+---Trims a client string and caps its byte length; nil for non-strings and empties.
 ---@param s any client-supplied value
 ---@param max integer maximum byte length kept
 ---@return string|nil clean trimmed, capped string (nil if unusable)
@@ -48,8 +46,7 @@ local function sanitizeStr(s, max)
     return s
 end
 
----@type table<string, boolean> Message kinds a client may send (mirrors DarkChatKind in
----web/src/apps/darkchat/data.ts); anything else demotes to plain 'text' in actions.send.
+---@type table<string, boolean> Message kinds a client may send.
 local VALID_KINDS = { text = true, image = true, gif = true, voice = true, location = true }
 
 ---@type table<string, boolean> The four reactions the shared MessageBubble picker offers.

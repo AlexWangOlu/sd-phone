@@ -2,8 +2,7 @@
 local proxyCallback = require 'client.nui'
 
 -- Thin delegates into server/apps: the installable-app catalogue, install/uninstall state and
--- the home-screen layout - validation + persistence live in each server handler, documented
--- there.
+-- the home-screen layout.
 proxyCallback('sd-phone:apps:list',       'sd-phone:server:apps:list')
 proxyCallback('sd-phone:apps:install',    'sd-phone:server:apps:install')
 proxyCallback('sd-phone:apps:uninstall',  'sd-phone:server:apps:uninstall')

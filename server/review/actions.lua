@@ -15,13 +15,11 @@ local RV = config.Review
 ---@type table Actions module; the table returned at end of file.
 local actions = {}
 
----@type table<string, table> Config business records keyed by id, built once at load - the
----whitelist every client-supplied business id must resolve against before any store call.
+---@type table<string, table> Config business records keyed by id, built once at load.
 local bizById = {}
 for _, b in ipairs(RV.Businesses) do bizById[b.id] = b end
 
----Stable per-character key (citizenid on qb/qbx, identifier on ESX) for review ownership and
----helpful votes. Resolved from src only - identity is never read from the payload.
+---Stable per-character key (citizenid on qb/qbx, identifier on ESX), resolved from src.
 ---@param src integer player server id
 ---@return string|nil citizenid, nil when the player can't be resolved
 local function cidOf(src) return player.getIdentifier(src) end
@@ -29,10 +27,7 @@ local function cidOf(src) return player.getIdentifier(src) end
 local util = require 'server.util'
 local trim = util.trim
 
----Coerce a client-supplied review id to a finite integer, or nil. Ids travel to the UI as
----strings (tostring(row.id)) and come back through an attacker-controllable payload; NaN/inf
----pass a bare tonumber() and would reach oxmysql as unencodable query parameters, so they're
----rejected here before any store call.
+---Coerce a client-supplied review id to a finite integer, or nil.
 ---@param id any client-supplied review id
 ---@return integer|nil id usable integral id, nil when the value can't be one
 local function reviewIdArg(id)
@@ -41,10 +36,8 @@ local function reviewIdArg(id)
     return math.floor(id)
 end
 
----True when `src` is the boss of the company that owns business `b`: currently ON the linked
----job AND holding its boss flag (qb/qbx grade `isboss`; ESX has no flag, so it falls back to
----grade >= b.bossGrade or RV.BossGrade). Businesses with no `job` link can never be managed
----in-game - their details stay whatever configs/review.lua says.
+---True when `src` is the boss of the company that owns business `b`: currently on the linked
+---job and holding its boss flag. Businesses with no `job` link can never be managed in-game.
 ---@param src integer player server id
 ---@param b table config business record
 ---@return boolean boss
@@ -54,9 +47,7 @@ local function isBossOf(src, b)
 end
 
 ---Notify every online boss of `b`'s company that a new review landed, skipping the reviewer
----themselves and anyone who turned Review notifications off in Settings. No-op for businesses
----with no linked job. The push carries only the public review facts (stamped display name +
----rating) - the reviewer's citizenid never leaves the server.
+---themselves and anyone who turned Review notifications off. No-op for businesses with no linked job.
 ---@param b table config business record
 ---@param reviewerCid string reviewer's citizenid (excluded from the push)
 ---@param author string reviewer display name as stamped on the review
@@ -79,8 +70,7 @@ local function notifyOwners(b, reviewerCid, author, rating)
 end
 
 ---Merge a saved boss override over the config business. Only hours/blurb/logo are mutable;
----everything else is fixed in config. Returns a shallow copy so the cached config table is
----never mutated.
+---everything else is fixed in config. Returns a shallow copy.
 ---@param b table config business record
 ---@param ov table|nil override row { hours?, blurb?, logo? }
 ---@return table merged shallow copy (or `b` itself when there's no override)
@@ -94,8 +84,7 @@ local function withOverride(b, ov)
     return m
 end
 
----"1st" / "2nd" / "11th" - English ordinal suffix for a day of month. Mirrors the Pages app's
----helper - both need to agree on wording.
+---"1st" / "2nd" / "11th" - English ordinal suffix for a day of month.
 ---@param d integer day of month
 ---@return string ordinal e.g. '3rd'
 local function ordinal(d)
@@ -109,7 +98,7 @@ local function ordinal(d)
 end
 
 ---Human date label for a review timestamp: 'Today' / 'Yesterday' by calendar day (not a rolling
----24h window), else 'July 3rd, 2026'. Rendered server-side so every viewer sees the same label.
+---24h window), else 'July 3rd, 2026'.
 ---@param ts integer unix seconds the review was created
 ---@return string label
 local function fmtDate(ts)
@@ -122,8 +111,7 @@ local function fmtDate(ts)
     return os.date('%B ', ts) .. ordinal(that.day) .. ', ' .. that.year
 end
 
----Public business shape sent to the UI. Drops nothing sensitive - the config list is already
----public - but normalises the empty-string phone to nil so the UI hides the call/message buttons.
+---Public business shape sent to the UI. Normalises the empty-string phone to nil.
 ---@param b table config business record (possibly override-merged)
 ---@param rating number|nil displayed star average (defaults 0 when unrated)
 ---@param count integer|nil review count (defaults 0 when unrated)
@@ -148,9 +136,8 @@ end
 ---@return number rounded
 local function round1(n) return math.floor(n * 10 + 0.5) / 10 end
 
----Review row → UI shape. `mine` is computed against the CALLER's citizenid so only the author
----sees the delete affordance; the citizenid itself is dropped here - other players only ever
----see the stamped display name.
+---Review row -> UI shape. `mine` is computed against the caller's citizenid; the citizenid itself
+---is dropped here.
 ---@param row table review row (or an equivalent literal for a just-created review)
 ---@param cid string caller's citizenid
 ---@param helpfulCount integer|nil helpful votes on this review
@@ -171,9 +158,7 @@ local function toReview(row, cid, helpfulCount, helped)
 end
 
 ---Directory list: every configured business, override-merged and stamped with its aggregate
----rating/count, the caller's own rating (myRating, nil when they haven't reviewed it), and
----whether the caller can manage it (canManage - boss of the linked company). Aggregates are
----pulled in three whole-table queries rather than per business. Read-only.
+---rating/count, the caller's own rating, and whether they can manage it. Read-only.
 ---@param src integer player server id
 ---@return table result { success, data = { businesses, categories } }
 function actions.list(src)
@@ -202,9 +187,7 @@ function actions.list(src)
 end
 
 ---One business + its most-recent reviews, each stamped with its helpful count and the caller's
----vote state. The id is resolved against the config whitelist before any store call, so an
----unknown or non-string id never reaches a query. The header rating is recomputed from the
----returned rows (capped at RV.ReviewsPerBusiness) so the stars match what's on screen. Read-only.
+---vote state. The header rating is recomputed from the returned rows. Read-only.
 ---@param src integer player server id
 ---@param id any client-supplied business id
 ---@return table result { success, data = { business, reviews } }
@@ -238,15 +221,8 @@ function actions.business(src, id)
     return { success = true, data = { business = biz, reviews = reviews } }
 end
 
----Create the caller's review for a business. One review per character per business - an existing
----review must be deleted before posting again (there's no edit path); the store's UNIQUE
----(business_id, citizenid) key backstops that check against a double-submit race. Everything
----persisted is server-stamped from src (citizenid, display name, timestamp) - the payload only
----supplies the business id, rating and free text, so none of it can be spoofed. The business id
----must resolve against the config whitelist; the rating is floored to an integer and range-checked
----with NaN rejected explicitly (NaN compares false against BOTH bounds, so the range check alone
----would pass it through to the INSERT); body/image are trimmed and capped to their DB column
----widths. Owners are notified after the row lands.
+---Create the caller's review for a business, one per character per business. Fields are
+---server-stamped from src, capped to their column widths; owners are notified after the row lands.
 ---@param src integer player server id
 ---@param payload any { businessId, rating, body, image? } - attacker-controlled
 ---@return table result { success, data = { review } } | { success = false, message }
@@ -284,9 +260,8 @@ function actions.create(src, payload)
     }, cid, 0, false) } }
 end
 
----Delete a review. Ownership-scoped: the row's author citizenid (resolved from src, never the
----payload) must match before any mutation, so a bare id can't delete someone else's review.
----Idempotent: a replayed delete finds no owner and refuses without touching anything.
+---Delete a review. Ownership-scoped: the row's author citizenid must match before any mutation.
+---Idempotent.
 ---@param src integer player server id
 ---@param id any client-supplied review id
 ---@return table result { success, data = { id } } | { success = false, message }
@@ -300,11 +275,8 @@ function actions.delete(src, id)
     return { success = true, data = { id = tostring(id) } }
 end
 
----Toggle the caller's helpful vote on a review. Voting on your own review is refused (checked
----here, not just hidden in the UI, so calling the callback directly can't skip it), and votes
----are keyed (review_id, citizenid) in the store so one character never counts twice - a replayed
----toggle just flips the vote back, it can't inflate the count. Returns the fresh count so the UI
----reflects concurrent voters.
+---Toggle the caller's helpful vote on a review. Voting on your own review is refused. Returns the
+---fresh count.
 ---@param src integer player server id
 ---@param id any client-supplied review id
 ---@return table result { success, data = { id, helpful, helped } } | { success = false, message }
@@ -322,14 +294,8 @@ function actions.helpful(src, id)
     return { success = true, data = { id = tostring(id), helpful = store.helpfulCount(id), helped = helped } }
 end
 
----Boss-only: update a business's display details (hours / blurb / logo). Authority is verified
----server-side against the linked job's boss flag - checked here, not just gated in the UI, so
----calling the callback directly can't skip it. Reviews are never touched here: a boss can edit
----their business card but cannot delete or alter any review. The logo must be a #RRGGBB hex
----colour - anything else falls back to the config value so the initial-tile never renders with a
----junk fill. Hours/blurb are trimmed, capped to their DB column widths, and stored as NULL when
----blank so the config value shows through. The returned business re-computes the current
----rating/count from the same capped row set the detail view uses, so the UI row is complete.
+---Boss-only: update a business's display details (hours / blurb / logo), verified server-side
+---against the linked job's boss flag. Reviews are never touched. The logo must be a #RRGGBB hex colour.
 ---@param src integer player server id
 ---@param payload any { id, hours?, blurb?, logo? } - attacker-controlled
 ---@return table result { success, data = { business } } | { success = false, message }

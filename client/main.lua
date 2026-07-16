@@ -147,7 +147,6 @@ local function attachPhoneProp(ped)
     phoneProp = createHandProp(ped, currentFrameColor)
     if not phoneProp then return end
 
-    -- Temp diagnostic: logs weld status and the prop-to-hand gap.
     CreateThread(function()
         Wait(0)
         print(('[sd-phone][prop] exists=%s attached=%s networked=%s'):format(
@@ -233,8 +232,8 @@ local function startMovementThread()
                 DisableControlAction(0, 143, true)
                 DisableControlAction(0, 37, true)
                 DisableControlAction(0, 106, true)
-                DisableControlAction(0, 245, true)  -- INPUT_MP_TEXT_CHAT_ALL (T)
-                DisableControlAction(0, 246, true)  -- INPUT_MP_TEXT_CHAT_TEAM (Y)
+                DisableControlAction(0, 245, true)
+                DisableControlAction(0, 246, true)
             end
             Wait(0)
         end
@@ -259,9 +258,8 @@ AddEventHandler('sd-phone:client:cameraMode', function(on)
     syncKeepInput()
 end)
 
----Opens the phone NUI onto the lockscreen, announces visibility, loads installed apps, focuses
----the NUI, and pushes a weather snapshot plus the session-start timestamp. Refuses while dead,
----swimming, or disabled.
+---Opens the phone NUI onto the lockscreen, loads installed apps, focuses the NUI, and pushes a
+---weather snapshot plus the session-start timestamp. Refuses while dead, swimming, or disabled.
 local function OpenPhone()
     if phoneState.open then return end
 
@@ -425,7 +423,6 @@ end)
 RegisterNUICallback('sd-phone:flashlight:toggle', function(_, cb)
     flashlightOn = not flashlightOn
     updatePose()
-    -- Announce the beam state to other client modules.
     TriggerEvent('sd-phone:client:flashlight', flashlightOn)
     cb({ on = flashlightOn })
 end)
@@ -536,15 +533,15 @@ if config.Phone.PropVisibleToOthers then
 
     AddStateBagChangeHandler('sdPhone', nil, function(bagName, _key, value)
         local source, ped = bagOwner(bagName)
-        if not source or source == GetPlayerServerId(PlayerId()) then return end -- skip self
+        if not source or source == GetPlayerServerId(PlayerId()) then return end
         if not value or ped == 0 then
             removeRemoteProp(source)
             return
         end
-        if not FRAME_COLORS[value] then return end -- ignore unknown colours
+        if not FRAME_COLORS[value] then return end
         local entry = remoteProps[source]
-        if entry and entry.color == value and DoesEntityExist(entry.obj) then return end -- already shown
-        removeRemoteProp(source)                                                          -- colour changed / stale
+        if entry and entry.color == value and DoesEntityExist(entry.obj) then return end
+        removeRemoteProp(source)
         local obj = createHandProp(ped, value)
         if obj then remoteProps[source] = { obj = obj, color = value } end
         debugPrint(('remote prop for %s -> %s'):format(source, value))
@@ -600,7 +597,6 @@ exports('setDisabled', function(disabled)
     local wasLit = flashlightOn
     flashlightOn = false
     if phoneState.open then ClosePhone() else updatePose() end
-    -- Announce the forced beam-off when it was lit.
     if wasLit then TriggerEvent('sd-phone:client:flashlight', false) end
 end)
 

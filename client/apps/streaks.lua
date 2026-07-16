@@ -5,32 +5,24 @@ local proxyCallback = require 'client.nui'
 ---subscribes/unsubscribes this phone to live gallery pushes (post/like) while the app is open.
 local ACTIONS = { 'sync', 'post', 'gallery', 'like', 'leaderboard', 'watch' }
 
--- Thin delegates into server/streaks - validation + persistence live in each server handler,
--- documented there.
+-- Thin delegates into server/streaks.
 for _, action in ipairs(ACTIONS) do
     proxyCallback('sd-phone:streaks:' .. action, 'sd-phone:server:streaks:' .. action)
 end
 
----Server push (fan-out to every client): another player posted - relay so open Streaks apps
----prepend the post in place.
+---Server push (fan-out to every client): another player posted; relays the new post.
 ---@param data table post record from server/streaks/live.lua
 RegisterNetEvent('sd-phone:client:streaks:newPost', function(data)
     SendNUIMessage({ action = 'sd-phone:streaks:newPost', data = data })
 end)
 
----Server push (fan-out to every client): a post's like state changed - relay so open apps
----patch the count in place.
+---Server push (fan-out to every client): a post's like state changed; relays the patch.
 ---@param data table post patch from server/streaks/live.lua
 RegisterNetEvent('sd-phone:client:streaks:postChanged', function(data)
     SendNUIMessage({ action = 'sd-phone:streaks:postChanged', data = data })
 end)
 
----Server push: an admin command changed our streak server-side - tell the app to re-sync
----rather than patch, since we don't know what changed.
+---Server push: an admin command changed our streak server-side; tells the app to re-sync.
 RegisterNetEvent('sd-phone:client:streaks:refresh', function()
     SendNUIMessage({ action = 'sd-phone:streaks:refresh' })
 end)
-
--- Fresh-photo capture deliberately has no callback here: the web shell mounts the real Camera
--- app as an overlay, its shutter uploads through the existing Photos pipeline and pushes
--- `photos:added`, and the Streaks NUI catches that URL and posts it.
