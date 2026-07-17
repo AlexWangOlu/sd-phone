@@ -42,6 +42,7 @@ lib.callback.register('sd-phone:server:settings:get', function(source)
     data.customNotificationTones = store.listCustomTones(cid, 'notification')
     data.airplaneMode            = store.isAirplane(cid)
     data.hour24                  = store.getHour24(cid)
+    data.theme                   = store.getTheme(cid)
     data.darkTheme               = store.getDarkTheme(cid)
     data.lockClock               = store.getLockClock(cid)
     data.wallpaper               = store.getWallpaper(cid)
@@ -114,6 +115,15 @@ lib.callback.register('sd-phone:server:settings:setHour24', function(source, pay
     if not cid then return { success = false, message = 'Player not found' } end
     payload = type(payload) == 'table' and payload or {}
     store.setHour24(cid, payload.on == true)
+    return { success = true }
+end)
+
+---Persists the caller's light/dark theme.
+lib.callback.register('sd-phone:server:settings:setTheme', function(source, payload)
+    local cid = player.getIdentifier(source)
+    if not cid then return { success = false, message = 'Player not found' } end
+    payload = type(payload) == 'table' and payload or {}
+    store.setTheme(cid, payload.theme)
     return { success = true }
 end)
 

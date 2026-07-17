@@ -14,6 +14,16 @@ import { warmYouTube } from '@/apps/settings/tonePlayer';
 
 export type Theme = 'light' | 'dark';
 
+const THEME_KEY = 'sd-phone:theme';
+function loadThemeLocal(): Theme {
+    try {
+        return window.localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light';
+    } catch { return 'light'; }
+}
+function saveThemeLocal(v: Theme) {
+    try { window.localStorage.setItem(THEME_KEY, v); } catch { /* ignore */ }
+}
+
 export type DarkTheme = 'graphite' | 'black' | 'warm';
 const DARK_THEME_KEY = 'sd-phone:darkTheme';
 const DARK_THEMES: DarkTheme[] = ['graphite', 'black', 'warm'];
@@ -131,7 +141,7 @@ function persistSecurity(pin: string | null, face: boolean) {
 }
 
 export const useThemeStore = create<ThemeState>((set, get) => ({
-    theme: 'light',
+    theme: isFiveM ? 'light' : loadThemeLocal(),
     darkTheme: isFiveM ? 'graphite' : loadDarkThemeLocal(),
     wallpaper: isFiveM ? lockscreenAsset : (loadWallpaperLocal() ?? devDefaultAsset),
     blurHomescreen: false,
@@ -154,6 +164,8 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     faceId: initialSecurity.faceId,
 
     setTheme: (next) => {
+        if (isFiveM) void fetchNui('sd-phone:settings:setTheme', { theme: next }).catch(() => {});
+        else saveThemeLocal(next);
         if (typeof document === 'undefined') { set({ theme: next }); return; }
         document.documentElement.classList.add('theme-transitioning');
         requestAnimationFrame(() => {
@@ -265,7 +277,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
                 window.setTimeout(() => get().hydrate(attempt + 1), HYDRATE_RETRY_MS);
             }
         };
-        void fetchNui<{ data?: { ringtone?: string; notificationTone?: string; customRingtones?: CustomTone[]; customNotificationTones?: CustomTone[]; airplaneMode?: boolean; hour24?: boolean; lockClock?: Partial<LockClock>; passcode?: string | null; faceId?: boolean; wallpaper?: string; chatTextScale?: number; darkTheme?: string } }>('sd-phone:settings:get')
+        void fetchNui<{ data?: { ringtone?: string; notificationTone?: string; customRingtones?: CustomTone[]; customNotificationTones?: CustomTone[]; airplaneMode?: boolean; hour24?: boolean; lockClock?: Partial<LockClock>; passcode?: string | null; faceId?: boolean; wallpaper?: string; chatTextScale?: number; theme?: string; darkTheme?: string } }>('sd-phone:settings:get')
             .then(res => {
                 if (!res?.data) { retry(); return; }
                 const d = res.data;
@@ -275,6 +287,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
                 if (d.notificationTone) patch.notificationTone = d.notificationTone;
                 if (typeof d.airplaneMode === 'boolean') patch.airplaneMode = d.airplaneMode;
                 if (typeof d.hour24 === 'boolean') patch.hour24 = d.hour24;
+                if (d.theme === 'light' || d.theme === 'dark') patch.theme = d.theme;
                 if (typeof d.darkTheme === 'string' && (DARK_THEMES as string[]).includes(d.darkTheme)) patch.darkTheme = d.darkTheme as DarkTheme;
                 if (typeof d.chatTextScale === 'number') patch.chatTextScale = clampChatScale(d.chatTextScale);
                 if (d.lockClock && typeof d.lockClock === 'object') patch.lockClock = { ...DEFAULT_LOCK_CLOCK, ...d.lockClock };

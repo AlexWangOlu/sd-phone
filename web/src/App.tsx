@@ -153,17 +153,11 @@ function AppContent() {
     const downloadTimer = useRef<number>();
 
     const [setup, setSetup] = useState<SetupSaved>(() => loadSetup());
-    useEffect(() => {
-        if (!setup.completed) return;
-        if (setup.theme) setTheme(setup.theme);
-        // Wallpaper is intentionally NOT re-applied from the saved setup here. It
-        // persists server-side (phone_settings) and hydrates via settings:get on
-        // mount. Re-applying the localStorage setup value on every launch
-        // clobbered the player's later pick with a stale asset URL — one whose
-        // build hash no longer existed after a rebuild, hence a 404 / black
-        // background. setWallpaper still runs once at setup completion (below).
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [setup.completed]);
+    // Theme and wallpaper are NOT re-applied from the saved setup on launch. Both
+    // persist server-side (phone_settings) and hydrate via settings:get on mount;
+    // re-applying the localStorage setup value every launch clobbered the player's
+    // later pick (a stale wallpaper URL, or the setup-time light/dark theme instead
+    // of their current one). Both are applied once at setup completion below.
 
     function handleSetupDone(result: SetupResult) {
         const next: SetupSaved = {
