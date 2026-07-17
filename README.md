@@ -19,6 +19,17 @@
 </div>
 
 ---
+Thanks for trying this so early. I'd put the phone at about 85% done as of writing, so expect rough edges and a few gaps. Some apps are still mock-only or not fully wired up yet (Vibez, for example, has no backend at this point), and there's a good amount of polish and fixes left across the board
+
+Any issues or PRs are highly appreciated.
+
+## Preview
+
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/352baf5c-fb7c-4791-9fcb-b76d1fc3168d" />
+
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/33291ecd-5264-464c-94ca-a78dd8f49330" />
+
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/93b8ede9-49ee-4704-9a05-741e0570b153" />
 
 ## Overview
 
