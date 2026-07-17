@@ -1,5 +1,9 @@
 
 
+import { useState } from 'react';
+
+import { customAccent, useCustomAppsStore } from '@/stores/customAppsStore';
+
 const S = 60;
 
 
@@ -1238,6 +1242,7 @@ const ICON_MAP: Record<string, IconComponent> = {
 export type IconId = string;
 
 export function AppIconSVG({ icon, size }: { icon: IconId; size?: number }) {
+    if (icon.startsWith('custom:')) return <CustomAppTile appId={icon.slice(7)} size={size} />;
     const Component = ICON_MAP[icon] ?? FallbackIcon;
     if (size == null) return <Component />;
     return (
@@ -1245,6 +1250,47 @@ export function AppIconSVG({ icon, size }: { icon: IconId; size?: number }) {
             <div style={{ position: 'absolute', top: 0, left: 0, width: S, height: S, transform: `scale(${size / S})`, transformOrigin: 'top left' }}>
                 <Component />
             </div>
+        </div>
+    );
+}
+
+function CustomAppTile({ appId, size }: { appId: string; size?: number }) {
+    const app = useCustomAppsStore(s => s.apps.find(a => a.id === appId));
+    const [failed, setFailed] = useState(false);
+    const dim = size ?? S;
+    const url = app?.icon;
+    const name = app?.name ?? appId;
+
+    if (url && !failed) {
+        return (
+            <div style={{ width: dim, height: dim, overflow: 'hidden' }}>
+                <img
+                    src={url}
+                    alt=""
+                    draggable={false}
+                    onError={() => setFailed(true)}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+            </div>
+        );
+    }
+
+    const letters = name.replace(/[^\p{L}\p{N}]/gu, '').slice(0, 2).toUpperCase() || '?';
+    return (
+        <div
+            style={{
+                width: dim, height: dim,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: `linear-gradient(150deg, ${customAccent(appId)}, rgba(0,0,0,0.32))`,
+                color: '#fff',
+                fontFamily: 'var(--font-sf, system-ui, sans-serif)',
+                fontWeight: 700,
+                fontSize: dim * 0.42,
+                letterSpacing: '-0.03em',
+                lineHeight: 1,
+            }}
+        >
+            {letters}
         </div>
     );
 }

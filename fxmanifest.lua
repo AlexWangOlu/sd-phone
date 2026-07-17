@@ -52,6 +52,8 @@ files {
     'client/**.lua',
     'locales/*.json',
     'web/build/index.html',
+    -- Custom-app SDK bridge injected into each third-party app iframe (lb-phone ui/components.js parity).
+    'web/build/components.js',
     'web/build/assets/*.js',
     'web/build/assets/*.css',
     'web/build/assets/*.png',

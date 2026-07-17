@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Check, ChevronRight, Minus, Moon, Plus, Sun } from 'lucide-react';
 
 import { t } from '@/i18n';
@@ -30,6 +30,10 @@ export function DisplayBrightnessPage({ onBack }: { onBack: () => void }) {
     const trackEmpty = isDark ? '#3A3A3C' : '#E5E5EA';
     const [auto, setAuto] = useState(true);
     const [darkAppearanceOpen, setDarkAppearanceOpen] = useState(false);
+
+    useEffect(() => {
+        if (!isDark) setDarkAppearanceOpen(false);
+    }, [isDark]);
 
     const CHAT_MIN = 0.8, CHAT_MAX = 1.5;
     const chatFill = ((chatTextScale - CHAT_MIN) / (CHAT_MAX - CHAT_MIN)) * 100;

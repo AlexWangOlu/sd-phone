@@ -33,6 +33,24 @@ export interface AppDef {
     base?: boolean;
 }
 
+export interface CustomAppDef {
+    id:          string;
+    name:        string;
+    description?: string;
+    developer?:  string;
+    icon?:       string;
+    images?:     string[];
+    size?:       number;
+    price?:      number;
+    defaultApp?: boolean;
+    game?:       boolean;
+    ui?:         string;
+    fixBlur?:    boolean;
+    keepOpen?:   boolean;
+    landscape?:  boolean;
+    resource:    string;
+}
+
 export interface WeatherPayload {
     current: string;
     next:    string;
@@ -281,4 +299,6 @@ export type NuiMessage =
     | { action: 'sd-phone:maps:tilecheck' }
     | { action: 'sd-phone:services:inbox' }
     | { action: 'sd-phone:services:jobsChanged' }
-    | { action: 'sd-phone:services:rosterChanged' };
+    | { action: 'sd-phone:services:rosterChanged' }
+    | { action: 'customApps:set';     data: CustomAppDef[] }
+    | { action: 'customApps:message'; data: { id: string; message: unknown } };

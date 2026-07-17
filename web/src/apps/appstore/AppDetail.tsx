@@ -3,6 +3,7 @@ import { ChevronLeft } from 'lucide-react';
 
 import { AppIconSVG } from '@/shell/AppIconSVG';
 import { CircularProgress } from '@/ui/CircularProgress';
+import { getCustomApp } from '@/stores/customAppsStore';
 import { t } from '@/i18n';
 import type { AppDef } from '@/core/types';
 
@@ -35,6 +36,10 @@ export function AppDetail({ app, desc, installed, downloadProgress, onBack, onIn
 
     const downloading = downloadProgress !== undefined;
     const queued = downloading && downloadProgress < 0;
+
+    const custom = getCustomApp(app.id);
+    const sizeValue = custom?.size ? t('appstore.appSize', '{size} MB', { size: (custom.size / 1000).toFixed(1) }) : appSize(app.id);
+    const providerValue = custom?.developer || t('appstore.sdPhone', 'SD Phone');
 
     return (
         <div
@@ -83,9 +88,20 @@ export function AppDetail({ app, desc, installed, downloadProgress, onBack, onIn
                     </div>
                 </div>
 
+                {custom?.images && custom.images.length > 0 && (
+                    <div className="-mx-1 mt-6 flex gap-3 overflow-x-auto no-scrollbar px-1 pb-1">
+                        {custom.images.map((img, i) => (
+                            <img key={i} src={img} alt="" draggable={false} className="h-[360px] w-auto shrink-0 rounded-[18px] object-cover shadow ring-1 ring-black/10 dark:ring-white/10" />
+                        ))}
+                    </div>
+                )}
+
                 <h2 className="mb-1 mt-8 text-[22px] font-bold text-black dark:text-white">{t('appstore.information', 'Information')}</h2>
-                <InfoRow label={t('appstore.provider', 'Provider')}         value={t('appstore.sdPhone', 'SD Phone')} />
-                <InfoRow label={t('appstore.size', 'Size')}             value={appSize(app.id)} />
+                <InfoRow label={t('appstore.provider', 'Provider')}         value={providerValue} />
+                <InfoRow label={t('appstore.size', 'Size')}             value={sizeValue} />
+                {custom && custom.price != null && custom.price > 0 && (
+                    <InfoRow label={t('appstore.price', 'Price')} value={t('appstore.priceValue', '${price}', { price: custom.price.toLocaleString() })} />
+                )}
                 <InfoRow label={t('appstore.compatibility', 'Compatibility')}    value={t('appstore.worksWithThisPhone', 'Works with this phone')} />
                 <InfoRow label={t('appstore.inAppPurchases', 'In-App Purchases')} value={t('appstore.no', 'No')} last />
             </div>

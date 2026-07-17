@@ -5,6 +5,7 @@ import { SearchBar } from '@/ui/SearchBar';
 import { SegmentedControl } from '@/ui/SegmentedControl';
 import { CircularProgress } from '@/ui/CircularProgress';
 import { AppDetail } from './AppDetail';
+import { getCustomApp } from '@/stores/customAppsStore';
 import { t } from '@/i18n';
 import type { AppDef } from '@/core/types';
 
@@ -71,12 +72,13 @@ export function AppStore({ onClose: _onClose, apps, installed, onInstall, onOpen
     const selected = apps.find(a => a.id === selectedId) ?? null;
     const query = q.trim().toLowerCase();
     const descriptions = getDescriptions();
+    const descOf = (id: string) => descriptions[id] ?? getCustomApp(id)?.description ?? '';
 
     const list = apps.filter(a => {
         const isInstalled = !!a.base || installed.has(a.id);
         if (filter === 'notInstalled' && isInstalled) return false;
         if (!query) return true;
-        const desc = descriptions[a.id] ?? '';
+        const desc = descOf(a.id);
         return a.label.toLowerCase().includes(query) || desc.toLowerCase().includes(query);
     });
 
@@ -117,7 +119,7 @@ export function AppStore({ onClose: _onClose, apps, installed, onInstall, onOpen
                                     <div className="flex min-w-0 flex-1 items-center gap-3 pr-3.5">
                                         <button type="button" onClick={() => setSelectedId(a.id)} className="min-w-0 flex-1 text-left active:opacity-60">
                                             <div className="truncate text-[23px] font-medium leading-tight text-black dark:text-white">{a.label}</div>
-                                            <div className="truncate text-[15px] leading-snug text-black/65 dark:text-white/65">{descriptions[a.id] ?? ''}</div>
+                                            <div className="truncate text-[15px] leading-snug text-black/65 dark:text-white/65">{descOf(a.id)}</div>
                                         </button>
                                         {isDownloading ? (
                                             <div className={`relative flex shrink-0 items-center justify-center text-ios-blue ${isQueued ? 'animate-pulse' : ''}`} style={{ width: 40, height: 40 }} aria-label={isQueued ? t('appstore.waitingToDownload', 'Waiting to download') : t('appstore.downloading', 'Downloading')}>
@@ -146,7 +148,7 @@ export function AppStore({ onClose: _onClose, apps, installed, onInstall, onOpen
             {selected && (
                 <AppDetail
                     app={selected}
-                    desc={descriptions[selected.id] ?? ''}
+                    desc={descOf(selected.id)}
                     installed={!!selected.base || installed.has(selected.id)}
                     downloadProgress={downloading[selected.id]}
                     onBack={() => setSelectedId(null)}

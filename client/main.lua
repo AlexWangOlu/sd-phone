@@ -4,6 +4,8 @@ local config = require 'configs.config'
 local notify = require 'bridge.client.notify'
 ---@type table Weather bridge (bridge.client.weather): live weather + synced world-time reads.
 local weatherBridge = require 'bridge.client.weather'
+---@type table Custom third-party app registry (client.customapps): add/remove/message + lifecycle.
+local customApps = require 'client.customapps'
 
 -- Loaded for side effects: each app module registers its own NUI callbacks, net events and
 -- server proxies.
@@ -588,6 +590,31 @@ exports('isLocked', phoneState.isLocked)
 exports('open',     OpenPhone)
 exports('close',    ClosePhone)
 exports('openApp',  OpenApp)
+
+---Registers a third-party app - exports['sd-phone']:addCustomApp(data). Attribution is the calling
+---resource; re-registering an identifier is only allowed from that same resource.
+---@param data table lb-phone-shaped app definition
+---@return boolean ok, string? err
+exports('addCustomApp', function(data)
+    return customApps.add(data, GetInvokingResource())
+end)
+
+---Removes a registered app - exports['sd-phone']:removeCustomApp(identifier). Only the resource that
+---registered the app may remove it.
+---@param identifier string
+---@return boolean ok, string? err
+exports('removeCustomApp', function(identifier)
+    return customApps.remove(identifier, GetInvokingResource())
+end)
+
+---Pushes a Lua message into a registered app's UI - exports['sd-phone']:sendCustomAppMessage(id, msg).
+---Only the owning resource may message its own app; the reserved id 'any' broadcasts to every app.
+---@param identifier string
+---@param message any
+---@return boolean ok, string? err
+exports('sendCustomAppMessage', function(identifier, message)
+    return customApps.sendMessage(identifier, message, GetInvokingResource())
+end)
 
 ---Flips the session-local disable switch - exports['sd-phone']:setDisabled(disabled). Disabling
 ---closes an open phone and switches the lockscreen flashlight off.

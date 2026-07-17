@@ -5,6 +5,8 @@ import type { ReactNode } from 'react';
 import { getAppEntry, isPreviewApp, type AppId } from './appRegistry';
 import { getCardStage, getFullscreenStage, registerFullscreenStage, subscribeCardStages } from './appDeckBridge';
 import { DeckActiveProvider } from './deckActive';
+import { CustomAppFrame } from './CustomAppFrame';
+import { getCustomApp } from '@/stores/customAppsStore';
 import type { AppDef } from '@/core/types';
 
 // The retained keep-alive deck. It is the ONE and ONLY place any app component is
@@ -51,8 +53,9 @@ interface AppDeckProps {
 }
 
 function buildAppNode(id: AppId, ctx: DeckAppCtx): ReactNode {
+    if (getCustomApp(id)) return <CustomAppFrame appId={id} onClose={ctx.onClose} />;
     const entry = getAppEntry(id);
-    if (entry.render) {
+    if (entry?.render) {
         return entry.render({
             onClose:           ctx.onClose,
             allApps:           ctx.allApps,
@@ -62,7 +65,7 @@ function buildAppNode(id: AppId, ctx: DeckAppCtx): ReactNode {
             onLandscapeChange: ctx.onLandscapeChange,
         });
     }
-    if (entry.Component) return <entry.Component onClose={ctx.onClose} />;
+    if (entry?.Component) return <entry.Component onClose={ctx.onClose} />;
     return null;
 }
 

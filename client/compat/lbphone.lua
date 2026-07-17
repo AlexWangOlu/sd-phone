@@ -1,8 +1,16 @@
----Returns whether the real lb-phone resource is started.
+---Whether a started resource named lb-phone is the sd-phone name-holder shim rather than the
+---real product.
+---@return boolean
+local function isShimLbPhone()
+    return GetResourceMetadata('lb-phone', 'sd_phone_shim', 0) == 'yes'
+end
+
+---Returns whether the real lb-phone resource is started. The sd-phone shim holds the same
+---resource name and is deliberately ignored.
 ---@return boolean
 local function realLbPhoneStarted()
     for i = 0, GetNumResources() - 1 do
-        if GetResourceByFindIndex(i) == 'lb-phone' then return true end
+        if GetResourceByFindIndex(i) == 'lb-phone' then return not isShimLbPhone() end
     end
     return false
 end
@@ -17,6 +25,9 @@ local sd = exports['sd-phone']
 
 ---@type table sd-phone config root (configs/config.lua), read here only for the Debug flag.
 local config = require 'configs.config'
+
+---@type table Custom third-party app registry (client.customapps): identifier resolution + forwards.
+local customApps = require 'client.customapps'
 
 ---@type any[] AddEventHandler cookies for every registered export handler.
 local exportCookies = {}
@@ -68,16 +79,8 @@ local function stubLbTrayExport(name)
     end)
 end
 
----@type table<string, true> Every sd-phone app id the home screen knows.
-local SD_APPS = {}
-for _, id in ipairs({
-    'photos', 'bank', 'settings', 'clock', 'messages', 'phone', 'calendar', 'mail', 'weather',
-    'maps', 'music', 'stocks', 'ryde', 'notes', 'voicememos', 'health', 'compass', 'groups',
-    'services', 'pages', 'review', 'marketplace', 'radio', 'darkchat', 'cherry', 'photogram',
-    'garages', 'homes', 'calculator', 'passwords', 'cookie', 'wordle', 'flappy', 'blocks',
-    'blackjack', 'climber', 'railrunner', 'connectfour', 'chess', 'battleship', 'vibez',
-    'weazelnews', 'streaks', 'birdy', 'appstore', 'camera',
-}) do SD_APPS[id] = true end
+---@type table<string, true> Every sd-phone app id the home screen knows (shared reserved-id set).
+local SD_APPS = require('client.appids').set
 
 ---@type table<string, string> lb-phone app name -> sd-phone app id, for the names that differ.
 local APP_MAP = {
@@ -94,12 +97,13 @@ local APP_MAP = {
     yellowpages = 'pages',
 }
 
----Maps an lb-phone app name onto an sd-phone app id: known renames first, then a lowercase
----passthrough. Unknown names yield nil.
+---Maps an lb-phone app name onto an sd-phone app id: exact registered custom identifiers first,
+---then known renames, then a lowercase passthrough. Unknown names yield nil.
 ---@param app any lb-phone app id
 ---@return string|nil
 local function mapApp(app)
     if type(app) ~= 'string' or app == '' then return nil end
+    if customApps.has(app) then return app end
     local key = app:lower():gsub('%s+', '')
     return APP_MAP[key] or (SD_APPS[key] and key) or nil
 end
@@ -298,10 +302,23 @@ stubLbExport('ShowComponent', nil)
 stubLbExport('SetPopUp', nil)
 stubLbExport('SetContextMenu', nil)
 
--- Custom apps.
-stubLbExport('AddCustomApp', false, 'custom apps unsupported')
-stubLbExport('RemoveCustomApp', false, 'custom apps unsupported')
-stubLbExport('SendCustomAppMessage', false, 'custom apps unsupported')
+-- Custom apps: forward to the first-party sd-phone registry, tagging each app with the calling
+-- resource. Field names already match, so nothing is translated.
+
+---AddCustomApp(data) -> ok, err. Attribution is the resource invoking this lb-phone export.
+registerLbExport('AddCustomApp', function(data)
+    return customApps.add(data, GetInvokingResource())
+end)
+
+---RemoveCustomApp(identifier) -> ok, err. Only the owning resource may remove its app.
+registerLbExport('RemoveCustomApp', function(identifier)
+    return customApps.remove(identifier, GetInvokingResource())
+end)
+
+---SendCustomAppMessage(identifier, message) -> ok, err. The reserved id 'any' broadcasts to all.
+registerLbExport('SendCustomAppMessage', function(identifier, message)
+    return customApps.sendMessage(identifier, message, GetInvokingResource())
+end)
 
 -- Music and live tray surfaces.
 stubLbTrayExport('ShowMusicTray')
@@ -313,9 +330,20 @@ stubLbTrayExport('RemoveLiveTray')
 stubLbExport('IsLive', false)
 stubLbExport('PostBirdy', false)
 
--- Home-screen management.
-stubLbExport('SetAppHidden', nil)
-stubLbExport('SetAppInstalled', nil)
+-- Home-screen management: resolve the app id (built-in rename or registered custom identifier),
+-- then warn once and no-op - sd-phone has no Lua setter for install/hidden state.
+
+---SetAppHidden(app, hidden): resolves the app id, then no-ops.
+registerLbExport('SetAppHidden', function(app, _hidden)
+    if not mapApp(app) then return end
+    warnOnce('SetAppHidden', 'cannot change home-screen visibility from Lua in sd-phone; the request was ignored')
+end)
+
+---SetAppInstalled(app, installed): resolves the app id, then no-ops.
+registerLbExport('SetAppInstalled', function(app, _installed)
+    if not mapApp(app) then return end
+    warnOnce('SetAppInstalled', 'install state is managed by the sd-phone App Store; the request was ignored')
+end)
 
 -- Crypto app readers.
 stubLbExport('GetCoinValue', 0)
@@ -340,10 +368,18 @@ stubLbExport('RegisterClientCallback', nil, 'lb-phone custom callbacks are not b
 stubLbExport('TriggerCallback', nil, 'lb-phone custom callbacks are not bridged')
 stubLbExport('AwaitCallback', nil, 'lb-phone custom callbacks are not bridged')
 
+---Replays onResourceStart under lb-phone's name once per sd-phone client start, so third-party
+---lb apps that re-register on lb-phone restarts also re-register after an sd-phone restart.
+---onClientResourceStart is deliberately not faked: the deregistration guard below listens to it.
+CreateThread(function()
+    Wait(500)
+    TriggerEvent('onResourceStart', 'lb-phone')
+end)
+
 ---Removes every shim handler, exports and event bridge alike, when the real lb-phone starts
 ---mid-session.
 AddEventHandler('onClientResourceStart', function(resource)
-    if resource ~= 'lb-phone' then return end
+    if resource ~= 'lb-phone' or isShimLbPhone() then return end
     for i = 1, #exportCookies do
         RemoveEventHandler(exportCookies[i])
     end

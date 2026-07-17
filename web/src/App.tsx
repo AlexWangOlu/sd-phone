@@ -33,6 +33,7 @@ import { DEFAULT_FRAME_COLOR } from '@/shell/frameColors';
 import { ThemeProvider, useTheme, useThemeStore } from '@/stores/themeStore';
 import type { AppDef } from '@/core/types';
 import { listInstalledApps, installApp, uninstallApp, loadHomeLayout, saveHomeLayout, parseLayout, type SavedLayout } from '@/apps/appstore/appsApi';
+import { customToAppDef, installedCustomIds, isCustomApp, setCustomInstalled, useCustomApps, useCustomAppsStore } from '@/stores/customAppsStore';
 import { resolveWallpaper } from '@/shell/wallpapers';
 import { playOnce } from '@/apps/settings/tonePlayer';
 import { resolveTone, toneUrl } from '@/apps/settings/tones';
@@ -115,6 +116,13 @@ function AppContent() {
     const { theme, darkTheme, wallpaper, setTheme, setWallpaper, statusLightOverride, hideHomeIndicator, airplaneMode, hour24, setHour24, setSecurity } = useTheme('theme', 'darkTheme', 'wallpaper', 'setTheme', 'setWallpaper', 'statusLightOverride', 'hideHomeIndicator', 'airplaneMode', 'hour24', 'setHour24', 'setSecurity');
     const locale = useLocaleStore(s => s.locale);
     useEffect(() => { useLocaleStore.getState().hydrate(); }, []);
+
+    const customApps = useCustomApps();
+    const customDefs = useMemo(() => customApps.map(customToAppDef), [customApps]);
+    useEffect(() => { useCustomAppsStore.getState().hydrate(); }, []);
+    useNuiEvent('customApps:set', useCallback((data) => {
+        useCustomAppsStore.getState().setAll(data ?? []);
+    }, []));
 
     const [view,            setView]            = useState<ViewState | null>(null);
     const [entering,        setEntering]        = useState(false);
@@ -213,8 +221,8 @@ function AppContent() {
         setSwitcherClosing(false);
         setSwitcherReady(false);
         setNotifs([]);
-        if (data.installedApps) setInstalledApps(new Set(data.installedApps));
-        else void listInstalledApps().then(ids => setInstalledApps(new Set(ids)));
+        if (data.installedApps) setInstalledApps(new Set([...data.installedApps, ...installedCustomIds()]));
+        else void listInstalledApps().then(ids => setInstalledApps(new Set([...ids, ...installedCustomIds()])));
         setSavedLayout(data.homeLayout ? parseLayout(data.homeLayout) : loadHomeLayout());
         setLocked(data.locked);
         setBattery(data.battery);
@@ -223,6 +231,7 @@ function AppContent() {
         setEntering(true);
         if (isFiveM) void fetchNui<Record<string, number>>('sd-phone:badges:get').then(m => useBadgeStore.getState().setServer(m ?? {}));
         if (isFiveM) void fetchNui<{ on: boolean }>('sd-phone:flashlight:state').then(r => setFlashlightOn(!!r?.on));
+        useCustomAppsStore.getState().hydrate();
     }, []));
 
     useNuiEvent('sd-phone:close', useCallback(() => {
@@ -420,7 +429,8 @@ function AppContent() {
 
     const finishInstall = useCallback((id: string) => {
         setInstalledApps(prev => new Set(prev).add(id));
-        void installApp(id).then(ids => setInstalledApps(new Set(ids)));
+        if (isCustomApp(id)) { setCustomInstalled(id, true); void fetchNui('customApps/lifecycle', { id, action: 'install' }); }
+        else void installApp(id).then(ids => setInstalledApps(new Set(ids)));
     }, []);
     const pumpDownloads = useCallback(function pump() {
         const id = downloadQueue.current[0];
@@ -451,7 +461,8 @@ function AppContent() {
     }, [pumpDownloads]);
     const handleUninstallApp = useCallback((id: string) => {
         setInstalledApps(prev => { const n = new Set(prev); n.delete(id); return n; });
-        void uninstallApp(id).then(ids => setInstalledApps(new Set(ids)));
+        if (isCustomApp(id)) { setCustomInstalled(id, false); void fetchNui('customApps/lifecycle', { id, action: 'uninstall' }); }
+        else void uninstallApp(id).then(ids => setInstalledApps(new Set(ids)));
     }, []);
     const handleSaveLayout = useCallback((layout: SavedLayout) => {
         saveHomeLayout(layout);
@@ -462,12 +473,12 @@ function AppContent() {
     // it only changes when the app list / install set / stable callbacks change.
     const deckCtx = useMemo<DeckAppCtx>(() => ({
         onClose:           handleCloseApp,
-        allApps:           view?.apps ?? [],
+        allApps:           [...(view?.apps ?? []), ...customDefs],
         installedApps,
         onInstall:         startDownload,
         onOpenApp:         openAppCentered,
         onLandscapeChange: setLandscape,
-    }), [handleCloseApp, view, installedApps, startDownload, openAppCentered]);
+    }), [handleCloseApp, view, customDefs, installedApps, startDownload, openAppCentered]);
 
     useEffect(() => () => {
         if (downloadTimer.current !== undefined) clearInterval(downloadTimer.current);
@@ -894,7 +905,7 @@ function AppContent() {
     const statusLight = locked || !currentApp || theme === 'dark';
     const activeWallpaper = wallpaper || view.wallpaperHome;
 
-    const allApps       = view.apps;
+    const allApps       = [...view.apps, ...customDefs.filter(c => !view.apps.some(a => a.id === c.id))];
     const effectiveApps = allApps.filter(a => a.base || installedApps.has(a.id) || downloadingIds.includes(a.id));
     const effectiveIds  = new Set(effectiveApps.map(a => a.id));
 

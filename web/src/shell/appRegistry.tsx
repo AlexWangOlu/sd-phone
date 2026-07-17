@@ -2,6 +2,7 @@ import { lazy } from 'react';
 import type { ComponentType, LazyExoticComponent, ReactNode } from 'react';
 
 import type { AppDef } from '@/core/types';
+import { isCustomApp } from '@/stores/customAppsStore';
 
 interface AppComponentProps { onClose: () => void }
 
@@ -111,12 +112,22 @@ export function getAppEntry(id: AppId): AppEntry {
 // its switcher card falls back to the app icon.
 const PREVIEW_EXCLUDE = new Set<AppId>(['camera']);
 
+// Custom apps render inside a cross-origin iframe: it cannot be captured for a live
+// switcher card and re-parenting the node would reload it, so they opt out of the
+// preview deck exactly like camera does and fall back to their icon card.
 export function isPreviewApp(id: AppId): boolean {
+    if (isCustomApp(id)) return false;
     return !PREVIEW_EXCLUDE.has(id);
 }
 
+// A raw id becomes an openable AppId when it is either a statically-registered app
+// or a runtime-registered custom app. Every downstream AppId-typed site keys off the
+// id string, so widening the union at this single boundary is enough to open it.
 export function asAppId(id: string | null | undefined): AppId | null {
-    return id != null && id in APP_REGISTRY ? (id as AppId) : null;
+    if (id == null) return null;
+    if (id in APP_REGISTRY) return id as AppId;
+    if (isCustomApp(id)) return id as AppId;
+    return null;
 }
 
 export function preloadAllApps(): void {

@@ -168,12 +168,12 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
         else saveThemeLocal(next);
         if (typeof document === 'undefined') { set({ theme: next }); return; }
         document.documentElement.classList.add('theme-transitioning');
-        requestAnimationFrame(() => {
+        window.setTimeout(() => {
             set({ theme: next });
             window.setTimeout(() => {
                 document.documentElement.classList.remove('theme-transitioning');
             }, 340);
-        });
+        }, 0);
     },
 
     setWallpaper: (value) => {
