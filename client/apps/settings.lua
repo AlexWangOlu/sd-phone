@@ -15,6 +15,7 @@ proxyCallback('sd-phone:settings:setLockClock', 'sd-phone:server:settings:setLoc
 proxyCallback('sd-phone:settings:setSecurity',  'sd-phone:server:settings:setSecurity')
 proxyCallback('sd-phone:settings:setWallpaper', 'sd-phone:server:settings:setWallpaper')
 proxyCallback('sd-phone:settings:setChatTextScale', 'sd-phone:server:settings:setChatTextScale')
+proxyCallback('sd-phone:settings:setVolumes',       'sd-phone:server:settings:setVolumes')
 proxyCallback('sd-phone:settings:setLocale',        'sd-phone:server:settings:setLocale')
 proxyCallback('sd-phone:settings:getNotifPref', 'sd-phone:server:settings:getNotifPref')
 proxyCallback('sd-phone:settings:setNotifPref', 'sd-phone:server:settings:setNotifPref')

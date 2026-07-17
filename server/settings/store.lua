@@ -65,6 +65,8 @@ function store.ensureSchema()
             face_id            TINYINT(1)   NOT NULL DEFAULT 0,
             chat_text_scale    DECIMAL(3,2) NULL,
             hour24             TINYINT(1)   NULL,
+            ringtone_volume    TINYINT UNSIGNED NULL,
+            call_volume        TINYINT UNSIGNED NULL,
             locale             VARCHAR(8)   NULL,
             updated_at         TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP
                 ON UPDATE CURRENT_TIMESTAMP,
@@ -117,6 +119,12 @@ function store.ensureSchema()
     end
     if not columnExists('phone_settings', 'chat_text_scale') then
         MySQL.query.await('ALTER TABLE phone_settings ADD COLUMN chat_text_scale DECIMAL(3,2) NULL')
+    end
+    if not columnExists('phone_settings', 'ringtone_volume') then
+        MySQL.query.await('ALTER TABLE phone_settings ADD COLUMN ringtone_volume TINYINT UNSIGNED NULL')
+    end
+    if not columnExists('phone_settings', 'call_volume') then
+        MySQL.query.await('ALTER TABLE phone_settings ADD COLUMN call_volume TINYINT UNSIGNED NULL')
     end
     if not columnExists('phone_settings', 'locale') then
         MySQL.query.await('ALTER TABLE phone_settings ADD COLUMN locale VARCHAR(8) NULL')
@@ -518,6 +526,52 @@ function store.setChatTextScale(citizenid, scale)
         INSERT INTO phone_settings (citizenid, chat_text_scale) VALUES (?, ?)
         ON DUPLICATE KEY UPDATE chat_text_scale = VALUES(chat_text_scale)
     ]], { citizenid, clean })
+end
+
+---Clamps a volume to an integer 0-100; nil for non-numbers and NaN, out-of-range values fall to
+---the nearest bound.
+---@param v any client-supplied volume
+---@return number|nil volume integer 0-100, nil if unusable
+local function clampVolume(v)
+    local n = tonumber(v)
+    if not n or n ~= n then return nil end
+    n = math.floor(n + 0.5)
+    if n < 0 then n = 0 elseif n > 100 then n = 100 end
+    return n
+end
+
+---Reads a player's ringtone and call volumes (0-100); each field is nil when unset, and a stored
+---0 is returned as 0. Read-only.
+---@param citizenid string framework per-character id
+---@return { ringtone: number|nil, call: number|nil }
+function store.getVolumes(citizenid)
+    if not citizenid or citizenid == '' then return {} end
+    local row = MySQL.single.await(
+        'SELECT ringtone_volume, call_volume FROM phone_settings WHERE citizenid = ?', { citizenid })
+    if not row then return {} end
+    return {
+        ringtone = row.ringtone_volume ~= nil and tonumber(row.ringtone_volume) or nil,
+        call     = row.call_volume     ~= nil and tonumber(row.call_volume)     or nil,
+    }
+end
+
+---Persists a player's ringtone and/or call volume (upsert), leaving other settings intact. Each
+---field is clamped to 0-100; a nil / invalid field leaves that column unchanged (COALESCE).
+---@param citizenid string framework per-character id
+---@param ringtone any ringtone-and-alert volume 0-100
+---@param call any call volume 0-100
+function store.setVolumes(citizenid, ringtone, call)
+    if not citizenid or citizenid == '' then return end
+    local r = clampVolume(ringtone)
+    local c = clampVolume(call)
+    if r == nil and c == nil then return end
+    MySQL.update.await([[
+        INSERT INTO phone_settings (citizenid, ringtone_volume, call_volume)
+        VALUES (?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+            ringtone_volume = COALESCE(VALUES(ringtone_volume), ringtone_volume),
+            call_volume     = COALESCE(VALUES(call_volume), call_volume)
+    ]], { citizenid, r, c })
 end
 
 -- Mirrors SUPPORTED_LOCALES in web/src/i18n/index.ts.

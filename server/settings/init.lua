@@ -47,6 +47,9 @@ lib.callback.register('sd-phone:server:settings:get', function(source)
     data.lockClock               = store.getLockClock(cid)
     data.wallpaper               = store.getWallpaper(cid)
     data.chatTextScale           = store.getChatTextScale(cid)
+    local vols = store.getVolumes(cid)
+    data.ringtoneVol             = vols.ringtone
+    data.callVol                 = vols.call
     data.locale                  = store.getLocale(cid)
     local sec = store.getSecurity(cid)
     data.passcode                = sec.passcode
@@ -86,6 +89,15 @@ lib.callback.register('sd-phone:server:settings:setChatTextScale', function(sour
     if not cid then return { success = false, message = 'Player not found' } end
     payload = type(payload) == 'table' and payload or {}
     store.setChatTextScale(cid, payload.scale)
+    return { success = true }
+end)
+
+---Persists the caller's ringtone-and-alert and call volumes (each 0-100).
+lib.callback.register('sd-phone:server:settings:setVolumes', function(source, payload)
+    local cid = player.getIdentifier(source)
+    if not cid then return { success = false, message = 'Player not found' } end
+    payload = type(payload) == 'table' and payload or {}
+    store.setVolumes(cid, payload.ringtone, payload.call)
     return { success = true }
 end)
 

@@ -69,6 +69,8 @@ function saveWallpaperLocal(v: string) {
     try { window.localStorage.setItem(WALLPAPER_KEY, v); } catch { /* ignore */ }
 }
 
+const clampVol = (n: number) => Math.min(100, Math.max(0, Math.round(n)));
+
 const CHAT_SCALE_KEY = 'sd-phone:chatTextScale';
 const clampChatScale = (n: number) => Math.min(1.5, Math.max(0.8, n));
 function loadChatScaleLocal(): number {
@@ -193,8 +195,15 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     setBrightness:     (v) => set({ brightness: v }),
     setPhoneScale:     (v) => set({ phoneScale: v }),
     setPhoneAlign:     (v) => set({ phoneAlign: v }),
-    setRingtoneVol:    (v) => set({ ringtoneVol: v }),
-    setCallVol:        (v) => set({ callVol: v }),
+
+    setRingtoneVol: (v) => {
+        set({ ringtoneVol: v });
+        if (isFiveM) void fetchNui('sd-phone:settings:setVolumes', { ringtone: v, call: get().callVol }).catch(() => {});
+    },
+    setCallVol: (v) => {
+        set({ callVol: v });
+        if (isFiveM) void fetchNui('sd-phone:settings:setVolumes', { ringtone: get().ringtoneVol, call: v }).catch(() => {});
+    },
 
     setChatTextScale: (v) => {
         const next = clampChatScale(v);
@@ -277,7 +286,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
                 window.setTimeout(() => get().hydrate(attempt + 1), HYDRATE_RETRY_MS);
             }
         };
-        void fetchNui<{ data?: { ringtone?: string; notificationTone?: string; customRingtones?: CustomTone[]; customNotificationTones?: CustomTone[]; airplaneMode?: boolean; hour24?: boolean; lockClock?: Partial<LockClock>; passcode?: string | null; faceId?: boolean; wallpaper?: string; chatTextScale?: number; theme?: string; darkTheme?: string } }>('sd-phone:settings:get')
+        void fetchNui<{ data?: { ringtone?: string; notificationTone?: string; customRingtones?: CustomTone[]; customNotificationTones?: CustomTone[]; airplaneMode?: boolean; hour24?: boolean; lockClock?: Partial<LockClock>; passcode?: string | null; faceId?: boolean; wallpaper?: string; chatTextScale?: number; ringtoneVol?: number; callVol?: number; theme?: string; darkTheme?: string } }>('sd-phone:settings:get')
             .then(res => {
                 if (!res?.data) { retry(); return; }
                 const d = res.data;
@@ -290,6 +299,8 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
                 if (d.theme === 'light' || d.theme === 'dark') patch.theme = d.theme;
                 if (typeof d.darkTheme === 'string' && (DARK_THEMES as string[]).includes(d.darkTheme)) patch.darkTheme = d.darkTheme as DarkTheme;
                 if (typeof d.chatTextScale === 'number') patch.chatTextScale = clampChatScale(d.chatTextScale);
+                if (typeof d.ringtoneVol === 'number') patch.ringtoneVol = clampVol(d.ringtoneVol);
+                if (typeof d.callVol === 'number') patch.callVol = clampVol(d.callVol);
                 if (d.lockClock && typeof d.lockClock === 'object') patch.lockClock = { ...DEFAULT_LOCK_CLOCK, ...d.lockClock };
                 const pin = typeof d.passcode === 'string' && d.passcode ? d.passcode : null;
                 patch.passcode = pin;
