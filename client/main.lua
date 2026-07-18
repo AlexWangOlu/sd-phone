@@ -105,16 +105,6 @@ local typingInPhone = false
 ---@type boolean True while the hold-to-look keybind has released the cursor for camera control.
 local lookMode = false
 
----Turns a camera rotation into a forward unit vector.
----@param rot vector3 gameplay-cam rotation in degrees
----@return vector3 dir forward unit vector
-local function rotToDir(rot)
-    local z   = math.rad(rot.z)
-    local x   = math.rad(rot.x)
-    local num = math.abs(math.cos(x))
-    return vec3(-math.sin(z) * num, math.cos(z) * num, math.sin(x))
-end
-
 ---Returns whether the hold pose should apply: phone open or flashlight on, and the Camera app
 ---not live.
 ---@return boolean
