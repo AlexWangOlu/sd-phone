@@ -4,6 +4,10 @@ local store    = require 'server.photos.store'
 local actions  = require 'server.photos.actions'
 ---@type table Fivemanage uploader (server.photos.uploader): server-side base64 media upload.
 local uploader = require 'server.photos.uploader'
+---@type table Player bridge (bridge.server.player): citizenid for the shared upload budget.
+local player   = require 'bridge.server.player'
+---@type table Shared media-upload budget (server.photos.mediaLimit): cooldown + rolling byte cap.
+local mediaLimit = require 'server.photos.mediaLimit'
 ---@type table Shared server helpers (server.util): finite-number guard for the export boundary.
 local util     = require 'server.util'
 
@@ -52,6 +56,11 @@ RegisterNetEvent('sd-phone:server:photos:upload', function(image, kind)
     end
     if uploading[src] then
         print(('^1[sd-phone:photos]^0 [UPLOAD] src=%s rejected — an upload is already in progress'):format(tostring(src)))
+        return
+    end
+    local okLimit, why = mediaLimit.check(player.getIdentifier(src), #image)
+    if not okLimit then
+        print(('^1[sd-phone:photos]^0 [UPLOAD] src=%s rejected — rate limit (%s)'):format(tostring(src), why))
         return
     end
 

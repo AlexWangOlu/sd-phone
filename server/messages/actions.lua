@@ -10,6 +10,8 @@ local contactsStore = require 'server.contacts.store'
 local banking       = require 'server.banking.actions'
 ---@type table Fivemanage uploader (server.photos.uploader): server-side media upload.
 local uploader      = require 'server.photos.uploader'
+---@type table Shared media-upload budget (server.photos.mediaLimit): cooldown + rolling byte cap.
+local mediaLimit    = require 'server.photos.mediaLimit'
 ---@type table Messages persistence layer (server.messages.store): mailbox rows, groups, reactions.
 local store         = require 'server.messages.store'
 ---@type table Badge engine (server.badges.init): server-authoritative home-screen unread counts.
@@ -1019,6 +1021,8 @@ function actions.uploadVoice(source, payload)
 
     local maxBytes = (config.VoiceMemos and config.VoiceMemos.MaxAudioBytes) or (8 * 1024 * 1024)
     if #audio > maxBytes then return fail('Recording is too long') end
+    local okLimit, why = mediaLimit.check(player.getIdentifier(source), #audio)
+    if not okLimit then return fail(why == 'cooldown' and 'Slow down a moment' or 'Upload limit reached') end
 
     local ext = audio:find('^data:audio/mpeg') and 'mp3'
         or audio:find('^data:audio/ogg') and 'ogg'
