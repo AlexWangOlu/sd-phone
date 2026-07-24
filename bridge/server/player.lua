@@ -44,14 +44,76 @@ end
 ---@type fun(p: any): string|nil Identifier extractor, bound once at load.
 local resolveIdentifier = chooseIdentifier()
 
+---@type integer Milliseconds a cached identifier is served before it is re-resolved. The
+---lifecycle handlers below keep the cache exact; this is only the backstop that stops a missed
+---event from being permanent.
+local IDENTITY_TTL = 2000
+
+---@type table<number, { cid: string|nil, at: number }> source -> resolved framework identifier.
+local identityCache = {}
+
+---@type table<string, number> identifier -> source. The reverse of identityCache, so resolving a
+---source from an identifier is a lookup instead of a walk over every connected player. Treated
+---as a hint, never as truth: a lookup verifies its answer and falls back to the scan.
+local sourceIndex = {}
+
+---@type integer Bumped by forget(); the built-map memo below only serves a value stamped with
+---the current generation, so any lifecycle event invalidates it immediately.
+local generation = 0
+
+---Framework identifier for a source, memoised. Resolving it is the most frequent framework call
+---in the resource (227 call sites; nearly every callback opens with one, and the cid -> source
+---maps resolve it once per connected player). Only the identifier STRING is cached, never the
+---player object: the object carries live money/job state, the identifier does not change for the
+---lifetime of a loaded character.
+---@param source number player server id
+---@return string|nil
+local function cachedIdentifier(source)
+    local hit = identityCache[source]
+    if hit and (GetGameTimer() - hit.at) < IDENTITY_TTL then return hit.cid end
+    local p = resolveGet(source)
+    local cid = p and resolveIdentifier(p) or nil
+    identityCache[source] = { cid = cid, at = GetGameTimer() }
+    if cid then sourceIndex[cid] = source end
+    return cid
+end
+
+---Drops a source's cached identifier so the next read re-resolves it. Called on disconnect and
+---on every character load/unload: after a multichar switch the same source carries a DIFFERENT
+---character, and serving the previous one would hand the player the old character's data.
+---@param source number|nil player server id
+function player.forget(source)
+    local s = tonumber(source) or source
+    if not s then return end
+    local hit = identityCache[s]
+    -- Only clear the reverse entry if it still points here: an identifier that has already moved
+    -- to another source belongs to that source now.
+    if hit and hit.cid and sourceIndex[hit.cid] == s then sourceIndex[hit.cid] = nil end
+    identityCache[s] = nil
+    generation = generation + 1
+end
+
+AddEventHandler('playerDropped', function() player.forget(source) end)
+
+-- Character lifecycle: both edges matter. Load clears a negative entry cached while the player
+-- was still connecting; unload clears the outgoing character before the next one is resolved.
+if framework.name == 'qb' then
+    AddEventHandler('QBCore:Server:PlayerLoaded', function(p)
+        player.forget(p and p.PlayerData and p.PlayerData.source)
+    end)
+    AddEventHandler('QBCore:Server:OnPlayerUnload', function(src) player.forget(src) end)
+elseif framework.name == 'esx' then
+    AddEventHandler('esx:playerLoaded', function(src) player.forget(src) end)
+    AddEventHandler('esx:playerLogout', function(src) player.forget(src) end)
+end
+
 ---The player's persistent per-character identifier (citizenid on QBCore/QBox, identifier on ESX).
 ---Nil when offline. NOTE: when unique phones are enabled, server/sim/init.lua rewraps this to
 ---return the acting SIM identity instead - use getRealIdentifier for character-scoped concerns.
 ---@param source number player server id
 ---@return string|nil
 function player.getIdentifier(source)
-    local p = resolveGet(source)
-    return p and resolveIdentifier(p) or nil
+    return cachedIdentifier(source)
 end
 
 ---Always the framework-native character identifier, bypassing any SIM indirection installed
@@ -59,8 +121,7 @@ end
 ---@param source number player server id
 ---@return string|nil
 function player.getRealIdentifier(source)
-    local p = resolveGet(source)
-    return p and resolveIdentifier(p) or nil
+    return cachedIdentifier(source)
 end
 
 ---A friendly "First Last" name for the player; 'Unknown' when the player can't be resolved.
@@ -98,16 +159,33 @@ function player.getGang(source)
     return nil
 end
 
----Find the currently-connected source for a citizenid via a scan over GetPlayers. Read-only.
+---Resolves a source from an identifier: an indexed lookup when the index knows it, otherwise the
+---scan, which repairs the index on the way out. The index is only ever a hint - the answer is
+---verified against a still-connected player whose identifier still matches - so a lifecycle event
+---this module never saw costs one scan rather than a wrong or missing answer.
+---@param citizenid string
+---@return number|nil source
+local function sourceFor(citizenid)
+    local hit = sourceIndex[citizenid]
+    if hit and GetPlayerName(hit) and cachedIdentifier(hit) == citizenid then return hit end
+
+    for _, src in ipairs(GetPlayers()) do
+        local s = tonumber(src)
+        if s and cachedIdentifier(s) == citizenid then
+            sourceIndex[citizenid] = s
+            return s
+        end
+    end
+    sourceIndex[citizenid] = nil
+    return nil
+end
+
+---Find the currently-connected source for a citizenid. Read-only.
 ---@param citizenid string
 ---@return number|nil source nil if offline
 function player.getSourceByIdentifier(citizenid)
     if not citizenid or citizenid == '' then return nil end
-    for _, src in ipairs(GetPlayers()) do
-        local s = tonumber(src)
-        if s and player.getIdentifier(s) == citizenid then return s end
-    end
-    return nil
+    return sourceFor(citizenid)
 end
 
 ---Reachability resolver: the source carrying `citizenid` on ANY phone, not just the active one.
@@ -117,40 +195,46 @@ end
 ---@return number|nil source
 function player.getAnySourceByIdentifier(citizenid)
     if not citizenid or citizenid == '' then return nil end
+    return sourceFor(citizenid)
+end
+
+---@type { map: table<string, number>|nil, at: number, gen: number } Memo of the built map. A
+---fan-out builds this per push, so on a busy server the same table was rebuilt many times a
+---second from an unchanged player list.
+local cidMapCache = { map = nil, at = 0, gen = -1 }
+
+---Builds `{ [citizenid] = source }` over every connected player, memoised until any lifecycle
+---event bumps the generation or the TTL expires. The returned table is SHARED - callers must
+---treat it as read-only, which every caller already does.
+---@return table<string, number>
+local function buildCidMap()
+    if cidMapCache.map and cidMapCache.gen == generation
+        and (GetGameTimer() - cidMapCache.at) < IDENTITY_TTL then
+        return cidMapCache.map
+    end
+    local out = {}
     for _, src in ipairs(GetPlayers()) do
         local s = tonumber(src)
-        if s and player.getIdentifier(s) == citizenid then return s end
+        if s then
+            local cid = cachedIdentifier(s)
+            if cid then out[cid] = s end
+        end
     end
-    return nil
+    cidMapCache = { map = out, at = GetGameTimer(), gen = generation }
+    return out
 end
 
 ---`{ [citizenid] = source }` over framework-native identifiers, bypassing SIM indirection.
+---Read-only; the table is shared with onlineCidMap.
 ---@return table<string, number>
 function player.onlineRealCidMap()
-    local out = {}
-    for _, src in ipairs(GetPlayers()) do
-        local s = tonumber(src)
-        if s then
-            local cid = player.getRealIdentifier(s)
-            if cid then out[cid] = s end
-        end
-    end
-    return out
+    return buildCidMap()
 end
 
----Build a `{ [citizenid] = source }` lookup of every currently-connected player in a single pass.
----Read-only.
+---A `{ [citizenid] = source }` lookup of every currently-connected player. Read-only.
 ---@return table<string, number>
 function player.onlineCidMap()
-    local out = {}
-    for _, src in ipairs(GetPlayers()) do
-        local s = tonumber(src)
-        if s then
-            local cid = player.getIdentifier(s)
-            if cid then out[cid] = s end
-        end
-    end
-    return out
+    return buildCidMap()
 end
 
 return player
