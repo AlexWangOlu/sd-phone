@@ -29,7 +29,7 @@ Any issues or PRs are highly appreciated. Ohhh and please ⭐the repo! :)
 
 <img width="1920" height="1080" alt="bb6" src="https://github.com/user-attachments/assets/9234cba8-6293-4a9b-8f5a-372eb97c88af" />
 
-<img width="1920" height="1080" alt="bb6" src="https://github.com/user-attachments/assets/d1cfdc20-a56e-4385-b3d1-cafa621eef04" />
+<img width="1920" height="1080" alt="THIS" src="https://github.com/user-attachments/assets/7c9ee63d-a5d6-42ee-8664-a62e06838741" />
 
 <img width="1920" height="1080" alt="mb3" src="https://github.com/user-attachments/assets/896f0a95-2077-405f-b494-17ffbc13684e" />
 
