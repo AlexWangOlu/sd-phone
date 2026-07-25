@@ -9,6 +9,7 @@ export interface Company {
     canCall:     boolean;
     callNumber?: string;
     coords?:     { x: number; y: number; z: number };
+    onDuty?:     boolean;
 }
 
 export interface Employee {

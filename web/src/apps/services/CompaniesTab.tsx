@@ -111,9 +111,14 @@ function CompanyCard({ company, onLocate, onCall, onMessage }: {
 }) {
     return (
         <div className="flex items-center gap-4 rounded-[16px] bg-[#e5e5e5] px-4 py-4 dark:bg-surface">
-            <ServiceAvatar color={company.color} emoji={company.emoji} size={58} />
+            <div className="flex items-center gap-2">
+                <div className={`h-3 w-3 shrink-0 rounded-full border border-red-500 ${company.onDuty ? 'bg-red-500' : 'bg-transparent'}`} />
+                <ServiceAvatar color={company.color} emoji={company.emoji} size={58} />
+            </div>
+            
 
             <div className="min-w-0 flex-1">
+
                 <div className="truncate text-[20px] font-semibold text-black dark:text-white">{company.name}</div>
                 <div className="mt-1 flex items-center gap-1.5 text-[15px] font-medium text-ios-gray">
                     <Building2 className="h-[15px] w-[15px] shrink-0 text-ios-gray" strokeWidth={2.2} />

@@ -193,6 +193,19 @@ local function buildMyCompany(src)
     return mc
 end
 
+-- Check if any (including self) staff are online for a given job.
+-- @param jobName: string
+-- @return boolean
+function actions.checkAnyOnDutyStaff(jobName)
+    for _, tsrc in pairs(player.onlineCidMap()) do
+        local onDuty  = job.getDuty(tsrc)
+        if onDuty == true and job.getName(tsrc) == jobName then
+            return true
+        end
+    end
+    return false
+end
+
 ---Tells every online boss of a job to refresh their roster; the push carries no data.
 ---@param jobName string|nil
 function actions.notifyRoster(jobName)
@@ -219,6 +232,7 @@ function actions.companyList()
             canCall    = c.canCall == true,
             callNumber = c.callNumber,
             coords     = c.coords and { x = c.coords.x, y = c.coords.y, z = c.coords.z } or nil,
+            onDuty     = actions.checkAnyOnDutyStaff(c.job)
         }
     end
     return companies
