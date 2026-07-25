@@ -16,6 +16,15 @@ local payphones = require 'server.payphone.store'
 ---@type table Actions module; the table returned at end of file.
 local actions = {}
 
+---Whether a player can be rung at all. A server that gates the phone behind an item should not
+---ring someone who is not carrying one; a server with no items configured rings everyone.
+---@param src number player server id
+---@return boolean
+local function reachable(src)
+    if #(config.Phone.Items or {}) == 0 then return true end
+    return exports['sd-phone']:hasPhone(src) ~= nil
+end
+
 -- Live call state is transient and in-memory; only a finished call is persisted. Channels
 -- double as pma-voice call channels, handed out monotonically from 1000.
 ---@type table<number, table> Active 1:1 sessions keyed by channel: { channel, state ('ringing'|'active'), startedAt, caller, callee, company? (display name when promoted from a group ring) }.
@@ -412,6 +421,7 @@ function actions.dial(source, payload)
     -- OTHER phone in their pocket (unlike UI pushes, which only land on the active phone).
     local targetSrc = player.getAnySourceByIdentifier(targetCid)
     if not targetSrc then return fail('This number is currently unavailable') end
+    if not reachable(targetSrc) then return fail('This number is currently unavailable') end
     if settings.isAirplane(targetCid) then return fail('This number is currently unavailable') end
     if contacts.isBlocked(targetCid, digits(myNumber)) then return fail('This number is currently unavailable') end
     if sessionForSource(targetSrc) or ringForSource(targetSrc) then return fail('Line busy') end
@@ -471,6 +481,7 @@ function actions.dialPayphone(source, payload)
 
     local targetSrc = player.getAnySourceByIdentifier(targetCid)
     if not targetSrc then return fail('This number is currently unavailable') end
+    if not reachable(targetSrc) then return fail('This number is currently unavailable') end
     if settings.isAirplane(targetCid) then return fail('This number is currently unavailable') end
     if callerNumber ~= '' and contacts.isBlocked(targetCid, callerNumber) then return fail('This number is currently unavailable') end
     if sessionForSource(targetSrc) or ringForSource(targetSrc) then return fail('Line busy') end
@@ -553,7 +564,7 @@ function actions.callGroup(source, targets, displayName, displayNumber)
     for _, t in ipairs(targets) do
         if t.src and t.src ~= source
             and not sessionForSource(t.src) and not ringForSource(t.src)
-            and not settings.isAirplane(t.cid) then
+            and not settings.isAirplane(t.cid) and reachable(t.src) then
             ringTargets[t.src] = {
                 src    = t.src,
                 cid    = t.cid,
