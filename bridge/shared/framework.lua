@@ -1,7 +1,8 @@
 ---@class FrameworkInfo
 ---@field name 'qbx'|'qb'|'esx' Detected framework identifier.
 ---@field qb boolean True for both QBox and QBCore, whose player objects share a shape.
----@field core any Live core object (`exports['qb-core']:GetCoreObject()` or ESX shared object).
+---@field core any Live core object (QBCore's, or the ESX shared object). Nil on QBox, which has
+---no core object: everything it needs is a discrete qbx_core export.
 
 ---Detects the running player framework and returns a populated FrameworkInfo, or nil when no
 ---supported framework is started. QBox is checked first so it is driven through its own exports
@@ -9,8 +10,7 @@
 ---@return FrameworkInfo|nil
 local function detect()
     if GetResourceState('qbx_core') == 'started' then
-        local ok, core = pcall(function() return exports['qb-core']:GetCoreObject() end)
-        return { name = 'qbx', qb = true, core = ok and core or nil }
+        return { name = 'qbx', qb = true }
     end
     if GetResourceState('qb-core') == 'started' then
         return { name = 'qb', qb = true, core = exports['qb-core']:GetCoreObject() }
