@@ -113,15 +113,64 @@ end)
 
 ## Installation
 
-Full guide: [docs.samueldev.shop/resources/phone/installation](https://docs.samueldev.shop/resources/phone/installation)
+> [!IMPORTANT]
+> Grab the packaged **`sd-phone-*.zip`** from the [latest release](https://github.com/Samuels-Development/sd-phone/releases).
+> The green **Code → Download ZIP** button gives you source only, with no `web/build/`, and the phone will open blank.
 
-**Dependencies:** [ox_lib](https://github.com/CommunityOx/ox_lib) · [oxmysql](https://github.com/CommunityOx/oxmysql) · [sd-phone-props](https://github.com/Samuels-Development/sd-phone-props) (streams the in-hand phone models)
+Prefer the full walkthrough? [docs.samueldev.shop/resources/phone/installation](https://docs.samueldev.shop/resources/phone/installation)
 
-1. Drop `sd-phone` and [`sd-phone-props`](https://github.com/Samuels-Development/sd-phone-props) into your resources folder and ensure them after `ox_lib` and `oxmysql`. Database tables create themselves on first boot.
-2. Add the phone items to your inventory, one per frame colour (`phone_black`, `phone_blue`, `phone_green`, `phone_orange`, `phone_pink`, `phone_purple`, `phone_red`, `phone_yellow`). Ready-made ox_inventory definitions and item icons are in the [installation docs](https://docs.samueldev.shop/resources/phone/installation); the icons ship in this repo's `images/` folder. Players can also open with the keybind (default F1), gated on owning a phone item.
-3. Set your API keys in `configs/server/apikeys.lua`: a [Fivemanage](https://refer.fivemanage.com/samuel) token of type **Media** in `FivemanageMedia` (required for the Camera, Photos and Voice Memos apps to upload), and optionally a GIPHY key for the Messages GIF picker.
+### Dependencies
 
-**Download the [latest release](https://github.com/Samuels-Development/sd-phone/releases)** (the packaged `sd-phone-*.zip`), not the green *Code -> Download ZIP*. The release zip carries the compiled UI and runs as-is; the source zip is code only and has no `web/build/`, so the phone opens blank.
+| Resource | What it is for |
+| --- | --- |
+| [ox_lib](https://github.com/CommunityOx/ox_lib) | Shared library |
+| [oxmysql](https://github.com/CommunityOx/oxmysql) | Database access |
+| [sd-phone-props](https://github.com/Samuels-Development/sd-phone-props) | Streams the in-hand phone models |
 
-Building from a git clone yourself: `cd web && npm ci && npm run build`. The output lands in the gitignored `web/build/`; the server logs a clear error on boot if it is missing.
+### 1. Start the resources
+
+Extract `sd-phone` and `sd-phone-props` into your resources folder, then start them after their dependencies:
+
+```cfg
+ensure ox_lib
+ensure oxmysql
+ensure sd-phone-props
+ensure sd-phone
+```
+
+Database tables create themselves on first boot.
+
+### 2. Add the phone items
+
+One item per frame colour:
+
+```
+phone_black   phone_blue     phone_green   phone_orange
+phone_pink    phone_purple   phone_red     phone_yellow
+```
+
+Ready-made ox_inventory definitions live in the [installation docs](https://docs.samueldev.shop/resources/phone/installation), and the item icons ship in this repo's `images/` folder.
+
+Players can also open the phone with a keybind (<kbd>F1</kbd> by default), which still requires owning one of these items.
+
+### 3. Add your API keys
+
+In `configs/server/apikeys.lua`:
+
+| Key | Needed for |
+| --- | --- |
+| `FivemanageMedia` | **Required.** Camera, Photos and Voice Memos uploads. Create a free [Fivemanage](https://refer.fivemanage.com/samuel) token of type **Media**. Without it those apps open, but nothing uploads or saves. |
+| `Giphy` | Optional. The GIF picker in Messages. Free key from [developers.giphy.com](https://developers.giphy.com). |
+
+### Building from source
+
+Cloned the repo instead of using a release? Build the UI yourself:
+
+```bash
+cd web
+npm ci
+npm run build
+```
+
+The output lands in the gitignored `web/build/`, and the server logs a clear error on boot if it is missing.
 
