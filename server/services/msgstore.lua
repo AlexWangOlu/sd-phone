@@ -70,11 +70,24 @@ function store.threadMessages(job, citizenNumber, limit)
     ]], { job, citizenNumber, limit or 100 }) or {}
 end
 
+---True when a (job, citizen) thread already has at least one message. Staff replies are gated on
+---this: without it a client-chosen number mints a brand-new thread per call. Read-only.
+---@param job string
+---@param citizenNumber string
+---@return boolean
+function store.threadExists(job, citizenNumber)
+    if not job or job == '' or not citizenNumber or citizenNumber == '' then return false end
+    return MySQL.scalar.await(
+        'SELECT 1 FROM phone_service_messages WHERE job = ? AND citizen_number = ? LIMIT 1',
+        { job, citizenNumber }) ~= nil
+end
+
 ---Distinct customer threads for a job (one row per customer, newest first), each carrying the
 ---latest body + the customer's most recent known display name. Read-only.
 ---@param job string
+---@param limit? number thread cap (default 50); the inbox runs one query per thread returned
 ---@return { citizen_number: string, citizen_name?: string, last_body?: string, created_at: number }[]
-function store.jobThreads(job)
+function store.jobThreads(job, limit)
     return MySQL.query.await([[
         SELECT t.citizen_number, t.created_at,
                (SELECT body FROM phone_service_messages
@@ -89,7 +102,8 @@ function store.jobThreads(job)
             GROUP BY citizen_number
         ) t
         ORDER BY t.created_at DESC
-    ]], { job, job, job }) or {}
+        LIMIT ?
+    ]], { job, job, job, limit or 50 }) or {}
 end
 
 ---Marks a (viewer, job, citizen) thread read up to `ts`; the stored timestamp never moves

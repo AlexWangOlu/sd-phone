@@ -173,6 +173,30 @@ function store.threadKeys(citizenid)
     ]], { citizenid }) or {}
 end
 
+---True when the player's mailbox already holds at least one copy in this thread. An index dive
+---on idx_phone_messages_thread, so it is cheap enough to run before every 1:1 send. Read-only.
+---@param citizenid string
+---@param conversation string
+---@return boolean
+function store.threadExists(citizenid, conversation)
+    local row = MySQL.single.await(
+        'SELECT 1 AS hit FROM phone_messages WHERE citizenid = ? AND conversation = ? LIMIT 1',
+        { citizenid, conversation }
+    )
+    return row ~= nil
+end
+
+---How many distinct threads the player's mailbox holds. Read-only.
+---@param citizenid string
+---@return number
+function store.conversationCount(citizenid)
+    local n = MySQL.scalar.await(
+        'SELECT COUNT(DISTINCT conversation) FROM phone_messages WHERE citizenid = ?',
+        { citizenid }
+    )
+    return tonumber(n) or 0
+end
+
 ---Reads the newest `limit` messages in one thread, returned oldest-first. The cap is a
 ---validated integer interpolated into the query. Read-only.
 ---@param citizenid string

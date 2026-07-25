@@ -37,8 +37,12 @@ lib.callback.register('sd-phone:server:ryde:history',       function(src)       
 lib.callback.register('sd-phone:server:ryde:leaderboard',   function()             return actions.leaderboard() end)
 
 ---/rydeoffer - DEV/TEST: injects a dummy fare offer onto the caller's own active ride request.
+---Restricted: it mints a synthetic trip record per run, so it must not be player-reachable.
 ---@param source integer player server id
-lib.addCommand('rydeoffer', { help = 'Ryde: add a test fare offer to your active ride request' }, function(source)
+lib.addCommand('rydeoffer', {
+    help = 'Ryde: add a test fare offer to your active ride request',
+    restricted = 'group.admin',
+}, function(source)
     local msg = actions.devOffer(source)
     TriggerClientEvent('ox_lib:notify', source, { title = 'Ryde', description = msg, type = 'inform' })
 end)

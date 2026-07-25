@@ -47,6 +47,30 @@ end
 ---@return string
 local function encodeJson(tbl) return json.encode(tbl or {}) end
 
+---@type integer Hard ceiling on one account's stored messages blob. Every append, mark-read and
+---flag is a read-decode-encode-write of the WHOLE blob on the main thread, so the blob size is
+---what a caller pays per call - MaxMessagesPerAccount alone does not bound it, because one
+---message can carry a 10k body plus five 5k note attachments.
+local MAX_ACCOUNT_BYTES = 512 * 1024
+
+---Drops the oldest messages until the array's encoded size fits the account budget. The newest
+---message is always kept, even alone over budget, so a delivery is never silently lost.
+---@param messages table[] oldest-first
+---@return table[] messages the same array when it already fits
+local function fitBudget(messages)
+    local total, from = 2, 1
+    for i = #messages, 1, -1 do
+        local encodedOk, encoded = pcall(json.encode, messages[i])
+        total = total + ((encodedOk and type(encoded) == 'string') and #encoded + 1 or MAX_ACCOUNT_BYTES)
+        if total > MAX_ACCOUNT_BYTES and i < #messages then from = i + 1; break end
+    end
+    if from == 1 then return messages end
+
+    local out = {}
+    for i = from, #messages do out[#out + 1] = messages[i] end
+    return out
+end
+
 ---Hydrate a raw row from `phone_mail_accounts` into the canonical Lua shape with `messages`
 ---and `logged_in_citizens` pre-decoded.
 ---@param row table|nil
@@ -74,10 +98,16 @@ function store.ensureSchema()
             display_name       VARCHAR(64)  NOT NULL,
             messages           JSON         NOT NULL,
             logged_in_citizens JSON         NOT NULL,
+            created_by_cid     VARCHAR(64)  NULL,
             created_at         TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (email)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ]])
+
+    -- Signing out only drops the session, so the concurrent-session cap cannot bound how many
+    -- accounts one character has minted. This column is what a lifetime cap counts.
+    util.ensureColumns('phone_mail_accounts', { created_by_cid = 'created_by_cid VARCHAR(64) NULL' })
+    util.ensureIndex('phone_mail_accounts', 'idx_phone_mail_accounts_creator', '(created_by_cid)')
 
     MySQL.query.await([[
         CREATE TABLE IF NOT EXISTS phone_mail_saved_emails (
@@ -117,15 +147,25 @@ end
 ---@param email string
 ---@param passwordHash string
 ---@param displayName string
+---@param createdByCid string|nil creator citizenid, stamped so a lifetime cap can count them
 ---@return boolean
-function store.insertAccount(email, passwordHash, displayName)
+function store.insertAccount(email, passwordHash, displayName, createdByCid)
     local ok = pcall(function()
         MySQL.insert.await([[
-            INSERT INTO phone_mail_accounts (email, password_hash, display_name, messages, logged_in_citizens)
-            VALUES (?, ?, ?, '[]', '[]')
-        ]], { email, passwordHash, displayName })
+            INSERT INTO phone_mail_accounts (email, password_hash, display_name, messages, logged_in_citizens, created_by_cid)
+            VALUES (?, ?, ?, '[]', '[]', ?)
+        ]], { email, passwordHash, displayName, createdByCid })
     end)
     return ok
+end
+
+---How many accounts a character has ever created, signed in or not. Read-only.
+---@param citizenid string
+---@return number
+function store.countAccountsCreatedBy(citizenid)
+    local n = MySQL.scalar.await(
+        'SELECT COUNT(*) FROM phone_mail_accounts WHERE created_by_cid = ?', { citizenid })
+    return tonumber(n) or 0
 end
 
 ---Adds a citizenid to an account's logged-in list. Idempotent.
@@ -199,6 +239,7 @@ function store.appendMessage(email, message, maxRetained)
         end
         acc.messages = trimmed
     end
+    acc.messages = fitBudget(acc.messages)
 
     local affected = MySQL.update.await(
         'UPDATE phone_mail_accounts SET messages = ? WHERE email = ?',

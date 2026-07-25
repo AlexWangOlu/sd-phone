@@ -17,6 +17,22 @@ CreateThread(function()
     boot.schemaReady()
 end)
 
+-- Batched view counts: article reads buffer in memory and land in one pass per minute.
+CreateThread(function()
+    while true do
+        Wait(60000)
+        local ok, err = pcall(actions.flushViews)
+        if not ok then print(('^1[sd-phone:weazelnews]^0 view flush failed: %s'):format(err)) end
+    end
+end)
+
+---Flushes the buffered view counts once on resource stop. Guarded to this resource only.
+---@param resource string name of the resource that stopped
+AddEventHandler('onResourceStop', function(resource)
+    if resource ~= GetCurrentResourceName() then return end
+    pcall(actions.flushViews)
+end)
+
 -- NUI callbacks: thin delegates into server.weazelnews.actions; shims normalize non-table payloads.
 lib.callback.register('sd-phone:server:weazelnews:feed', function(src)
     return actions.feed(src)

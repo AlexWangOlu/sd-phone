@@ -17,6 +17,9 @@ local chips = {}
 local CHIP_CEILING = 100000000
 ---@type integer Max single buy / sell.
 local TX_MAX       = 1000000
+---@type integer Minimum gap between conversions (ms). Every buy and sell mints a permanent Wallet
+---transaction row, so a zero-sum buy/sell loop must not be free.
+local CONVERT_COOLDOWN = 2000
 
 ---@return string|nil citizenid for a server-trusted src (nil when offline)
 local function cidOf(src) return player.getIdentifier(src) end
@@ -128,6 +131,7 @@ end)
 ---Buy chips with the caller's own bank money (validated + clamped in chips.buy).
 lib.callback.register('sd-phone:server:games:chipsBuy', function(src, payload)
     payload = type(payload) == 'table' and payload or {}
+    if not util.cooldown(cidOf(src), 'games:chipsConvert', CONVERT_COOLDOWN) then return { success = false, message = 'Slow down' } end
     local r, msg = chips.buy(src, payload.amount, payload.game)
     if not r then return { success = false, message = msg } end
     return { success = true, data = r }
@@ -136,6 +140,7 @@ end)
 ---Sell the caller's own chips back to bank money (validated + clamped in chips.sell).
 lib.callback.register('sd-phone:server:games:chipsSell', function(src, payload)
     payload = type(payload) == 'table' and payload or {}
+    if not util.cooldown(cidOf(src), 'games:chipsConvert', CONVERT_COOLDOWN) then return { success = false, message = 'Slow down' } end
     local r, msg = chips.sell(src, payload.amount, payload.game)
     if not r then return { success = false, message = msg } end
     return { success = true, data = r }

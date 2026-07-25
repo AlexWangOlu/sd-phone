@@ -56,6 +56,17 @@ local actions = {}
 local util = require 'server.util'
 local ok, fail, digits, trim = util.ok, util.fail, util.digits, util.trim
 
+---@type integer Rolling window the company-message budgets are measured over, in ms.
+local MSG_WINDOW = 60000
+---@type integer Messages one customer may send to companies per window. Each one fans a push out
+---to every on-duty employee and rebuilds the sender's inbox.
+local MSG_MAX = 25
+---@type integer Replies one staff member may send per window; the same rebuild runs per reply.
+local REPLY_MAX = 30
+---@type integer Thread opens one viewer may register per window. Marking read costs a thread-
+---existence SELECT on any key the company whitelist misses, so the endpoint still needs a ceiling.
+local READ_MAX = 90
+
 
 
 ---Parses a client message draft into a kind, a body, and a JSON meta blob of the extras, with
@@ -193,10 +204,32 @@ local function buildMyCompany(src)
     return mc
 end
 
----Tells every online boss of a job to refresh their roster; the push carries no data.
+---@type integer Smallest gap between two roster pushes for the same job, in ms.
+local ROSTER_GAP = 2000
+---@type table<string, number> Last roster push per job name.
+local rosterAt = {}
+---@type table<string, boolean> Jobs with a trailing roster push already scheduled.
+local rosterQueued = {}
+
+---Tells every online boss of a job to refresh their roster; the push carries no data. Throttled
+---per job: a burst of hires or duty flips coalesces into one leading push plus one trailing one,
+---so every boss still ends on a current roster.
 ---@param jobName string|nil
 function actions.notifyRoster(jobName)
     if not jobName or BLACKLIST[jobName] then return end
+
+    local now, last = GetGameTimer(), rosterAt[jobName]
+    if last and now - last >= 0 and now - last < ROSTER_GAP then
+        if rosterQueued[jobName] then return end
+        rosterQueued[jobName] = true
+        SetTimeout(ROSTER_GAP - (now - last), function()
+            rosterQueued[jobName] = nil
+            actions.notifyRoster(jobName)
+        end)
+        return
+    end
+    rosterAt[jobName] = now
+
     local esxBoss = esxBossGrade(jobName)
     for _, tsrc in pairs(player.onlineCidMap()) do
         if job.getName(tsrc) == jobName and job.isBoss(tsrc, jobName, esxBoss) then
@@ -538,8 +571,12 @@ function actions.callCompany(src, payload)
     local entry = byJob[tostring(payload.job or '')]
     if not entry then return fail('Unknown company') end
     if not entry.canCall then return fail("You can't call this company") end
-    if not player.getIdentifier(src) then return fail('Player not found') end
+    local myCid = player.getIdentifier(src)
+    if not myCid then return fail('Player not found') end
     if job.getName(src) == entry.job then return fail("You can't call the company you work for") end
+    -- Ahead of the roster walk: a successful dial rings every on-duty employee, and the
+    -- "already on a call" guard only rejects downstream, inside callGroup.
+    if not util.cooldown(myCid, 'services:callCompany', 3000) then return fail('Please wait a moment') end
 
     local targets   = {}
     local anyOnDuty = false
@@ -655,13 +692,26 @@ function actions.markThreadRead(src, payload)
     if not cid then return fail('Player not found') end
     local key = tostring(payload.key or '')
     if key == '' then return fail('Missing thread') end
+    -- A dropped mark-read only leaves a badge that clears on the next open, so this can sit well
+    -- below any plausible reader: 90 thread opens a minute is already unreachable by hand.
+    if not util.rateLimit(cid, 'services:markRead', MSG_WINDOW, READ_MAX) then return fail('Please wait a moment') end
 
+    -- Both branches put `key` straight into the read table's composite primary key, so an
+    -- unvetted key is one new row per distinct value. Only keys the inbox actually hands out pass.
     if payload.scope == 'job' then
         local myJob = job.getName(src)
-        if myJob and byJob[myJob] then msgstore.markRead(cid, myJob, key:sub(1, 32), os.time()) end
+        if not (myJob and byJob[myJob]) then return fail('Missing thread') end
+        local citizenNumber = digits(key):sub(1, 32)
+        if not msgstore.threadExists(myJob, citizenNumber) then return fail('Missing thread') end
+        msgstore.markRead(cid, myJob, citizenNumber, os.time())
     else
         local myNumber = digits(settings.getPhoneNumber(cid) or '')
-        if myNumber ~= '' then msgstore.markRead(cid, key:sub(1, 64), myNumber, os.time()) end
+        if myNumber == '' then return ok() end
+        local jobKey = key:sub(1, 64)
+        -- Configured companies are the whole of the normal case; the probe only covers a thread
+        -- left behind by a company since removed from configs/services.lua.
+        if not byJob[jobKey] and not msgstore.threadExists(jobKey, myNumber) then return fail('Missing thread') end
+        msgstore.markRead(cid, jobKey, myNumber, os.time())
     end
     return ok()
 end
@@ -701,6 +751,12 @@ function actions.messageCompany(src, payload)
     if not entry then return fail('Unknown company') end
     local cid = player.getIdentifier(src)
     if not cid then return fail('Player not found') end
+    -- Every accepted message stores a row, wakes every on-duty employee and rebuilds the sender's
+    -- whole inbox, so the gates go ahead of all three: one bounds a burst, one the sustained rate.
+    if not util.cooldown(cid, 'services:messageCompany', 1000)
+        or not util.rateLimit(cid, 'services:messageCompany', MSG_WINDOW, MSG_MAX) then
+        return fail('Please wait a moment')
+    end
 
     local kind, body, meta = parseDraft(payload)
     if not kind then return fail(body) end
@@ -738,8 +794,16 @@ function actions.replyCompany(src, payload)
     local entry = myJob and byJob[myJob]
     if not entry then return fail("You're not in a company") end
 
+    if not util.cooldown(cid, 'services:replyCompany', 1000)
+        or not util.rateLimit(cid, 'services:replyCompany', MSG_WINDOW, REPLY_MAX) then
+        return fail('Please wait a moment')
+    end
+
     local citizenNumber = digits(payload.citizen):sub(1, 32)
     if citizenNumber == '' then return fail('No recipient') end
+    -- Staff answer existing conversations; they never open one. Without this an employee mints a
+    -- brand-new company thread per call, and the inbox rebuild runs a query per thread.
+    if not msgstore.threadExists(entry.job, citizenNumber) then return fail('No such conversation') end
     local kind, body, meta = parseDraft(payload)
     if not kind then return fail(body) end
 

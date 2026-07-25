@@ -17,6 +17,42 @@ local actions = {}
 local util = require 'server.util'
 local ok, fail, trim, flag = util.ok, util.fail, util.trim, util.truthy
 
+---@type integer How long a like/follow notification suppresses an identical repeat (seconds).
+local NOTIF_DEDUPE = 3600
+
+---@type table<string, boolean> Notification kinds a toggle can re-raise indefinitely, so the same
+---actor + post + recipient is only stored once per NOTIF_DEDUPE window.
+local TOGGLE_KINDS = { like = true, follow = true }
+
+---@type table<string, integer[]> Per-citizenid write budgets as { minimum gap ms, accepted calls
+---per day }. Both sit far above real play; they exist so a scripted client cannot mint rows,
+---notifications or broadcasts faster than a person can tap.
+local WRITE_BUDGET = {
+    create  = { 2000, 100 },
+    comment = { 800, 500 },
+    like    = { 250, 3000 },
+    follow  = { 400, 500 },
+}
+
+---@type integer Rolling window the per-day half of WRITE_BUDGET is measured over (ms).
+local BUDGET_WINDOW = 86400000
+
+---Applies the caller's write budget for `key`. nil means the call may proceed; anything else is
+---the envelope to hand straight back to the client.
+---@param src integer player server id
+---@param key string WRITE_BUDGET key
+---@return table|nil refusal
+local function throttle(src, key)
+    local cid = player.getIdentifier(src)
+    if not cid then return nil end
+    local budget = WRITE_BUDGET[key]
+    if not util.cooldown(cid, 'vibez:' .. key, budget[1]) then return fail('Slow down') end
+    if not util.rateLimit(cid, 'vibez:' .. key, BUDGET_WINDOW, budget[2]) then
+        return fail('Daily limit reached')
+    end
+    return nil
+end
+
 ---The vibez account the calling player is signed into, resolved from `src` alone. nil when the
 ---character isn't signed in.
 ---@param src integer player server id
@@ -176,6 +212,11 @@ end
 ---here, which a loop over recipients pays once per recipient for invariant values
 local function notify(recipient, kind, actor, postId, preview, ctx)
     if recipient == actor or recipient == '' then return end
+    -- Un-liking does not delete the row, so re-liking would otherwise mint a permanent duplicate
+    -- on every flip. Comments and mentions are genuinely new each time and are never deduped.
+    if TOGGLE_KINDS[kind] and store.recentNotification(recipient, kind, actor, postId, os.time() - NOTIF_DEDUPE) then
+        return
+    end
     store.insertNotification(store.newId(), recipient, kind, actor, postId, preview, os.time())
 
     local sources = sourcesFor(recipient, ctx and ctx.activeSrcs or nil)
@@ -304,6 +345,7 @@ function actions.create(src, payload)
     local acc = viewerAccount(src)
     if not acc then return fail('Not signed in') end
     local muted = moderation.guard(player.getIdentifier(src), 'vibez'); if muted then return muted end
+    local slow = throttle(src, 'create'); if slow then return slow end
     ensureProfile(acc)
 
     local video = sanitizeUrl(payload.video)
@@ -370,6 +412,7 @@ function actions.toggleLike(src, payload)
     payload = type(payload) == 'table' and payload or {}
     local acc = viewerAccount(src)
     if not acc then return fail('Not signed in') end
+    local slow = throttle(src, 'like'); if slow then return slow end
     local row = store.getPostRow(trim(payload.id))
     if not row then return fail('Vibe not found') end
 
@@ -447,6 +490,7 @@ function actions.addComment(src, payload)
     local acc = viewerAccount(src)
     if not acc then return fail('Not signed in') end
     local muted = moderation.guard(player.getIdentifier(src), 'vibez'); if muted then return muted end
+    local slow = throttle(src, 'comment'); if slow then return slow end
 
     local row = store.getPostRow(trim(payload.postId))
     if not row then return fail('Vibe not found') end
@@ -601,6 +645,7 @@ function actions.toggleFollow(src, payload)
     if not acc then return fail('Not signed in') end
     local target = trim(payload.handle):lower()
     if target == '' or target == acc.username then return fail('Bad target') end
+    local slow = throttle(src, 'follow'); if slow then return slow end
     if not store.getProfile(target) then return fail('Account not found') end
 
     local following
