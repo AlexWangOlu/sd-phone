@@ -46,9 +46,16 @@ function util.truthy(v) return v == true or v == 1 or v == '1' end
 ---Trims leading/trailing whitespace. A non-string coerces to '' (never nil).
 ---@param s any
 ---@return string trimmed, or '' when not a string
+-- Linear, and it has to stay that way. The obvious `s:gsub('%s+$', '')` is
+-- quadratic on interior whitespace: for 'x' .. (' '):rep(n) .. 'x' the matcher
+-- re-expands the run at every start position and backtracks it against `$`.
+-- Measured on Lua 5.4: n=50k took 12.8s, n=100k 58s, n=200k 235s, all of it on
+-- the server thread. trim runs before every length cap, so the cap cannot save
+-- us; the trim itself must be safe on unbounded input.
 function util.trim(s)
     if type(s) ~= 'string' then return '' end
-    return (s:gsub('^%s+', ''):gsub('%s+$', ''))
+    local from = s:match('^%s*()')
+    return from > #s and '' or s:match('.*%S', from)
 end
 
 ---Two-letter uppercase initials from a display name (first letters of the first two words), for
@@ -283,5 +290,199 @@ function util.wholeAmount(v)
     if not util.finite(n) then return 0 end
     return math.max(0, math.floor(n))
 end
+
+---@type integer How often stale limiter buckets are swept (ms). The walk is over live buckets
+---only, so this can stay infrequent without the table growing between passes.
+local SWEEP_MS = 5 * 60 * 1000
+
+---@type table<string, { last: integer, ttl: integer, events: integer[]? }>
+---"<citizenid>\0<kind>\0<key>" -> bucket. Keyed by citizenid and never by source, so dropping and
+---reconnecting cannot reset a limit. A stamp in the future (GetGameTimer wrapping on a server with
+---weeks of uptime) counts as expired everywhere, so a wrap can never leave a limit stuck closed.
+local buckets = {}
+
+---Minimum gap between accepted calls for one citizenid + key. A blocked call is NOT recorded, so
+---the gap never extends under spam: a flooding client still gets exactly one call every `ms`.
+---A missing cid (server-side exports, a player still loading) is never blocked.
+---@param cid string|nil citizenid, never a source (a non-string is treated as missing, so never blocked)
+---@param key string limiter name, a call-site constant (a client-supplied key allocates a bucket per value)
+---@param ms integer minimum gap between accepted calls
+---@return boolean ok true when the call may proceed
+function util.cooldown(cid, key, ms)
+    if type(cid) ~= 'string' or cid == '' then return true end
+    local gap = tonumber(ms) or 0
+    local now = GetGameTimer()
+    local k = cid .. '\0c\0' .. tostring(key)
+    local b = buckets[k]
+    if b then
+        local since = now - b.last
+        if since >= 0 and since < gap then return false end
+        b.last, b.ttl = now, gap
+    else
+        buckets[k] = { last = now, ttl = gap }
+    end
+    return true
+end
+
+---Rolling-window budget for one citizenid + key: at most `maxInWindow` accepted calls in any
+---`windowMs`. Blocked calls are not recorded, so a caller who backs off recovers as the window
+---drains instead of serving a penalty. A missing cid is never blocked.
+---@param cid string|nil citizenid, never a source (a non-string is treated as missing, so never blocked)
+---@param key string limiter name, a call-site constant (a client-supplied key allocates a bucket per value)
+---@param windowMs integer rolling window length in ms
+---@param maxInWindow integer accepted calls allowed inside one window
+---@return boolean ok true when the call may proceed
+function util.rateLimit(cid, key, windowMs, maxInWindow)
+    if type(cid) ~= 'string' or cid == '' then return true end
+    local window = tonumber(windowMs) or 0
+    local max = tonumber(maxInWindow) or 0
+    local now = GetGameTimer()
+    local k = cid .. '\0r\0' .. tostring(key)
+    local b = buckets[k]
+    if not b then
+        if max < 1 then return false end
+        buckets[k] = { last = now, ttl = window, events = { now } }
+        return true
+    end
+
+    -- Compacted in place rather than rebuilt: the array can only hold `max` accepted stamps, so
+    -- the reject path stays O(max) and allocates nothing.
+    local events, kept = b.events, 0
+    for i = 1, #events do
+        local t = events[i]
+        local age = now - t
+        if age >= 0 and age < window then
+            kept = kept + 1
+            events[kept] = t
+        end
+    end
+    for i = #events, kept + 1, -1 do events[i] = nil end
+    if kept >= max then return false end
+
+    events[kept + 1] = now
+    b.last, b.ttl = now, window
+    return true
+end
+
+-- Periodic sweep: a bucket whose window has fully elapsed rebuilds identically from scratch, so
+-- drop it instead of holding one entry per citizenid per call site for the server's uptime.
+CreateThread(function()
+    while true do
+        Wait(SWEEP_MS)
+        local now = GetGameTimer()
+        for k, b in pairs(buckets) do
+            local age = now - b.last
+            if age < 0 or age >= b.ttl then buckets[k] = nil end
+        end
+    end
+end)
+
+---Cuts a byte-capped string back to the last whole UTF-8 codepoint, so a cap can never leave the
+---half sequence that a utf8mb4 column rejects.
+---@param s string
+---@return string
+local function wholeUtf8(s)
+    local i = #s
+    while i > 0 do
+        local b = s:byte(i)
+        if b < 0x80 or b >= 0xC0 then break end
+        i = i - 1
+    end
+    if i == 0 then return s end
+    local lead = s:byte(i)
+    local need = lead < 0x80 and 1 or lead < 0xE0 and 2 or lead < 0xF0 and 3 or 4
+    if i + need - 1 > #s then return s:sub(1, i - 1) end
+    return s
+end
+
+---Trims a client string and caps it to `maxLen` BYTES, matching what the column actually stores.
+---Non-strings and empty-after-trim collapse to nil so a caller rejects with one `if not v then`.
+---@param v any raw client value
+---@param maxLen integer maximum byte length
+---@return string|nil
+function util.limitedString(v, maxLen)
+    if type(v) ~= 'string' then return nil end
+    local s = util.trim(v)
+    if s == '' then return nil end
+    local max = tonumber(maxLen) or 0
+    if max < 1 then return nil end
+    if #s > max then s = wholeUtf8(s:sub(1, max)) end
+    return s ~= '' and s or nil
+end
+
+---True when a value's JSON encoding fits in `maxBytes`. Encodes once; nil is always within budget,
+---and an encode failure (a cycle, excessive nesting, a function value) counts as over budget.
+---@param v any
+---@param maxBytes integer
+---@return boolean ok
+function util.encodedSize(v, maxBytes)
+    local max = tonumber(maxBytes) or 0
+    if v == nil then return true end
+    if type(v) == 'string' then return #v <= max end
+    local ok, encoded = pcall(json.encode, v)
+    if not ok or type(encoded) ~= 'string' then return false end
+    return #encoded <= max
+end
+
+---Validates a client-supplied table before it is stored or relayed: a table, at most `maxEntries`
+---pairs at each level, at most one level of nesting, scalar leaves only, and an encoded size
+---within `maxBytes` so one huge string value cannot pass a cheap entry count.
+---@param v any raw client value
+---@param maxEntries integer maximum pairs at each level
+---@param maxBytes integer maximum JSON-encoded size
+---@return table|nil value the original table, or nil when it fails any check
+function util.smallTable(v, maxEntries, maxBytes)
+    if type(v) ~= 'table' then return nil end
+    local max = tonumber(maxEntries) or 0
+    -- String leaves are tallied as they are walked so a multi-megabyte value is refused before the
+    -- encoder ever runs; a leaf can only grow under encoding, so this rejects nothing extra.
+    local budget = tonumber(maxBytes) or 0
+    local n, bytes = 0, 0
+    for _, val in pairs(v) do
+        n = n + 1
+        if n > max then return nil end
+        local t = type(val)
+        if t == 'table' then
+            local inner = 0
+            for _, leaf in pairs(val) do
+                inner = inner + 1
+                if inner > max then return nil end
+                local lt = type(leaf)
+                if lt == 'table' or lt == 'function' or lt == 'userdata' or lt == 'thread' then return nil end
+                if lt == 'string' then
+                    bytes = bytes + #leaf
+                    if bytes > budget then return nil end
+                end
+            end
+        elseif t == 'function' or t == 'userdata' or t == 'thread' then
+            return nil
+        elseif t == 'string' then
+            bytes = bytes + #val
+            if bytes > budget then return nil end
+        end
+    end
+    if not util.encodedSize(v, maxBytes) then return nil end
+    return v
+end
+
+---@type fun(source: integer, citizenid: string|nil)[] Registered disconnect sweeps.
+local cleanups = {}
+
+---Registers a sweep to run when a player disconnects, so a module that keys a table on source can
+---drop its row without adding another playerDropped handler. `citizenid` is best effort: the
+---framework may already have unloaded the character, so key on `source` and treat cid as a hint.
+---@param fn fun(source: integer, citizenid: string|nil)
+function util.onCleanup(fn)
+    if type(fn) ~= 'function' then return end
+    cleanups[#cleanups + 1] = fn
+end
+
+AddEventHandler('playerDropped', function()
+    local src = source
+    -- Required here rather than at file scope so util stays the lowest-level module, loadable
+    -- without the bridge; ox_lib caches the module so this is a table lookup after the first drop.
+    local ok, cid = pcall(function() return require('bridge.server.player').getIdentifier(src) end)
+    for i = 1, #cleanups do pcall(cleanups[i], src, ok and cid or nil) end
+end)
 
 return util

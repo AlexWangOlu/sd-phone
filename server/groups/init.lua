@@ -152,7 +152,9 @@ lib.callback.register('sd-phone:server:groups:invite', function(src, payload)
             body  = ('%s invited you to join'):format(inv.invitedBy or 'Someone'),
             time  = 'now',
         })
-        badges.push(targetSrc)
+        -- Aimed at another player on their say-so, so it must stay one indexed count rather than
+        -- the seven-store snapshot; an invite only ever moves the Groups badge anyway.
+        badges.pushApp(targetSrc, 'groups')
         result.data = { invite = inv }
     end
     return result
@@ -170,14 +172,14 @@ lib.callback.register('sd-phone:server:groups:accept', function(src, payload)
         })
         result.data = { group = result.data.group }
     end
-    badges.push(src)
+    badges.pushApp(src, 'groups')
     return result
 end)
 
 ---Declines an invite and recounts the caller's Groups badge.
 lib.callback.register('sd-phone:server:groups:decline', function(src, payload)
     local result = actions.decline(src, payload)
-    badges.push(src)
+    badges.pushApp(src, 'groups')
     return result
 end)
 

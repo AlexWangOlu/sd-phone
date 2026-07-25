@@ -14,7 +14,7 @@ import { MAIL_DOMAIN, accountsConfirmReset, accountsRequestReset, accountsSavePa
 import { toggleReactionLocal } from '@/shared/chat/messagesApi';
 import type { MessageDraft } from '@/shared/chat/ChatView';
 import {
-    apiCreate, apiDmList, apiDmMarkRead, apiDmReact, apiDmResolve, apiDmSend, apiDmThread, apiFeed, apiLogin, apiMe, apiPostDetail, apiProfile, apiRegister, apiNotificationCount, apiReply, apiToggleFollow, apiToggleLike, apiToggleRepost,
+    apiCreate, apiDmList, apiDmMarkRead, apiDmReact, apiDmResolve, apiDmSend, apiDmThread, apiFeed, apiLogin, apiMe, apiPostDetail, apiProfile, apiRegister, apiNotificationCount, apiReply, apiToggleFollow, apiToggleLike, apiToggleRepost, apiWatch,
 } from './birdyApi';
 import { ChatView } from './dms/ChatView';
 import { Composer } from './feed/Composer';
@@ -62,6 +62,14 @@ export function Birdy({ onClose }: { onClose: () => void }) {
         if (deckActive && !wasActive.current) refreshFeed();
         wasActive.current = deckActive;
     }, [deckActive, refreshFeed]);
+
+    // feedChanged reaches only the phones showing Birdy, so the subscription follows the
+    // foreground. The refresh above covers anything pushed while this one was not listening.
+    useEffect(() => {
+        if (!deckActive) return;
+        apiWatch(true);
+        return () => { apiWatch(false); };
+    }, [deckActive]);
 
     useEffect(() => {
         if (!authed) return;

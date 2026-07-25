@@ -154,17 +154,30 @@ function store.getNotifPref(citizenid, app)
     return row.enabled == true or tonumber(row.enabled) == 1
 end
 
----Persists a player's notification preference for an app (upsert); no-op for an unusable app id.
+---@type integer Cap on stored notification overrides per character. Only a muted app keeps a row,
+---so this sits far above the phone's whole app list, custom apps included.
+local MAX_NOTIF_PREFS = 64
+
+---Persists a player's notification preference for an app; no-op for an unusable app id. Enabled
+---is what getNotifPref falls back to, so re-enabling drops the row instead of storing the
+---default - the app id is client-supplied and would otherwise be an uncapped primary key.
 ---@param citizenid string framework per-character id
 ---@param app string app slug
 ---@param on boolean whether notifications are enabled
 function store.setNotifPref(citizenid, app, on)
     local a = sanitizeApp(app)
     if not citizenid or citizenid == '' or not a then return end
+    if on == true then
+        MySQL.update.await('DELETE FROM phone_notif_prefs WHERE citizenid = ? AND app = ?', { citizenid, a })
+        return
+    end
+    local countRow = MySQL.single.await(
+        'SELECT COUNT(*) AS n FROM phone_notif_prefs WHERE citizenid = ?', { citizenid })
+    if countRow and tonumber(countRow.n) >= MAX_NOTIF_PREFS then return end
     MySQL.update.await([[
-        INSERT INTO phone_notif_prefs (citizenid, app, enabled) VALUES (?, ?, ?)
+        INSERT INTO phone_notif_prefs (citizenid, app, enabled) VALUES (?, ?, 0)
         ON DUPLICATE KEY UPDATE enabled = VALUES(enabled)
-    ]], { citizenid, a, on == true and 1 or 0 })
+    ]], { citizenid, a })
 end
 
 ---Trims a string and clamps it to `n` chars; nil / non-string / empty becomes nil.
