@@ -207,7 +207,7 @@ export function Birdy({ onClose }: { onClose: () => void }) {
             setOpenConvo(prev => (prev && prev.id === convoId
                 ? { ...prev, messages: prev.messages.filter(m => m.id !== optimistic.id) }
                 : prev));
-            setSendError(res.error ?? t('birdy.failedToSend', 'Failed to send'));
+            setSendError(res.error ?? t('birdy.failedToSend', 'Message not sent'));
         }
     }
 
@@ -436,7 +436,7 @@ export function Birdy({ onClose }: { onClose: () => void }) {
             <button
                 type="button"
                 onClick={onClose}
-                aria-label={t('birdy.closeBirdy', 'Close Birdy')}
+                aria-label={t('birdy.closeBirdy', 'Close Squawk')}
                 className="absolute inset-x-0 bottom-0 z-[5] h-5 cursor-default"
             />
         </div>

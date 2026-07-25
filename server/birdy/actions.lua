@@ -530,7 +530,7 @@ function actions.create(source, payload)
         if src then
             TriggerClientEvent('sd-phone:client:birdy:notification', src, {})
             TriggerClientEvent('sd-phone:client:notify', src, {
-                app = 'birdy', appId = 'birdy', title = 'Birdy',
+                app = 'birdy', appId = 'birdy', title = 'Squawk',
                 body = ('%s posted: %s'):format(prof.displayName, preview),
                 time = 'now', quietInApp = true,
             })

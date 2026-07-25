@@ -33,7 +33,7 @@ export function devInjectMockData(): () => void {
             { id: 'health',   label: 'Health',    icon: 'health',   route: '/health',   accent: '#ff2d55', base: true },
             { id: 'documents', label: 'Files',    icon: 'documents', route: '/documents', accent: '#3478F6', base: true },
             { id: 'groups',   label: 'Groups',    icon: 'groups',   route: '/groups',   accent: '#6C63FF' },
-            { id: 'birdy',    label: 'Birdy',     icon: 'birdy',    route: '/birdy',    accent: '#1d9bf0' },
+            { id: 'birdy',    label: 'Squawk',    icon: 'birdy',    route: '/birdy',    accent: '#1d9bf0' },
             { id: 'services', label: 'Services',  icon: 'services', route: '/services', accent: '#16B8A6' },
             { id: 'pages',    label: 'Pages',     icon: 'pages',    route: '/pages',    accent: '#FBC02D' },
             { id: 'marketplace', label: 'Marketplace', icon: 'marketplace', route: '/marketplace', accent: '#0a84ff' },
