@@ -9,6 +9,10 @@ local function detect()
     if GetResourceState('qb-core') == 'started' then
         return { name = 'qb', core = exports['qb-core']:GetCoreObject() }
     end
+    -- A leftover qb-core folder shadows QBox's `provide 'qb-core'`, so check qbx_core by name.
+    if GetResourceState('qbx_core') == 'started' then
+        return { name = 'qb', core = exports['qb-core']:GetCoreObject() }
+    end
     if GetResourceState('es_extended') == 'started' then
         return { name = 'esx', core = exports['es_extended']:getSharedObject() }
     end
@@ -23,6 +27,7 @@ if not info then
         ^1CRITICAL ERROR: No supported framework detected!^0
         ^3This resource requires one of the following frameworks:^0
         - QBCore (qb-core)
+        - QBox (qbx_core)
         - ESX (es_extended)
 
         Please ensure your framework is started before this resource.
