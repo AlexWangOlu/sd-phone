@@ -172,7 +172,7 @@ local function chooseCountResolver()
     if framework.qb then
         return function(item)
             local data = framework.name == 'qbx' and exports.qbx_core:GetPlayerData()
-                or framework.core.Functions.GetPlayerData()
+                or (framework.core and framework.core.Functions.GetPlayerData())
             if not data or not data.items then return 0 end
             local total = 0
             for _, slot in pairs(data.items) do

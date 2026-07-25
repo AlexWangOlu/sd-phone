@@ -297,7 +297,8 @@ local function chooseLabel()
 
     if framework.qb then
         return function(itemName)
-            local item = framework.core.Shared.Items[itemName]
+            local shared = framework.core and framework.core.Shared
+            local item = shared and shared.Items and shared.Items[itemName]
             return item and item.label or itemName
         end
     end

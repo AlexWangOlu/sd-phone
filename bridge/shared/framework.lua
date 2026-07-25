@@ -9,7 +9,8 @@
 ---@return FrameworkInfo|nil
 local function detect()
     if GetResourceState('qbx_core') == 'started' then
-        return { name = 'qbx', qb = true, core = exports['qb-core']:GetCoreObject() }
+        local ok, core = pcall(function() return exports['qb-core']:GetCoreObject() end)
+        return { name = 'qbx', qb = true, core = ok and core or nil }
     end
     if GetResourceState('qb-core') == 'started' then
         return { name = 'qb', qb = true, core = exports['qb-core']:GetCoreObject() }
