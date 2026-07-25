@@ -67,7 +67,6 @@ RegisterNetEvent('sd-phone:server:photos:upload', function(image, kind)
         return
     end
 
-    print(('^2[sd-phone:photos]^0 [UPLOAD] src=%s kind=%s bytes=%d'):format(tostring(src), isVideo and 'video' or 'photo', #image))
 
     local ext = 'jpg'
     if isVideo then
@@ -85,7 +84,6 @@ RegisterNetEvent('sd-phone:server:photos:upload', function(image, kind)
         local saveRes = actions.saveFromUrl(src, url)
         if saveRes and saveRes.success and saveRes.data and saveRes.data.photo then
             TriggerClientEvent('sd-phone:client:photos:added', src, saveRes.data.photo)
-            print(('^2[sd-phone:photos]^0 [UPLOAD] saved + pushed id=%s'):format(saveRes.data.photo.id))
         end
     end)
 end)
