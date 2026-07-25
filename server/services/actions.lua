@@ -211,6 +211,20 @@ local rosterAt = {}
 ---@type table<string, boolean> Jobs with a trailing roster push already scheduled.
 local rosterQueued = {}
 
+---Every job with at least one player on duty. Built once per directory read: asking per company
+---would walk all online players again for each one, and the player object behind it is uncached.
+---@return table<string, boolean> jobName -> true
+local function onDutyJobs()
+    local out = {}
+    for _, tsrc in pairs(player.onlineCidMap()) do
+        if job.getDuty(tsrc) == true then
+            local name = job.getName(tsrc)
+            if name then out[name] = true end
+        end
+    end
+    return out
+end
+
 ---Tells every online boss of a job to refresh their roster; the push carries no data. Throttled
 ---per job: a burst of hires or duty flips coalesces into one leading push plus one trailing one,
 ---so every boss still ends on a current roster.
@@ -242,6 +256,7 @@ end
 ---@return table[] companies
 function actions.companyList()
     local companies = {}
+    local duty = onDutyJobs()
     for _, c in ipairs(COMPANIES) do
         companies[#companies + 1] = {
             id         = c.job,
@@ -252,6 +267,7 @@ function actions.companyList()
             canCall    = c.canCall == true,
             callNumber = c.callNumber,
             coords     = c.coords and { x = c.coords.x, y = c.coords.y, z = c.coords.z } or nil,
+            onDuty     = duty[c.job] == true
         }
     end
     return companies
