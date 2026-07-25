@@ -2,7 +2,7 @@
 
 # sd-phone (THIS IS A BETA RELEASE, WILL HAVE ISSUES)
 
-**An iOS-themed smartphone for FiveM.** 45+ server-backed apps, real app accounts, a live game-view camera and online multiplayer games. Ships eight phone items in eight colours, each tinting the on-screen frame and the in-hand prop it is held with, plus optional unique phones where every handset keeps its own data and numbers ride on SIM card items.
+**An iOS-themed smartphone for FiveM.** 45+ server-backed apps, real app accounts, a live game-view camera and online multiplayer games. Ships its own custom phone props: eight phone items in eight colours, each tinting both the on-screen frame and the custom prop model held in hand. Optional unique phones let every handset keep its own data, with numbers riding on SIM card items.
 
 **A drop-in lb-phone replacement.** Scripts and custom apps written against lb-phone's exports and events keep running unmodified, and a first-boot migration carries your players across rather than resetting them: phone numbers and lock passcodes, contacts, call history, blocked numbers, SMS threads including groups, photos and albums, and notes.
 
@@ -23,9 +23,8 @@
 </div>
 
 ---
-Thanks for trying this so early. I'd put the phone at about 90% done as of writing, so expect rough edges and a few gaps. Some apps are still mock-only or not fully wired up yet (Vibez, for example, has no backend at this point and only a mock frontend), and there's a good amount of polish and fixes left across the board
 
-Any issues or PRs are highly appreciated. Ohhh and please ⭐the repo! :)
+If sd-phone is useful to you, please ⭐ the repo. Issues and pull requests are always welcome.
 
 ## Preview
 
