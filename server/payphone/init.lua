@@ -1,3 +1,6 @@
+---@type table Boot reporter (server.boot): one console summary instead of per-module prints.
+local boot = require 'server.boot'
+
 ---@type table sd-phone config root (configs/config.lua).
 local config   = require 'configs.config'
 ---@type table Payphone persistence (server.payphone.store): per-booth static numbers.
@@ -23,10 +26,10 @@ if cfg.Enabled then
     CreateThread(function()
         local success, err = pcall(store.ensureSchema)
         if not success then
-            print(('^1[sd-phone:payphone]^0 schema bootstrap failed: %s'):format(err))
+            boot.schemaFailed('payphone', err)
             return
         end
-        print('^2[sd-phone:payphone]^0 schema ready')
+        boot.schemaReady()
     end)
 end
 

@@ -1,3 +1,6 @@
+---@type table Boot reporter (server.boot): one console summary instead of per-module prints.
+local boot = require 'server.boot'
+
 ---@type table Photos persistence layer (server.photos.store): photo/album row CRUD.
 local store    = require 'server.photos.store'
 ---@type table Authoritative photo/album handlers (server.photos.actions).
@@ -15,10 +18,10 @@ local util     = require 'server.util'
 CreateThread(function()
     local ok, err = pcall(store.ensureSchema)
     if not ok then
-        print(('^1[sd-phone:photos]^0 schema bootstrap failed: %s'):format(err))
+        boot.schemaFailed('photos', err)
         return
     end
-    print('^2[sd-phone:photos]^0 schema ready')
+    boot.schemaReady()
 end)
 
 -- Authoritative gallery-read callback: thin delegate into server.photos.actions.

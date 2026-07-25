@@ -1,3 +1,6 @@
+---@type table Boot reporter (server.boot): one console summary instead of per-module prints.
+local boot = require 'server.boot'
+
 ---@type table Weazel News persistence layer (server.weazelnews.store): article + ticker row CRUD.
 local store   = require 'server.weazelnews.store'
 ---@type table Authoritative Weazel News handlers (server.weazelnews.actions): staff gating,
@@ -8,10 +11,10 @@ local actions = require 'server.weazelnews.actions'
 CreateThread(function()
     local ok, err = pcall(store.ensureSchema)
     if not ok then
-        print(('^1[sd-phone:weazelnews]^0 schema bootstrap failed: %s'):format(err))
+        boot.schemaFailed('weazelnews', err)
         return
     end
-    print('^2[sd-phone:weazelnews]^0 schema ready')
+    boot.schemaReady()
 end)
 
 -- NUI callbacks: thin delegates into server.weazelnews.actions; shims normalize non-table payloads.

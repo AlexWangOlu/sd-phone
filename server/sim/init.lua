@@ -1,3 +1,6 @@
+---@type table Boot reporter (server.boot): one console summary instead of per-module prints.
+local boot = require 'server.boot'
+
 ---@type table sd-phone config root (configs/config.lua).
 local config   = require 'configs.config'
 ---@type table SIM feature flags (server.sim.state): active + mode, flipped on here.
@@ -123,7 +126,7 @@ CreateThread(function()
 
     local ok, err = pcall(simStore.ensureSchema)
     if not ok then
-        print(('^1[sd-phone:sim]^0 schema bootstrap failed: %s'):format(err))
+        boot.schemaFailed('sim', err)
         return
     end
 

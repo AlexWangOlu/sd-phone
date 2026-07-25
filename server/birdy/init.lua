@@ -1,3 +1,6 @@
+---@type table Boot reporter (server.boot): one console summary instead of per-module prints.
+local boot = require 'server.boot'
+
 ---@type table Birdy persistence layer (server.birdy.store): schema bootstrap.
 local store   = require 'server.birdy.store'
 ---@type table Authoritative Birdy handlers (server.birdy.actions): all validation + mutation.
@@ -9,10 +12,10 @@ local player  = require 'bridge.server.player'
 CreateThread(function()
     local success, err = pcall(store.ensureSchema)
     if not success then
-        print(('^1[sd-phone:birdy]^0 schema bootstrap failed: %s'):format(err))
+        boot.schemaFailed('birdy', err)
         return
     end
-    print('^2[sd-phone:birdy]^0 schema ready')
+    boot.schemaReady()
 end)
 
 ---Pushes an event to a single player. No-op when they're offline.

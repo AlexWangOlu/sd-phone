@@ -8,8 +8,4 @@ lib.callback.register('sd-phone:server:garages:list', function(src)
     return { success = true, data = garages.list(src) }
 end)
 
----Boot report: prints the garage system the bridge detected.
-CreateThread(function()
-    Wait(300)
-    print(('^2[sd-phone:garages]^0 ready — system: ^3%s^0'):format(garages.activeSystem() or 'none (framework table)'))
-end)
+-- No boot print: the detected garage system is available via garages.activeSystem() when needed.

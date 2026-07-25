@@ -1,3 +1,6 @@
+---@type table Boot reporter (server.boot): one console summary instead of per-module prints.
+local boot = require 'server.boot'
+
 ---@type table Vibez persistence layer (server.vibez.store): schema bootstrap + row CRUD.
 local store   = require 'server.vibez.store'
 ---@type table Authoritative vibez handlers (server.vibez.actions): validation + world mutation.
@@ -9,10 +12,10 @@ local live    = require 'server.vibez.live'
 CreateThread(function()
     local ok, err = pcall(store.ensureSchema)
     if not ok then
-        print(('^1[sd-phone:vibez]^0 schema bootstrap failed: %s'):format(err))
+        boot.schemaFailed('vibez', err)
         return
     end
-    print('^2[sd-phone:vibez]^0 schema ready')
+    boot.schemaReady()
 end)
 
 ---Registers one vibez callback under the app's namespace.

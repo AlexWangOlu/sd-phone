@@ -1,3 +1,6 @@
+---@type table Boot reporter (server.boot): one console summary instead of per-module prints.
+local boot = require 'server.boot'
+
 ---@type table Ryde persistence layer (server.ryde.store): drivers + finished-rides tables.
 local store   = require 'server.ryde.store'
 ---@type table Authoritative Ryde handlers (server.ryde.actions): matching, trips, money movement.
@@ -7,10 +10,10 @@ local actions = require 'server.ryde.actions'
 CreateThread(function()
     local success, err = pcall(store.ensureSchema)
     if not success then
-        print(('^1[sd-phone:ryde]^0 schema bootstrap failed: %s'):format(err))
+        boot.schemaFailed('ryde', err)
         return
     end
-    print('^2[sd-phone:ryde]^0 schema ready')
+    boot.schemaReady()
 end)
 
 -- Authoritative Ryde callbacks: thin delegates into server.ryde.actions.

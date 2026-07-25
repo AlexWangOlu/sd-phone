@@ -1,3 +1,6 @@
+---@type table Boot reporter (server.boot): one console summary instead of per-module prints.
+local boot = require 'server.boot'
+
 ---@type table Player bridge (bridge.server.player): citizenid/name/job lookups from a server id.
 local player = require 'bridge.server.player'
 ---@type table Settings persistence layer (server.settings.store): phone_settings row CRUD plus
@@ -23,10 +26,10 @@ local UPDATE_REPO = 'Samuels-Development/sd-phone'
 CreateThread(function()
     local success, err = pcall(store.ensureSchema)
     if not success then
-        print(('^1[sd-phone:settings]^0 schema bootstrap failed: %s'):format(err))
+        boot.schemaFailed('settings', err)
         return
     end
-    print('^2[sd-phone:settings]^0 schema ready')
+    boot.schemaReady()
 end)
 
 ---Server export: returns a player's phone number by server id, assigning one on first access;

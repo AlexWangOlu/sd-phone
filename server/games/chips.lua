@@ -1,3 +1,6 @@
+---@type table Boot reporter (server.boot): one console summary instead of per-module prints.
+local boot = require 'server.boot'
+
 ---@type table Money bridge (bridge.server.money): framework-agnostic bank account read/credit/debit.
 local money   = require 'bridge.server.money'
 ---@type table Player bridge (bridge.server.player): identity from a server-trusted source only.
@@ -141,7 +144,7 @@ end)
 -- One-shot boot thread: creates the wallet schema.
 CreateThread(function()
     local good, err = pcall(chips.ensureSchema)
-    if not good then print(('^1[sd-phone:games]^0 chips schema bootstrap failed: %s'):format(err)) end
+    if good then boot.schemaReady() else boot.schemaFailed('games:chips', err) end
 end)
 
 return chips

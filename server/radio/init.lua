@@ -1,3 +1,6 @@
+---@type table Boot reporter (server.boot): one console summary instead of per-module prints.
+local boot = require 'server.boot'
+
 ---@type table Radio persistence layer (server.radio.store): prefs row + saved-channel CRUD.
 local store   = require 'server.radio.store'
 ---@type table Authoritative radio handlers (server.radio.actions): clamping + band rules.
@@ -7,10 +10,10 @@ local actions = require 'server.radio.actions'
 CreateThread(function()
     local ok, err = pcall(store.ensureSchema)
     if not ok then
-        print(('^1[sd-phone:radio]^0 schema bootstrap failed: %s'):format(err))
+        boot.schemaFailed('radio', err)
         return
     end
-    print('^2[sd-phone:radio]^0 schema ready')
+    boot.schemaReady()
 end)
 
 -- Thin delegates into server.radio.actions.

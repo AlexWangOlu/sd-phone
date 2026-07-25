@@ -1,3 +1,6 @@
+---@type table Boot reporter (server.boot): one console summary instead of per-module prints.
+local boot = require 'server.boot'
+
 ---@type table Player bridge (bridge.server.player): identity + display names from a server-trusted src.
 local player  = require 'bridge.server.player'
 ---@type table Money bridge (bridge.server.money): framework-agnostic bank account read/credit/debit.
@@ -683,7 +686,7 @@ end
 -- One-shot boot thread: creates the shared stats schema.
 CreateThread(function()
     local good, err = pcall(stats.ensureSchema)
-    if not good then print(('^1[sd-phone:games]^0 stats schema bootstrap failed: %s'):format(err)) end
+    if good then boot.schemaReady() else boot.schemaFailed('games:stats', err) end
 end)
 
 return engine

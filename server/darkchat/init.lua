@@ -1,3 +1,6 @@
+---@type table Boot reporter (server.boot): one console summary instead of per-module prints.
+local boot = require 'server.boot'
+
 ---@type table Dark Chat persistence layer (server.darkchat.store): schema bootstrap + CRUD.
 local store   = require 'server.darkchat.store'
 ---@type table Dark Chat business logic (server.darkchat.actions): validated room/message/reaction handlers.
@@ -9,10 +12,10 @@ local player  = require 'bridge.server.player'
 CreateThread(function()
     local ok, err = pcall(store.ensureSchema)
     if not ok then
-        print(('^1[sd-phone:darkchat]^0 schema bootstrap failed: %s'):format(err))
+        boot.schemaFailed('darkchat', err)
         return
     end
-    print('^2[sd-phone:darkchat]^0 schema ready')
+    boot.schemaReady()
 end)
 
 -- Live presence, in memory only: who is tabbed into which room, and who is sitting on the

@@ -1,3 +1,6 @@
+---@type table Boot reporter (server.boot): one console summary instead of per-module prints.
+local boot = require 'server.boot'
+
 ---@type table Photogram persistence layer (server.photogram.store): schema bootstrap + row CRUD.
 local store   = require 'server.photogram.store'
 ---@type table Authoritative photogram handlers (server.photogram.actions): validation + privacy gating + world mutation.
@@ -9,10 +12,10 @@ local live    = require 'server.photogram.live'
 CreateThread(function()
     local ok, err = pcall(store.ensureSchema)
     if not ok then
-        print(('^1[sd-phone:photogram]^0 schema bootstrap failed: %s'):format(err))
+        boot.schemaFailed('photogram', err)
         return
     end
-    print('^2[sd-phone:photogram]^0 schema ready')
+    boot.schemaReady()
 end)
 
 ---Registers one photogram callback under the app's namespace.
