@@ -108,6 +108,15 @@ function store.ensureSchema()
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ]])
     util.ensureIndex('phone_vibez_notifications', 'idx_vibez_notifs_unseen', '(recipient, seen)')
+
+    -- Referential integrity, added on boot so existing installs migrate with no manual SQL.
+    -- Each is a no-op once present; orphaned children are cleared first (they point at a
+    -- parent that is already gone) and a type or collation mismatch is skipped, never fatal.
+    util.ensureForeignKey('phone_vibez_comments', 'post_id', 'phone_vibez_posts', 'id', 'fk_vibez_comments_post')
+    util.ensureForeignKey('phone_vibez_likes', 'post_id', 'phone_vibez_posts', 'id', 'fk_vibez_likes_post')
+    util.ensureForeignKey('phone_vibez_saves', 'post_id', 'phone_vibez_posts', 'id', 'fk_vibez_saves_post')
+    util.ensureForeignKey('phone_vibez_notifications', 'post_id', 'phone_vibez_posts', 'id', 'fk_vibez_notifications_post')
+    util.ensureForeignKey('phone_vibez_comment_likes', 'comment_id', 'phone_vibez_comments', 'id', 'fk_vibez_comment_likes_comment')
 end
 
 ---A profile row by exact username, nil when the handle doesn't exist. Read-only.

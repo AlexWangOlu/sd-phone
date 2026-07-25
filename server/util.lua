@@ -117,6 +117,88 @@ function util.ensureIndex(tableName, indexName, columnsDDL)
     end
 end
 
+---True when a table already exists. Call BEFORE the CREATE TABLE so a module can tell a fresh
+---install from an upgrade: on a fresh install the CREATE already declares every column, so the
+---backfills below can be skipped entirely rather than probed for.
+---@param tbl string table name
+---@return boolean exists
+function util.tableExists(tbl)
+    local n = MySQL.scalar.await([[
+        SELECT COUNT(*) FROM information_schema.tables
+        WHERE table_schema = DATABASE() AND table_name = ? AND table_type = 'BASE TABLE'
+    ]], { tbl })
+    return (tonumber(n) or 0) > 0
+end
+
+---Adds whatever columns are missing from a table, in ONE information_schema read and ONE ALTER.
+---Replaces the per-column probe-then-alter pattern: a table with twenty back-filled columns used
+---to cost twenty information_schema queries on every boot, forever, including on fresh installs
+---where the CREATE TABLE already declares them all. Self-correcting - no version stamp to drift.
+---@param tbl string table name
+---@param defs table<string, string> column name -> full DDL fragment, e.g. `locale VARCHAR(8) NULL`
+---@return boolean added true when at least one column was created
+function util.ensureColumns(tbl, defs)
+    local rows = MySQL.query.await([[
+        SELECT COLUMN_NAME AS name FROM information_schema.columns
+        WHERE table_schema = DATABASE() AND table_name = ?
+    ]], { tbl }) or {}
+
+    local have = {}
+    for i = 1, #rows do have[rows[i].name] = true end
+
+    local add = {}
+    for name, ddl in pairs(defs) do
+        if not have[name] then add[#add + 1] = ('ADD COLUMN %s'):format(ddl) end
+    end
+    if #add == 0 then return false end
+
+    MySQL.query.await(('ALTER TABLE `%s` %s'):format(tbl, table.concat(add, ', ')))
+    return true
+end
+
+---Adds a FOREIGN KEY once, so existing installs migrate on boot with no manual SQL. Orphaned
+---child rows are cleared first - they reference a parent that no longer exists, so they are
+---already unreachable, and ALTER TABLE ... ADD FOREIGN KEY fails outright while any remain.
+---A failure (type or collation mismatch) is logged and skipped, never fatal: the resource keeps
+---running exactly as it does today, just without that constraint.
+---@param child string child table
+---@param col string child column
+---@param parent string parent table
+---@param parentCol string parent column (its primary key)
+---@param name string constraint name, unique per database
+---@return boolean created true when the constraint was added on this call
+function util.ensureForeignKey(child, col, parent, parentCol, name)
+    local present = MySQL.scalar.await([[
+        SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+        WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = ?
+          AND CONSTRAINT_NAME = ? AND CONSTRAINT_TYPE = 'FOREIGN KEY'
+    ]], { child, name })
+    if (tonumber(present) or 0) > 0 then return false end
+
+    local orphans = MySQL.update.await(([[
+        DELETE c FROM `%s` c
+        LEFT JOIN `%s` p ON p.`%s` = c.`%s`
+        WHERE c.`%s` IS NOT NULL AND p.`%s` IS NULL
+    ]]):format(child, parent, parentCol, col, col, parentCol))
+    if (tonumber(orphans) or 0) > 0 then
+        print(('^3[sd-phone]^0 %s: cleared %d orphaned row(s) before adding %s'):format(child, orphans, name))
+    end
+
+    -- InnoDB needs an index on the referencing column; it creates one implicitly, but naming it
+    -- here keeps it visible alongside the module's other indexes.
+    util.ensureIndex(child, 'idx_' .. name, ('(`%s`)'):format(col))
+
+    local ok, err = pcall(MySQL.query.await, ([[
+        ALTER TABLE `%s` ADD CONSTRAINT `%s` FOREIGN KEY (`%s`)
+        REFERENCES `%s`(`%s`) ON DELETE CASCADE ON UPDATE CASCADE
+    ]]):format(child, name, col, parent, parentCol))
+    if not ok then
+        print(('^3[sd-phone]^0 skipped foreign key %s on %s: %s'):format(name, child, err))
+        return false
+    end
+    return true
+end
+
 ---Runs a one-shot repair or backfill exactly once per database, recording it in phone_migrations
 ---so later boots skip it. Use for work whose predicate can't be indexed and would otherwise
 ---re-scan a whole table every start to match nothing.

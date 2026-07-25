@@ -154,6 +154,13 @@ function store.ensureSchema()
         MySQL.update.await('UPDATE phone_birdy_notifications SET seen = 1')
     end
     util.ensureIndex('phone_birdy_notifications', 'idx_birdy_notifs_unseen', '(recipient_cid, seen)')
+
+    -- Referential integrity, added on boot so existing installs migrate with no manual SQL.
+    -- Each is a no-op once present; orphaned children are cleared first (they point at a
+    -- parent that is already gone) and a type or collation mismatch is skipped, never fatal.
+    util.ensureForeignKey('phone_birdy_likes', 'post_id', 'phone_birdy_posts', 'id', 'fk_birdy_likes_post')
+    util.ensureForeignKey('phone_birdy_reposts', 'post_id', 'phone_birdy_posts', 'id', 'fk_birdy_reposts_post')
+    util.ensureForeignKey('phone_birdy_notifications', 'post_id', 'phone_birdy_posts', 'id', 'fk_birdy_notifications_post')
 end
 
 ---Decodes a JSON column into a Lua table, tolerating nil / empty / corrupt values (always

@@ -195,6 +195,15 @@ function store.ensureSchema()
     ensureColumn('phone_photogram_profiles', 'is_private', 'is_private TINYINT(1) NOT NULL DEFAULT 0')
     ensureColumn('phone_photogram_profiles', 'verified',   'verified TINYINT(1) NOT NULL DEFAULT 0')
     ensureColumn('phone_photogram_follows',  'status',     "status VARCHAR(12) NOT NULL DEFAULT 'accepted'")
+
+    -- Referential integrity, added on boot so existing installs migrate with no manual SQL.
+    -- Each is a no-op once present; orphaned children are cleared first (they point at a
+    -- parent that is already gone) and a type or collation mismatch is skipped, never fatal.
+    util.ensureForeignKey('phone_photogram_comments', 'post_id', 'phone_photogram_posts', 'id', 'fk_photogram_comments_post')
+    util.ensureForeignKey('phone_photogram_likes', 'post_id', 'phone_photogram_posts', 'id', 'fk_photogram_likes_post')
+    util.ensureForeignKey('phone_photogram_saves', 'post_id', 'phone_photogram_posts', 'id', 'fk_photogram_saves_post')
+    util.ensureForeignKey('phone_photogram_notifications', 'post_id', 'phone_photogram_posts', 'id', 'fk_photogram_notifications_post')
+    util.ensureForeignKey('phone_photogram_comment_likes', 'comment_id', 'phone_photogram_comments', 'id', 'fk_photogram_comment_likes_comment')
 end
 
 ---A profile row by exact username, nil when the handle doesn't exist. Read-only.

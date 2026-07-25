@@ -83,6 +83,14 @@ function store.ensureSchema()
         ALTER TABLE `darkchat_rooms`
             ADD COLUMN IF NOT EXISTS `code_changed_at` BIGINT NULL
     ]])
+
+    -- Referential integrity, added on boot so existing installs migrate with no manual SQL.
+    -- Each is a no-op once present; orphaned children are cleared first (they point at a
+    -- parent that is already gone) and a type or collation mismatch is skipped, never fatal.
+    util.ensureForeignKey('darkchat_members', 'room_id', 'darkchat_rooms', 'id', 'fk_darkchat_members_room')
+    util.ensureForeignKey('darkchat_bans', 'room_id', 'darkchat_rooms', 'id', 'fk_darkchat_bans_room')
+    util.ensureForeignKey('darkchat_messages', 'room_id', 'darkchat_rooms', 'id', 'fk_darkchat_messages_room')
+    util.ensureForeignKey('darkchat_reactions', 'message_id', 'darkchat_messages', 'id', 'fk_darkchat_reactions_message')
 end
 
 ---Insert a private room row. Caller guarantees the code (and therefore the 'p-<code>' id) is

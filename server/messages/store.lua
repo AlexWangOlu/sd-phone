@@ -152,6 +152,11 @@ function store.ensureSchema()
             INDEX idx_phone_pending_messages_number (number, created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ]])
+
+    -- Referential integrity, added on boot so existing installs migrate with no manual SQL.
+    -- Each is a no-op once present; orphaned children are cleared first (they point at a
+    -- parent that is already gone) and a type or collation mismatch is skipped, never fatal.
+    util.ensureForeignKey('phone_message_group_members', 'group_id', 'phone_message_groups', 'id', 'fk_message_group_members_group')
 end
 
 ---Lists a player's conversation keys, most-recently-active first, each with the newest message
