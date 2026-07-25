@@ -70,6 +70,15 @@ local function boothRingForSource(src)
     return nil
 end
 
+---True when a source is already tied up: in a live session, in a group ring, or ringing a booth.
+---Exported so callers that fan out before dialling (services.callCompany) can reject a busy caller
+---up front instead of after their own expensive work.
+---@param src number
+---@return boolean
+function actions.isBusy(src)
+    return (sessionForSource(src) or ringForSource(src) or boothRingForSource(src)) ~= nil
+end
+
 ---@type number Metres from a booth that its ring is sent to. The client discards a ring further
 ---than 50 m away (client/payphone.lua), so this is double the audible radius and every player who
 ---can hear a booth today still receives it.

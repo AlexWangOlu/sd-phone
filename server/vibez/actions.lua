@@ -10,6 +10,8 @@ local store      = require 'server.vibez.store'
 local moderation = require 'server.admin.moderation'
 ---@type table Vibez Live module (server.vibez.live): in-memory livestream sessions.
 local live       = require 'server.vibez.live'
+---@type table Watcher registry (server.watchers): shared with server.vibez.live and init.
+local watchers   = require('server.watchers').of('vibez')
 
 ---@type table Actions module; the table returned at end of file.
 local actions = {}
@@ -95,11 +97,12 @@ local function sourcesFor(username, activeSrcs)
     return out
 end
 
----Fans a content change out to every phone (all vibez accounts are public).
+---Fans a content change out to the phones with Vibez in the foreground (all vibez accounts are
+---public). Scoped to watchers: one like used to cost a packet and a refetch on every player.
 ---@param event string client event suffix
 ---@param data table event payload
 local function broadcast(event, data)
-    TriggerClientEvent('sd-phone:client:vibez:' .. event, -1, data)
+    watchers.push('sd-phone:client:vibez:' .. event, data)
 end
 
 ---Pushes a follow-status change to the follower's phone(s).
@@ -336,7 +339,7 @@ function actions.post(src, payload)
 end
 
 ---Creates a post from a hosted video URL with capped caption/sound, notifies mentions and
----followers, and pings every phone with a content-free feedChanged.
+---followers, and pings every watching phone with a content-free feedChanged.
 ---@param src integer player server id
 ---@param payload table { video: string, thumb?: string, caption?: string, sound?: string }
 ---@return table result { post }
@@ -404,7 +407,7 @@ function actions.deletePost(src, payload)
 end
 
 ---Toggles the viewer's like on a post. Only liking notifies the author; the fresh count returns
----to the caller and fans out to every phone.
+---to the caller and fans out to every watching phone.
 ---@param src integer player server id
 ---@param payload table { id: string }
 ---@return table result { liked, likes }
@@ -481,7 +484,7 @@ function actions.comments(src, payload)
 end
 
 ---Adds a comment (capped) to a post, notifying the author and eligible mentions. The refreshed
----count fans out to every phone.
+---count fans out to every watching phone.
 ---@param src integer player server id
 ---@param payload table { postId: string, text: string }
 ---@return table result { comment, count }

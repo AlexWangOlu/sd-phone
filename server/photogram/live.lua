@@ -7,6 +7,8 @@ local acctStore = require 'server.accounts.store'
 local store     = require 'server.photogram.store'
 ---@type table sd-phone config root (configs/config.lua).
 local config    = require 'configs.config'
+---@type table Watcher registry (server.watchers): shared with server.photogram.actions and init.
+local watchers  = require('server.watchers').of('photogram')
 
 ---@type table Live module; the table returned at end of file.
 local live = {}
@@ -76,12 +78,12 @@ local lastChangedAt, changedDirty = 0, false
 
 ---Announces that the live list moved. Coalesced, never suppressed: the first change goes out at
 ---once and a churn of starts and ends behind it collapses into one broadcast per CHANGED_MS, so
----every phone still learns about a real live.
+---every watching phone still learns about a real live.
 local function markChanged()
     local now = GetGameTimer()
     if now < lastChangedAt or (now - lastChangedAt) >= CHANGED_MS then
         lastChangedAt, changedDirty = now, false
-        TriggerClientEvent('sd-phone:client:photogram:liveChanged', -1, {})
+        watchers.push('sd-phone:client:photogram:liveChanged', {})
         return
     end
     changedDirty = true
@@ -92,7 +94,7 @@ CreateThread(function()
         Wait(CHANGED_MS)
         if changedDirty then
             lastChangedAt, changedDirty = GetGameTimer(), false
-            TriggerClientEvent('sd-phone:client:photogram:liveChanged', -1, {})
+            watchers.push('sd-phone:client:photogram:liveChanged', {})
         end
     end
 end)
@@ -202,7 +204,7 @@ local function pushViewers(session)
 end
 
 ---Starts (or resumes) a broadcast for the caller's account. Idempotent: a re-entrant start
----returns the existing session. Broadcasts an empty liveChanged to every phone.
+---returns the existing session. Broadcasts an empty liveChanged to every watching phone.
 ---@param src integer hosting player server id
 ---@return table result { liveId, startedAt (ms), enc } or failure
 function live.start(src)
@@ -427,7 +429,7 @@ function live.heart(src, payload)
     return ok()
 end
 
----Ends a broadcast, host-only. Kicks every viewer, drops the session, and tells every phone to
+---Ends a broadcast, host-only. Kicks every viewer, drops the session, and tells every watching phone to
 ---refresh its stories tray.
 ---@param src integer hosting player server id
 ---@param payload table { liveId? } attacker-controlled (falls back to the caller's hosted live)

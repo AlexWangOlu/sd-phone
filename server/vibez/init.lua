@@ -7,6 +7,10 @@ local store   = require 'server.vibez.store'
 local actions = require 'server.vibez.actions'
 ---@type table Vibez Live module (server.vibez.live): in-memory livestream sessions + host-media relay.
 local live    = require 'server.vibez.live'
+---@type table Watcher registry (server.watchers): shared with the broadcasts in actions and live.
+local watchers = require('server.watchers').of('vibez')
+---@type table Shared server helpers (server.util): disconnect sweep registration.
+local util    = require 'server.util'
 
 -- Boot thread: creates the vibez tables.
 CreateThread(function()
@@ -49,6 +53,19 @@ register('activity',          function(src) return actions.activity(src) end)
 register('counts',            function(src) return actions.counts(src) end)
 register('dismissNotification', function(src, payload) return actions.dismissNotification(src, payload) end)
 register('deleteAccount',     function(src) return actions.deleteAccount(src) end)
+
+---Subscribes or unsubscribes the caller to the feed and live-list pushes. The app calls this
+---whenever it moves in or out of the foreground, and re-syncs on the way back in.
+---@param src integer player server id
+---@param payload table { on: boolean }
+register('watch', function(src, payload)
+    payload = type(payload) == 'table' and payload or {}
+    watchers.watch(src, payload.on == true)
+    return { success = true }
+end)
+
+-- Drops a departing watcher's entry.
+util.onCleanup(function(src) watchers.drop(src) end)
 
 -- Live session callbacks: thin delegates into server.vibez.live.
 register('lives',             function(src) return actions.lives(src) end)

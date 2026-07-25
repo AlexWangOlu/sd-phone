@@ -16,6 +16,8 @@ local banking = require 'server.banking.actions'
 local badges = require 'server.badges.init'
 ---@type table Admin mute registry (server.admin.moderation): scope guards for posting/DMing.
 local moderation = require 'server.admin.moderation'
+---@type table Watcher registry (server.watchers): shared with server.birdy.init.
+local watchers = require('server.watchers').of('birdy')
 
 ---@type table Birdy config (config.Birdy): field bounds + feed/notification limits.
 local birdyCfg = config.Birdy
@@ -547,8 +549,9 @@ function actions.create(source, payload)
         body = body, images = images,
     })
 
-    -- The TriggerEvent above is server-local; this is what reaches players.
-    TriggerClientEvent('sd-phone:client:birdy:feedChanged', -1, {})
+    -- The TriggerEvent above is server-local; this is what reaches players. Scoped to the phones
+    -- with Birdy in the foreground: every other player only refetched to discard the result.
+    watchers.push('sd-phone:client:birdy:feedChanged', {})
 
     local preview   = body ~= '' and body:sub(1, 80) or 'shared a photo'
     local followers = store.followerCids(prof.citizenid)

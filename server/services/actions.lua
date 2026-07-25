@@ -574,8 +574,10 @@ function actions.callCompany(src, payload)
     local myCid = player.getIdentifier(src)
     if not myCid then return fail('Player not found') end
     if job.getName(src) == entry.job then return fail("You can't call the company you work for") end
-    -- Ahead of the roster walk: a successful dial rings every on-duty employee, and the
-    -- "already on a call" guard only rejects downstream, inside callGroup.
+    -- Hoisted out of callGroup: rejecting downstream meant a caller who is already on a call still
+    -- paid the whole roster walk. Ahead of the cooldown too, so a mis-tap mid-call costs nothing.
+    if calls.isBusy(src) then return fail('You are already on a call') end
+    -- Ahead of the roster walk: a successful dial rings every on-duty employee.
     if not util.cooldown(myCid, 'services:callCompany', 3000) then return fail('Please wait a moment') end
 
     local targets   = {}
@@ -631,6 +633,23 @@ local function serializeInbox(rows, viewerKind)
     return out
 end
 
+---@type integer Messages loaded per thread on an inbox build.
+local THREAD_MESSAGES = 100
+
+---The named field of every thread row, in order, as the batch message reader's key list.
+---@param threads table[]
+---@param field string
+---@return string[]
+local function keysOf(threads, field)
+    local out = {}
+    for i = 1, #threads do
+        local v = threads[i][field]
+        -- Dense on purpose: a hole would shorten the list the IN placeholders are counted from.
+        if v ~= nil then out[#out + 1] = v end
+    end
+    return out
+end
+
 ---Returns the caller's full Services inbox: `personal` threads keyed by their own number and
 ---`job` customer threads for their configured company, with per-viewer unread counts. Read-only.
 ---@param src number
@@ -644,8 +663,12 @@ function actions.inbox(src)
 
     local personal = {}
     if myNumber ~= '' then
-        local unread = msgstore.personalUnread(cid, myNumber)
-        for _, t in ipairs(msgstore.citizenThreads(myNumber)) do
+        local unread  = msgstore.personalUnread(cid, myNumber)
+        local threads = msgstore.citizenThreads(myNumber)
+        -- One query for every thread's messages instead of one per thread. Anything the batch
+        -- could not cover is absent from it and falls back to the old per-thread read below.
+        local batch   = msgstore.citizenThreadMessages(myNumber, keysOf(threads, 'job'), THREAD_MESSAGES)
+        for _, t in ipairs(threads) do
             local e = byJob[t.job]
             personal[#personal + 1] = {
                 key      = t.job,
@@ -655,7 +678,8 @@ function actions.inbox(src)
                 preview  = t.last_body or '',
                 ts       = (tonumber(t.created_at) or 0) * 1000,
                 unread   = unread[t.job] or 0,
-                messages = serializeInbox(msgstore.threadMessages(t.job, myNumber, 100), 'citizen'),
+                messages = serializeInbox(batch[t.job]
+                    or msgstore.threadMessages(t.job, myNumber, THREAD_MESSAGES), 'citizen'),
             }
         end
     end
@@ -663,8 +687,10 @@ function actions.inbox(src)
     local jobThreads = {}
     local e = myJob and byJob[myJob]
     if e then
-        local unread = msgstore.jobUnread(cid, myJob)
-        for _, t in ipairs(msgstore.jobThreads(myJob)) do
+        local unread  = msgstore.jobUnread(cid, myJob)
+        local threads = msgstore.jobThreads(myJob)
+        local batch   = msgstore.jobThreadMessages(myJob, keysOf(threads, 'citizen_number'), THREAD_MESSAGES)
+        for _, t in ipairs(threads) do
             jobThreads[#jobThreads + 1] = {
                 key      = t.citizen_number,
                 name     = (t.citizen_name and t.citizen_name ~= '') and t.citizen_name or t.citizen_number,
@@ -673,7 +699,8 @@ function actions.inbox(src)
                 preview  = t.last_body or '',
                 ts       = (tonumber(t.created_at) or 0) * 1000,
                 unread   = unread[t.citizen_number] or 0,
-                messages = serializeInbox(msgstore.threadMessages(myJob, t.citizen_number, 100), 'staff'),
+                messages = serializeInbox(batch[t.citizen_number]
+                    or msgstore.threadMessages(myJob, t.citizen_number, THREAD_MESSAGES), 'staff'),
             }
         end
     end

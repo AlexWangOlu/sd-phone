@@ -7,6 +7,10 @@ local store   = require 'server.photogram.store'
 local actions = require 'server.photogram.actions'
 ---@type table Photogram Live module (server.photogram.live): in-memory livestream sessions + host-media relay.
 local live    = require 'server.photogram.live'
+---@type table Watcher registry (server.watchers): shared with the broadcasts in actions and live.
+local watchers = require('server.watchers').of('photogram')
+---@type table Shared server helpers (server.util): disconnect sweep registration.
+local util    = require 'server.util'
 
 -- Boot thread: creates/patches the photogram tables.
 CreateThread(function()
@@ -56,6 +60,19 @@ register('dmThread',         function(src, payload) return actions.dmThread(src,
 register('dmSend',           function(src, payload) return actions.dmSend(src, payload) end)
 register('dmReact',          function(src, payload) return actions.dmReact(src, payload) end)
 register('deleteAccount',    function(src) return actions.deleteAccount(src) end)
+
+---Subscribes or unsubscribes the caller to the feed and live-list pushes. The app calls this
+---whenever it moves in or out of the foreground, and re-syncs on the way back in.
+---@param src integer player server id
+---@param payload table { on: boolean }
+register('watch', function(src, payload)
+    payload = type(payload) == 'table' and payload or {}
+    watchers.watch(src, payload.on == true)
+    return { success = true }
+end)
+
+-- Drops a departing watcher's entry.
+util.onCleanup(function(src) watchers.drop(src) end)
 
 -- Live session callbacks: thin delegates into server.photogram.live.
 register('liveStart',        function(src) return live.start(src) end)

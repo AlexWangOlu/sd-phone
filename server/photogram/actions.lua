@@ -10,6 +10,8 @@ local store     = require 'server.photogram.store'
 local live      = require 'server.photogram.live'
 ---@type table Admin mute registry (server.admin.moderation): scope guards for posting/commenting/DMing.
 local moderation = require 'server.admin.moderation'
+---@type table Watcher registry (server.watchers): shared with server.photogram.live and init.
+local watchers  = require('server.watchers').of('photogram')
 
 ---@type table Actions module; the table returned at end of file.
 local actions = {}
@@ -109,14 +111,15 @@ local function sourcesFor(username, activeSrcs)
     return out
 end
 
----Fans a content change out to every phone.
+---Fans a content change out to the phones with Photogram in the foreground. Scoped to watchers:
+---one like used to cost a packet per player on the server and a refetch on every one of them.
 ---@param event string client event suffix
 ---@param data table event payload
 local function broadcast(event, data)
-    TriggerClientEvent('sd-phone:client:photogram:' .. event, -1, data)
+    watchers.push('sd-phone:client:photogram:' .. event, data)
 end
 
----Fans a post-scoped change out: a public author's changes broadcast to every phone; a private
+---Fans a post-scoped change out: a public author's changes broadcast to every watching phone; a private
 ---author's go only to the author's + accepted followers' phones.
 ---@param author string post author's handle
 ---@param event string client event suffix
@@ -502,7 +505,7 @@ function actions.post(src, payload)
 end
 
 ---Creates a post from sanitized images with capped caption/location, notifies mentions and
----followers, and pings every phone with a content-free feedChanged.
+---followers, and pings every watching phone with a content-free feedChanged.
 ---@param src integer player server id
 ---@param payload table { images: string[], caption?: string, location?: string }
 ---@return table result { post }

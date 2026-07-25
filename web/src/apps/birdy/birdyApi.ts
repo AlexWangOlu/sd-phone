@@ -51,6 +51,12 @@ export async function apiLogout(): Promise<void> {
     await fetchNui('sd-phone:birdy:logout');
 }
 
+/** Subscribe/unsubscribe this phone to the feed push. The server only pushes to watchers, so a
+ * phone that is closed or backgrounded no longer pays to receive and discard one. */
+export function apiWatch(on: boolean): void {
+    if (isFiveM) void fetchNui('sd-phone:birdy:watch', { on });
+}
+
 export async function apiFeed(following: boolean): Promise<BirdyPost[]> {
     // Dev seed: treat other authors as followed so the tab is not empty.
     if (!isFiveM) return following ? SEED_POSTS.filter(p => p.author.handle !== 'you') : SEED_POSTS;
