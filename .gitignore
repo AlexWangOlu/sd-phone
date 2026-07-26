@@ -13,3 +13,6 @@ web/.realmap-src/
 # Local brainstorming/design specs, not shipped in source
 docs/superpowers/
 
+
+# Local-only Lua test harness for the lb-phone importer (not shipped).
+tests/
