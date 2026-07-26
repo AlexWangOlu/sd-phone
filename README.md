@@ -36,11 +36,11 @@ If sd-phone is useful to you, please ⭐ the repo. Issues and pull requests are 
 
 <img width="1920" height="1080" alt="mb3" src="https://github.com/user-attachments/assets/896f0a95-2077-405f-b494-17ffbc13684e" />
 
-## Overview
-
-sd-phone is a complete smartphone experience: lockscreen with passcode and Face Unlock, customizable homescreen with a real app switcher, notification banners with persistent server-authoritative unread badges, and a full catalog of apps backed by their own server modules. The UI is a React app rendered inside a real iPhone bezel; the phone is held as an in-hand prop, tints to the colour of the phone item you used, and keeps working while you walk.
-
-Everything player-facing is translatable, apps resume where you left them, and the phone auto-detects your framework, inventory, banking, housing, garage, and voice resources with zero config flags.
+> [!IMPORTANT]
+> **Coming from lb-phone? Give the first boot time to finish.**
+> sd-phone imports your lb-phone data on its first-ever startup. On a large database that is not instant: a production import of **3.8 million rows took roughly 8 minutes**, and the server stays busy until it completes. The console prints the row count, a time estimate and per-domain progress, so you can tell it is working rather than hung. Let it run to the end.
+>
+> This only happens once. Every later restart skips the domains that are already imported, so normal startups are unaffected.
 
 ## Powered by Fivemanage
 
