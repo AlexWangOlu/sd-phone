@@ -30,6 +30,25 @@ end
 
 store.lbTable = lbt
 
+---Resolves an lb-phone source table, or nil when this database has no lb data for it.
+---
+---Checking only that `phone_<name>` exists is not enough: for the names lb-phone and sd-phone share
+---(photos, notes, photo_albums, mail_accounts, message_reactions) the bare name is sd-phone's OWN
+---table once the schema bootstrap has run, and querying it with lb-phone's column names throws.
+---`markerColumn` is a column only the lb-phone shape has, so a porter reads the bare table only when
+---it really is lb-phone's.
+---@param name string suffix, e.g. 'mail_accounts'
+---@param markerColumn string|nil column unique to the lb-phone shape
+---@return string|nil table name to read from
+function store.lbSource(name, markerColumn)
+    local full = PREFIX .. name
+    local rescued = full .. '_lb'
+    if store.tableExists(rescued) then return rescued end
+    if not store.tableExists(full) then return nil end
+    if markerColumn and not store.tableHasColumn(full, markerColumn) then return nil end
+    return full
+end
+
 ---True if a base table with this exact name exists in the current schema. Read-only.
 ---@param name string table name
 ---@return boolean
@@ -106,6 +125,47 @@ function store.recordMigration(name, stats)
         'INSERT IGNORE INTO phone_migrations (name, stats) VALUES (?, ?)',
         { name, json.encode(stats or {}) }
     )
+end
+
+---@type string Marker-row prefix for a single completed domain.
+local DOMAIN_MARKER = 'lbphone:'
+
+---The set of domain keys already imported. Gating per domain (rather than one marker for the whole
+---import) is what lets a server that ran an earlier version pick up only the domains added since.
+---@return table<string, boolean>
+function store.completedDomains()
+    local rows = MySQL.query.await(
+        'SELECT name FROM phone_migrations WHERE name LIKE ?', { DOMAIN_MARKER .. '%' }) or {}
+    local set = {}
+    for _, r in ipairs(rows) do
+        local key = tostring(r.name):sub(#DOMAIN_MARKER + 1)
+        if key ~= '' then set[key] = true end
+    end
+    return set
+end
+
+---Marks one domain as imported, stamping its counts. Idempotent (INSERT IGNORE).
+---@param key string domain key
+---@param stats table counts returned by the porter
+function store.recordDomain(key, stats)
+    MySQL.query.await(
+        'INSERT IGNORE INTO phone_migrations (name, stats) VALUES (?, ?)',
+        { DOMAIN_MARKER .. key, json.encode(stats or {}) }
+    )
+end
+
+---Backfills domain markers for an install that completed the pre-domain-marker import, so those
+---domains are not needlessly re-run. Returns true when the legacy marker was found.
+---@param legacyName string old whole-import marker name
+---@param keys string[] domain keys that marker covered
+---@return boolean backfilled
+function store.backfillLegacyDomains(legacyName, keys)
+    if not store.migrationDone(legacyName) then return false end
+    local done = store.completedDomains()
+    for _, key in ipairs(keys) do
+        if not done[key] then store.recordDomain(key, { backfilled = true }) end
+    end
+    return true
 end
 
 ---Loads the framework's persistent character roster: qb/QBox reads `players` (citizenid + license),
@@ -234,10 +294,12 @@ end
 
 ---Runs a chunked multi-row INSERT IGNORE. `prefixSql` ends at the word VALUES; one placeholder
 ---group is appended per row, nil columns emit a literal NULL, and an empty batch is a no-op.
+---`suffixSql` is appended after the groups, for an ON DUPLICATE KEY UPDATE tail.
 ---@param prefixSql string 'INSERT IGNORE INTO ... (cols) VALUES'
 ---@param cols integer columns per row
 ---@param rows any[][] one parameter array per row
-local function insertMulti(prefixSql, cols, rows)
+---@param suffixSql string|nil trailing clause appended after the value groups
+local function insertMulti(prefixSql, cols, rows, suffixSql)
     if type(rows) ~= 'table' or #rows == 0 then return end
     local total = #rows
     for i = 1, total, 300 do
@@ -258,9 +320,14 @@ local function insertMulti(prefixSql, cols, rows)
             end
             groups[#groups + 1] = '(' .. table.concat(cells, ',') .. ')'
         end
-        MySQL.query.await(prefixSql .. ' ' .. table.concat(groups, ','), params)
+        local sql = prefixSql .. ' ' .. table.concat(groups, ',')
+        if suffixSql then sql = sql .. ' ' .. suffixSql end
+        MySQL.query.await(sql, params)
     end
 end
+
+---@type fun(prefixSql: string, cols: integer, rows: any[][], suffixSql?: string) Public alias for porters.
+store.insertMulti = insertMulti
 
 ---Adopts a player's lb-phone number (and lock passcode) as their sd-phone number. Returns 'set'
 ---when it wrote, 'skip' when already onboarded, 'conflict' when the number belongs to someone else.
@@ -359,6 +426,303 @@ end
 ---@param rows any[][]
 function store.insertNotes(rows)
     insertMulti('INSERT IGNORE INTO phone_notes (citizenid, id, body, sketches, images, created_at, updated_at) VALUES', 7, rows)
+end
+
+---Every lb-phone phone that carries a settings blob. Read-only.
+---@return { phone_number: string, settings: string }[]
+function store.lbPhoneSettings()
+    return MySQL.query.await(
+        ('SELECT phone_number, settings FROM %s WHERE settings IS NOT NULL'):format(lbt('phones'))) or {}
+end
+
+---Fill-only settings merge. rows: { citizenid, wallpaper, blur_lock, blur_home, theme, brightness,
+---phone_scale, hour24, ringtone, notification_tone, ringtone_volume, call_volume, home_layout }.
+---@param rows any[][]
+function store.fillSettings(rows)
+    insertMulti([[
+        INSERT INTO phone_settings
+            (citizenid, wallpaper, blur_lock, blur_home, theme, brightness, phone_scale, hour24,
+             ringtone, notification_tone, ringtone_volume, call_volume, home_layout)
+        VALUES
+    ]], 13, rows, [[
+        ON DUPLICATE KEY UPDATE
+            wallpaper         = IF(wallpaper IS NULL, VALUES(wallpaper), wallpaper),
+            blur_lock         = IF(blur_lock IS NULL, VALUES(blur_lock), blur_lock),
+            blur_home         = IF(blur_home IS NULL, VALUES(blur_home), blur_home),
+            theme             = IF(theme IS NULL, VALUES(theme), theme),
+            brightness        = IF(brightness IS NULL, VALUES(brightness), brightness),
+            phone_scale       = IF(phone_scale IS NULL, VALUES(phone_scale), phone_scale),
+            hour24            = IF(hour24 IS NULL, VALUES(hour24), hour24),
+            ringtone          = IF(ringtone IS NULL, VALUES(ringtone), ringtone),
+            notification_tone = IF(notification_tone IS NULL, VALUES(notification_tone), notification_tone),
+            ringtone_volume   = IF(ringtone_volume IS NULL, VALUES(ringtone_volume), ringtone_volume),
+            call_volume       = IF(call_volume IS NULL, VALUES(call_volume), call_volume),
+            home_layout       = IF(home_layout IS NULL, VALUES(home_layout), home_layout)
+    ]])
+end
+
+---@return table[]
+function store.lbWallet()
+    return MySQL.query.await(([[
+        SELECT id, phone_number, amount, company, UNIX_TIMESTAMP(`timestamp`) AS ts FROM %s
+    ]]):format(lbt('wallet_transactions'))) or {}
+end
+
+---@param rows any[][] { citizenid, label, amount, category, created_at, src_id }
+function store.insertBankTx(rows)
+    insertMulti('INSERT IGNORE INTO phone_bank_transactions (citizenid, label, amount, category, created_at, src_id) VALUES', 6, rows)
+end
+
+---@return { message_id: any, phone_number: string, reaction: string }[]
+function store.lbReactions()
+    return MySQL.query.await(
+        ('SELECT message_id, phone_number, reaction FROM %s'):format(lbt('message_reactions'))) or {}
+end
+
+---Which of these mids exist in phone_messages, queried in chunks. A reaction whose message was not
+---migrated can never render, so the porter drops it rather than importing junk.
+---@param mids string[]
+---@return table<string, boolean>
+function store.existingMids(mids)
+    local set = {}
+    for i = 1, #mids, 500 do
+        local last = math.min(i + 499, #mids)
+        local holes, params = {}, {}
+        for j = i, last do
+            holes[#holes + 1] = '?'
+            params[#params + 1] = mids[j]
+        end
+        local rows = MySQL.query.await(
+            ('SELECT DISTINCT mid FROM phone_messages WHERE mid IN (%s)'):format(table.concat(holes, ',')),
+            params) or {}
+        for _, r in ipairs(rows) do set[r.mid] = true end
+    end
+    return set
+end
+
+---@param rows any[][] { mid, citizenid, emoji, created_at }
+function store.insertReactions(rows)
+    insertMulti('INSERT IGNORE INTO phone_message_reactions (mid, citizenid, emoji, created_at) VALUES', 4, rows)
+end
+
+---@return table[]
+function store.lbVoiceMemos()
+    return MySQL.query.await(([[
+        SELECT id, phone_number, file_name, file_url, file_length,
+               UNIX_TIMESTAMP(created_at) AS ts
+        FROM %s
+    ]]):format(lbt('voice_memos_recordings'))) or {}
+end
+
+---@param rows any[][] { citizenid, name, url, duration, created_at, src_id }
+function store.insertVoiceMemos(rows)
+    insertMulti('INSERT IGNORE INTO phone_voice_memos (citizenid, name, url, duration, created_at, src_id) VALUES', 6, rows)
+end
+
+---@return { address: string, password: string }[]
+function store.lbMailAccounts()
+    return MySQL.query.await(('SELECT address, password FROM %s'):format(lbt('mail_accounts'))) or {}
+end
+
+---@return table[]
+function store.lbMailMessages()
+    return MySQL.query.await(([[
+        SELECT id, recipient, sender, subject, content, attachments, actions, `read`,
+               UNIX_TIMESTAMP(`timestamp`) AS ts
+        FROM %s ORDER BY `timestamp` ASC
+    ]]):format(lbt('mail_messages'))) or {}
+end
+
+---@return { phone_number: string, app: string, username: string }[]
+function store.lbLoggedIn()
+    return MySQL.query.await(
+        ('SELECT phone_number, app, username FROM %s'):format(lbt('logged_in_accounts'))) or {}
+end
+
+---@param rows any[][] { email, password_hash, display_name, messages, logged_in_citizens }
+function store.insertMailAccounts(rows)
+    insertMulti('INSERT IGNORE INTO phone_mail_accounts (email, password_hash, display_name, messages, logged_in_citizens) VALUES', 5, rows)
+end
+
+---Usernames already present in Photogram, so a migrated account never overwrites a live one.
+---@return table<string, boolean>
+function store.existingPhotogramUsernames()
+    local rows = MySQL.query.await('SELECT username FROM phone_photogram_profiles') or {}
+    local set = {}
+    for _, r in ipairs(rows) do set[r.username] = true end
+    return set
+end
+
+---@return table[]
+function store.lbIgAccounts()
+    return MySQL.query.await(([[
+        SELECT username, display_name, password, bio, profile_image, private, verified,
+               phone_number, UNIX_TIMESTAMP(date_joined) AS ts
+        FROM %s
+    ]]):format(lbt('instagram_accounts'))) or {}
+end
+
+---@return table[]
+function store.lbIgPosts()
+    return MySQL.query.await(([[
+        SELECT id, username, media, caption, location, UNIX_TIMESTAMP(`timestamp`) AS ts FROM %s
+    ]]):format(lbt('instagram_posts'))) or {}
+end
+
+---@return table[]
+function store.lbIgComments()
+    return MySQL.query.await(([[
+        SELECT id, post_id, username, comment, UNIX_TIMESTAMP(`timestamp`) AS ts FROM %s
+    ]]):format(lbt('instagram_comments'))) or {}
+end
+
+---@return table[]
+function store.lbIgLikes()
+    return MySQL.query.await(
+        ('SELECT id, username, is_comment FROM %s'):format(lbt('instagram_likes'))) or {}
+end
+
+---@return table[]
+function store.lbIgFollows()
+    return MySQL.query.await(
+        ('SELECT followed, follower FROM %s'):format(lbt('instagram_follows'))) or {}
+end
+
+---@return table[]
+function store.lbIgRequests()
+    return MySQL.query.await(([[
+        SELECT requester, requestee, UNIX_TIMESTAMP(`timestamp`) AS ts FROM %s
+    ]]):format(lbt('instagram_follow_requests'))) or {}
+end
+
+---@return table[]
+function store.lbIgStories()
+    return MySQL.query.await(([[
+        SELECT id, username, image, UNIX_TIMESTAMP(`timestamp`) AS ts FROM %s
+    ]]):format(lbt('instagram_stories'))) or {}
+end
+
+---The viewer column is `viewer` here, not `username` as on every other instagram table.
+---@return table[]
+function store.lbIgStoryViews()
+    return MySQL.query.await(([[
+        SELECT story_id, viewer AS username, UNIX_TIMESTAMP(`timestamp`) AS ts FROM %s
+    ]]):format(lbt('instagram_stories_views'))) or {}
+end
+
+---@return table[]
+function store.lbIgMessages()
+    return MySQL.query.await(([[
+        SELECT id, sender, recipient, content, attachments, UNIX_TIMESTAMP(`timestamp`) AS ts FROM %s
+    ]]):format(lbt('instagram_messages'))) or {}
+end
+
+---@return table[]
+function store.lbIgNotifications()
+    return MySQL.query.await(([[
+        SELECT id, username, `from` AS from_user, `type`, post_id, UNIX_TIMESTAMP(`timestamp`) AS ts
+        FROM %s
+    ]]):format(lbt('instagram_notifications'))) or {}
+end
+
+---@param rows any[][] { username, display_name, bio, avatar, is_private, verified, created_at }
+function store.insertPgProfiles(rows)
+    insertMulti('INSERT IGNORE INTO phone_photogram_profiles (username, display_name, bio, avatar, is_private, verified, created_at) VALUES', 7, rows)
+end
+
+---@param rows any[][] { id, author, images, caption, location, created_at }
+function store.insertPgPosts(rows)
+    insertMulti('INSERT IGNORE INTO phone_photogram_posts (id, author, images, caption, location, created_at) VALUES', 6, rows)
+end
+
+---@param rows any[][] { id, post_id, author, body, gif_url, created_at }
+function store.insertPgComments(rows)
+    insertMulti('INSERT IGNORE INTO phone_photogram_comments (id, post_id, author, body, gif_url, created_at) VALUES', 6, rows)
+end
+
+---@param rows any[][] { post_id, username, created_at }
+function store.insertPgLikes(rows)
+    insertMulti('INSERT IGNORE INTO phone_photogram_likes (post_id, username, created_at) VALUES', 3, rows)
+end
+
+---@param rows any[][] { comment_id, username, created_at }
+function store.insertPgCommentLikes(rows)
+    insertMulti('INSERT IGNORE INTO phone_photogram_comment_likes (comment_id, username, created_at) VALUES', 3, rows)
+end
+
+---@param rows any[][] { follower, target, status, created_at }
+function store.insertPgFollows(rows)
+    insertMulti('INSERT IGNORE INTO phone_photogram_follows (follower, target, status, created_at) VALUES', 4, rows)
+end
+
+---@param rows any[][] { id, author, image, created_at }
+function store.insertPgStories(rows)
+    insertMulti('INSERT IGNORE INTO phone_photogram_stories (id, author, image, created_at) VALUES', 4, rows)
+end
+
+---@param rows any[][] { story_id, username, created_at }
+function store.insertPgStoryViews(rows)
+    insertMulti('INSERT IGNORE INTO phone_photogram_story_views (story_id, username, created_at) VALUES', 3, rows)
+end
+
+---@param rows any[][] { id, from_user, to_user, body, kind, meta, reactions, read_flag, created_at }
+function store.insertPgDms(rows)
+    insertMulti('INSERT IGNORE INTO phone_photogram_dms (id, from_user, to_user, body, kind, meta, reactions, read_flag, created_at) VALUES', 9, rows)
+end
+
+---@param rows any[][] { id, recipient, kind, actor, post_id, seen, created_at }
+function store.insertPgNotifications(rows)
+    insertMulti('INSERT IGNORE INTO phone_photogram_notifications (id, recipient, kind, actor, post_id, seen, created_at) VALUES', 7, rows)
+end
+
+---Accounts-engine rows for migrated app accounts.
+---@param rows any[][] { app, username, display_name, password_hash }
+function store.insertPgAccounts(rows)
+    insertMulti('INSERT IGNORE INTO phone_app_accounts (app, username, display_name, password_hash) VALUES', 4, rows)
+end
+
+---Sessions for migrated app accounts. `linked` counts rows whose account exists and now has a
+---session; `inserted` counts only the new ones. They differ on a re-run, where every session is
+---already present and INSERT IGNORE affects no rows: that is success, not failure, so callers must
+---judge on `linked`.
+---@param rows any[][] { app, citizenid, username }
+---@return integer linked, integer inserted
+function store.insertPgSessions(rows)
+    local linked, inserted = 0, 0
+    for _, r in ipairs(rows) do
+        local id = MySQL.scalar.await(
+            'SELECT id FROM phone_app_accounts WHERE app = ? AND username = ? LIMIT 1', { r[1], r[3] })
+        if id then
+            linked = linked + 1
+            local n = MySQL.update.await(
+                'INSERT IGNORE INTO phone_app_sessions (app, citizenid, account_id) VALUES (?, ?, ?)',
+                { r[1], r[2], id })
+            inserted = inserted + (tonumber(n) or 0)
+        end
+    end
+    return linked, inserted
+end
+
+---Decodes a JSON column value; accepts strings or already-decoded tables and returns {} for
+---anything absent or invalid.
+---@param value any
+---@return table
+function store.decodeJson(value)
+    if value == nil then return {} end
+    if type(value) == 'table' then return value end
+    if type(value) == 'string' then
+        local ok, decoded = pcall(json.decode, value)
+        if ok and type(decoded) == 'table' then return decoded end
+    end
+    return {}
+end
+
+---Encodes a table for a JSON column; empty or absent tables map to nil.
+---@param tbl table|nil
+---@return string|nil
+function store.encodeJson(tbl)
+    if not tbl or next(tbl) == nil then return nil end
+    return json.encode(tbl)
 end
 
 return store
