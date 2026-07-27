@@ -26,6 +26,10 @@ local CTRL_NEXT   <const> = 175
 local CTRL_FLASH  <const> = 38
 ---@type integer Left Alt (INPUT_CHARACTER_WHEEL) - take the cursor back.
 local CTRL_CURSOR <const> = 19
+---@type integer Wheel up (INPUT_CURSOR_SCROLL_UP) - zoom in.
+local CTRL_ZOOM_IN <const> = 241
+---@type integer Wheel down (INPUT_CURSOR_SCROLL_DOWN) - zoom out.
+local CTRL_ZOOM_OUT <const> = 242
 
 ---@type boolean True while the native cell-cam view is active.
 local active   = false
@@ -77,9 +81,17 @@ local function startInputLoop()
             DisableControlAction(0, CTRL_FLIP, true)
             DisableControlAction(0, CTRL_PREV, true)
             DisableControlAction(0, CTRL_NEXT, true)
+            DisableControlAction(0, CTRL_ZOOM_IN, true)
+            DisableControlAction(0, CTRL_ZOOM_OUT, true)
 
+            -- Relays only run while the mouse belongs to the game; with the cursor up the page
+            -- receives these events itself, and the wheel zooms from its own handler.
             if not cursorOn then
-                if IsDisabledControlJustPressed(0, CTRL_CURSOR) then
+                if IsDisabledControlJustPressed(0, CTRL_ZOOM_IN) then
+                    sendKey('zoomIn')
+                elseif IsDisabledControlJustPressed(0, CTRL_ZOOM_OUT) then
+                    sendKey('zoomOut')
+                elseif IsDisabledControlJustPressed(0, CTRL_CURSOR) then
                     SetNuiFocus(true, true)
                     setCursorState(true)
                 elseif IsDisabledControlJustPressed(0, CTRL_SHOOT) then
@@ -219,6 +231,13 @@ RegisterNUICallback('sd-phone:camera:cursor', function(data, cb)
     local on = data and data.on and true or false
     SetNuiFocus(on, on)
     setCursorState(on)
+    cb({ success = true })
+end)
+
+---React -> Lua: viewfinder magnification. Zooming the lens optically keeps the shot sharp, where
+---cropping the rendered frame magnifies fewer pixels the further in you go.
+RegisterNUICallback('sd-phone:camera:zoom', function(data, cb)
+    phonecam.setZoom(data and data.zoom)
     cb({ success = true })
 end)
 

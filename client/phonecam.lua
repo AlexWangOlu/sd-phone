@@ -35,6 +35,11 @@ local SELFIE_PITCH_LIMIT <const> = 45.0
 ---@type number Selfie field of view, lb-phone's selfie default: wider than the rear lens so the
 ---player fits in frame at arm's length.
 local SELFIE_FOV <const> = 60.0
+---@type number Tightest field of view the lens will zoom to, lb-phone's MinFOV.
+local MIN_FOV <const> = 10.0
+---@type number Fraction of the remaining gap to the target field of view the lens closes each
+---frame. Zooming optically means the game renders the tighter view, so it stays sharp.
+local ZOOM_EASE <const> = 0.2
 
 ---@type integer|nil Handle of the scripted camera while it owns the view.
 local cam = nil
@@ -51,6 +56,10 @@ local selfieSwing = 0.0
 local rearSwing = 0.0
 ---@type number|nil Last frame's view heading, the baseline that turn is measured against.
 local lastViewYaw = nil
+---@type number Magnification the viewfinder is asking for; 1 is the lens's own field of view.
+local zoomTarget = 1.0
+---@type number Field of view actually applied this frame, eased toward what the zoom calls for.
+local fov = CAM_FOV
 
 ---Whether a surface may keep the player moving, which decides scripted cam vs native cell cam.
 ---The native pins the ped at engine level regardless of NUI keep-input, so free movement and the
@@ -88,6 +97,37 @@ local function clamp(value, limit)
     if value < -limit then return -limit end
     if value > limit then return limit end
     return value
+end
+
+---The field of view the current lens and magnification call for. Halving the angle rather than the
+---number doubles the magnification, so the arithmetic goes through the tangent.
+---@return number
+local function wantedFov()
+    local base = selfie and SELFIE_FOV or CAM_FOV
+    local want = math.deg(2.0 * math.atan(math.tan(math.rad(base) * 0.5) / zoomTarget))
+    return want < MIN_FOV and MIN_FOV or want
+end
+
+---Eases the lens toward the field of view the zoom calls for. Running here rather than in the page
+---keeps it per-frame smooth without a NUI round trip for every notch of the wheel.
+local function applyZoom()
+    local want = wantedFov()
+    if math.abs(want - fov) < 0.01 then
+        if fov ~= want then
+            fov = want
+            SetCamFov(cam, fov)
+        end
+        return
+    end
+    fov = fov + (want - fov) * ZOOM_EASE
+    SetCamFov(cam, fov)
+end
+
+---Sets the magnification the viewfinder wants. The lens eases to it over the following frames.
+---@param z any magnification; below 1 is clamped away, the lens never goes wider than its own view
+function phonecam.setZoom(z)
+    z = tonumber(z) or 1.0
+    zoomTarget = z < 1.0 and 1.0 or z
 end
 
 ---Places the lens for this frame. On foot the player turns to face whatever the lens is aimed at,
@@ -157,8 +197,10 @@ function phonecam.start()
     selfieSwing = 0.0
     rearSwing = 0.0
     lastViewYaw = nil
+    zoomTarget = 1.0
+    fov = CAM_FOV
     cam = CreateCam('DEFAULT_SCRIPTED_CAMERA', true)
-    SetCamFov(cam, CAM_FOV)
+    SetCamFov(cam, fov)
     place()
     SetCamActive(cam, true)
     RenderScriptCams(true, false, 0, true, true)
@@ -168,6 +210,7 @@ function phonecam.start()
     CreateThread(function()
         while cam do
             place()
+            applyZoom()
             Wait(0)
         end
         loopRunning = false
@@ -184,8 +227,8 @@ function phonecam.stop()
     selfie = false
 end
 
----Flips the lens, widening the field of view for the selfie so the player fits in frame at arm's
----length. No-op unless the scripted cam owns the view.
+---Flips the lens. The selfie's wider field of view is picked up by the zoom ease, so the change
+---blends rather than snapping. No-op unless the scripted cam owns the view.
 ---@param on boolean|nil truthy = selfie
 function phonecam.setSelfie(on)
     if not cam then return end
@@ -193,11 +236,11 @@ function phonecam.setSelfie(on)
     selfieSwing = 0.0
     rearSwing = 0.0
     lastViewYaw = nil
+    zoomTarget = 1.0
     -- The selfie lens aims with PointCamAtCoord, which leaves a standing point-at target on the
     -- camera. Left in place the rear lens fights it: the constraint and SetCamRot both write the
     -- rotation every frame, so the view jitters and drags toward wherever the head last was.
     if not selfie then StopCamPointing(cam) end
-    SetCamFov(cam, selfie and SELFIE_FOV or CAM_FOV)
 end
 
 ---True while the scripted cam owns the view.
