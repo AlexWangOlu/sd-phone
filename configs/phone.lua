@@ -81,6 +81,21 @@ return {
     -- Rebind it in FiveM's Key Bindings.
     CameraFaceKeybind = 'RSHIFT',
 
+    -- The keybind hints drawn over the game while the viewfinder is up.
+    CameraHints = {
+        -- Show them at all. False hides the list entirely; the keys still work.
+        Enabled = true,
+
+        -- Which screen corner they sit in: 'top-right', 'top-left',
+        -- 'bottom-right' or 'bottom-left'. Anything else falls back to
+        -- top-right. They align and slide in from whichever edge you pick.
+        Corner = 'top-right',
+
+        -- 1 or 2 columns. Two fills the column nearest your chosen edge first
+        -- and puts the overflow inboard of it, so the list reads outward-in.
+        Columns = 2,
+    },
+
     -- Third-person "holding a phone" pose + prop, shown to other players while
     -- the phone is out. Looping upper-body anim so the player can still walk.
     -- The prop model is PropPrefix .. <frame colour> (e.g. sd_phone_red), so

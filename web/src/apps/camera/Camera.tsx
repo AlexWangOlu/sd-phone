@@ -25,6 +25,25 @@ function playShutter() {
     } catch { /* audio unavailable — silent */ }
 }
 
+type HintCorner = 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left';
+
+interface HintConfig {
+    enabled: boolean;
+    corner:  HintCorner;
+    columns: number;
+}
+
+// Matches configs/phone.lua CameraHints, and stands in until Lua answers so the list does not
+// jump from one corner to another on open.
+const HINT_DEFAULTS: HintConfig = { enabled: true, corner: 'top-right', columns: 2 };
+
+const HINT_CORNER_CLASS: Record<HintCorner, string> = {
+    'top-right':    'right-4 top-4',
+    'top-left':     'left-4 top-4',
+    'bottom-right': 'right-4 bottom-4',
+    'bottom-left':  'left-4 bottom-4',
+};
+
 // `selfieOnly` hints stay mounted and collapse instead of unmounting, so they can animate out.
 const CONTROL_HINTS: { keys: string[]; label: string; selfieOnly?: boolean }[] = [
     { keys: ['Enter'],     label: 'Take Photo' },
@@ -113,6 +132,7 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
     // True only when the native cell cam took the view, i.e. the server froze the player while
     // framing. Decides whether the selfie crop bias applies.
     const [nativeCam, setNativeCam] = useState(false);
+    const [hintCfg,   setHintCfg]   = useState<HintConfig>(HINT_DEFAULTS);
 
     const { setHideHomeIndicator } = useTheme('setHideHomeIndicator');
 
@@ -203,8 +223,12 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
     useEffect(() => {
         if (!deckActive) return;
         let stopped = false;
-        void fetchNui<{ walkable?: boolean }>('sd-phone:camera:open').then((res) => {
-            if (!stopped) setNativeCam(res?.walkable === false);
+        void fetchNui<{ walkable?: boolean; hints?: Partial<HintConfig> }>('sd-phone:camera:open').then((res) => {
+            if (stopped) return;
+            setNativeCam(res?.walkable === false);
+            // Dev has no Lua behind it, so an absent payload keeps the defaults rather than blanking
+            // the list.
+            setHintCfg({ ...HINT_DEFAULTS, ...(res?.hints ?? {}) });
         });
 
         void getGameRender().then((render) => {
@@ -507,49 +531,68 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
 
     const hints = photoOnly ? CONTROL_HINTS.filter(h => h.label !== 'Change Mode') : CONTROL_HINTS;
 
+    // The column nearest the chosen edge fills first and the overflow sits inboard of it, so the
+    // list reads outward-in. Rendering order is left-to-right, hence the flip when anchored right.
+    const hintEdgeRight = hintCfg.corner.endsWith('right');
+    const hintColumns: typeof hints[] = (() => {
+        if (hintCfg.columns < 2) return [hints];
+        const split = Math.ceil(hints.length / 2);
+        const edge  = hints.slice(0, split);
+        const inner = hints.slice(split);
+        return hintEdgeRight ? [inner, edge] : [edge, inner];
+    })();
+
     return (
         <div className="absolute inset-0 z-10 flex flex-col text-white">
-            {createPortal(
+            {hintCfg.enabled && createPortal(
                 <div
                     // Row spacing lives on the rows, not as a gap here: a collapsed row would keep
                     // its gap and leave a hole where the hidden hint used to be.
-                    // Single column on the left. Two columns left the outward lens with four hints
-                    // against one, because both selfie-only rows sat in the second column.
-                    className="pointer-events-none fixed left-4 top-4 z-[2147483647] flex flex-col items-start"
+                    className={`pointer-events-none fixed z-[2147483647] flex items-start gap-x-5 ${HINT_CORNER_CLASS[hintCfg.corner]}`}
                     style={{ textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}
                 >
-                    {hints.map(hint => {
-                        // Selfie-only hints stay mounted and collapse their own height, so they
-                        // slide and fade both ways instead of the row appearing from nothing.
-                        const shown = !hint.selfieOnly || selfie;
-                        return (
-                            <div
-                                key={hint.label}
-                                className="flex items-center gap-2 overflow-hidden transition-all duration-200 ease-out"
-                                style={{
-                                    opacity: shown ? 1 : 0,
-                                    maxHeight: shown ? 24 : 0,
-                                    marginBottom: shown ? 6 : 0,
-                                    transform: shown ? 'translateX(0)' : 'translateX(-8px)',
-                                }}
-                                aria-hidden={!shown}
-                            >
-                                <span className="whitespace-nowrap text-[13px] font-medium text-white">
-                                    {hintLabel(hint.label, angleLocked, facingCam)}
-                                </span>
-                                <span className="flex gap-1">
-                                    {hint.keys.map(k => (
-                                        <kbd
-                                            key={k}
-                                            className="flex h-6 min-w-[26px] items-center justify-center rounded-[6px] border border-white/25 bg-black/55 px-1.5 text-[12px] font-semibold text-white backdrop-blur-sm"
-                                        >
-                                            {k}
-                                        </kbd>
-                                    ))}
-                                </span>
-                            </div>
-                        );
-                    })}
+                    {hintColumns.map((column, columnIndex) => (
+                        <div
+                            key={columnIndex}
+                            className={`flex flex-col ${hintEdgeRight ? 'items-end' : 'items-start'}`}
+                        >
+                            {column.map(hint => {
+                                // Selfie-only hints stay mounted and collapse their own height, so
+                                // they slide and fade both ways instead of appearing from nothing.
+                                const shown = !hint.selfieOnly || selfie;
+                                return (
+                                    <div
+                                        key={hint.label}
+                                        className="flex items-center gap-2 overflow-hidden transition-all duration-200 ease-out"
+                                        style={{
+                                            opacity: shown ? 1 : 0,
+                                            maxHeight: shown ? 24 : 0,
+                                            marginBottom: shown ? 6 : 0,
+                                            // Slides in from whichever edge it is anchored to.
+                                            transform: shown
+                                                ? 'translateX(0)'
+                                                : `translateX(${hintEdgeRight ? 8 : -8}px)`,
+                                        }}
+                                        aria-hidden={!shown}
+                                    >
+                                        <span className="whitespace-nowrap text-[13px] font-medium text-white">
+                                            {hintLabel(hint.label, angleLocked, facingCam)}
+                                        </span>
+                                        <span className="flex gap-1">
+                                            {hint.keys.map(k => (
+                                                <kbd
+                                                    key={k}
+                                                    className="flex h-6 min-w-[26px] items-center justify-center rounded-[6px] border border-white/25 bg-black/55 px-1.5 text-[12px] font-semibold text-white backdrop-blur-sm"
+                                                >
+                                                    {k}
+                                                </kbd>
+                                            ))}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ))}
                 </div>,
                 document.body,
             )}
