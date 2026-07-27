@@ -1,7 +1,10 @@
----Flips the active cellphone camera between rear and front (selfie), invoking the native by hash.
+---Flips the active cellphone camera between rear and front (selfie).
+---The old raw hash (0x2491A93618B7D838) is stale on current builds and threw "invalid native",
+---taking the whole open/close callback with it; the name lets FiveM cross-map the running build.
 ---@param activate boolean true = front (selfie) camera
 local function CellFrontCamActivate(activate)
-    Citizen.InvokeNative(0x2491A93618B7D838, activate)
+    local fn = CellCamActivateSelfieMode
+    if fn then pcall(fn, activate) end
 end
 
 -- Keyboard controls for the viewfinder (control group 0).
