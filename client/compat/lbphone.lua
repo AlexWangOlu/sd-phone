@@ -290,14 +290,32 @@ local function refreshSettings()
     return settingsCache
 end
 
--- Primed at load; not retried, since every accepted write refreshes it below.
-CreateThread(refreshSettings)
-
----Mirrors an accepted sd-phone settings write as lb-phone's settingsUpdated.
-eventCookies[#eventCookies + 1] = AddEventHandler('sd-phone:client:settingsUpdated', function()
+---Re-reads the cache and mirrors it as lb-phone's settingsUpdated once the read lands.
+local function refreshAndAnnounce()
     local settings = refreshSettings()
     if settings then TriggerEvent('lb-phone:settingsUpdated', settings) end
-end)
+end
+
+---Drops the snapshot when the character goes away, so GetSettings answers nil rather than the
+---departed character's settings.
+local function clearSettingsCache()
+    settingsCache = nil
+end
+
+-- Primed at load, then tracked across characters. Settings resolve only once the citizenid
+-- exists (the constraint client/main.lua's pushCharacterLoaded is built around), so on a normal
+-- join the load-time read answers before the character is picked and would otherwise leave the
+-- cache empty for the whole session. Switching characters matters just as much: without this the
+-- cache keeps serving the PREVIOUS character's settings until the new one happens to write one.
+-- Same four events the number cache above already tracks, for the same reason.
+CreateThread(refreshSettings)
+eventCookies[#eventCookies + 1] = RegisterNetEvent('QBCore:Client:OnPlayerLoaded', refreshAndAnnounce)
+eventCookies[#eventCookies + 1] = RegisterNetEvent('esx:playerLoaded', refreshAndAnnounce)
+eventCookies[#eventCookies + 1] = RegisterNetEvent('QBCore:Client:OnPlayerUnload', clearSettingsCache)
+eventCookies[#eventCookies + 1] = RegisterNetEvent('esx:onPlayerLogout', clearSettingsCache)
+
+---Mirrors an accepted sd-phone settings write as lb-phone's settingsUpdated.
+eventCookies[#eventCookies + 1] = AddEventHandler('sd-phone:client:settingsUpdated', refreshAndAnnounce)
 
 -- Stubs: the rest of lb-phone's client surface, grouped by family; each warns once and returns
 -- a safe default.
