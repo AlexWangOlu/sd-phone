@@ -308,6 +308,12 @@ end
 -- cache empty for the whole session. Switching characters matters just as much: without this the
 -- cache keeps serving the PREVIOUS character's settings until the new one happens to write one.
 -- Same four events the number cache above already tracks, for the same reason.
+--
+-- Note this runs on every server, not only ones with an lb-phone consumer: the compat convar
+-- defaults to on, and nothing can detect whether anyone listens to lb-phone:settingsUpdated. So
+-- each accepted settings write costs one extra callback round trip regardless. That is cheap
+-- (writes are user-paced, and slider persists are already debounced to one per gesture), but the
+-- only way to pay nothing is sd_phone_lbcompat=false, which turns off the whole shim.
 CreateThread(refreshSettings)
 eventCookies[#eventCookies + 1] = RegisterNetEvent('QBCore:Client:OnPlayerLoaded', refreshAndAnnounce)
 eventCookies[#eventCookies + 1] = RegisterNetEvent('esx:playerLoaded', refreshAndAnnounce)
