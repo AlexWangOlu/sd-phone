@@ -47,6 +47,10 @@ local cam = nil
 local loopRunning = false
 ---@type boolean True while the selfie lens is selected.
 local selfie = false
+---@type boolean True while the selfie lens is held off the body: it then swings around the player
+---instead of turning them with it, which is how you get an angle on yourself rather than the same
+---head-on one every time. Walking is unaffected. Cleared on every lens flip and camera open.
+local locked = false
 ---@type number Degrees the selfie lens is currently swung off the body. Integrated from the view's
 ---frame-to-frame turn rather than its absolute angle, so it saturates at the limit instead of
 ---flipping across the player when the view sweeps through their back.
@@ -130,14 +134,16 @@ function phonecam.setZoom(z)
     zoomTarget = z < 1.0 and 1.0 or z
 end
 
----Places the lens for this frame. On foot the player turns to face whatever the lens is aimed at,
----so bystanders see them point the phone at the thing they are actually shooting; seated they
----cannot turn, so the lens swings off the vehicle within a limit instead.
+---Places the lens for this frame. When the body is free to turn the player faces whatever the lens
+---is aimed at, so bystanders see them point the phone at what they are shooting; when it is pinned,
+---seated or locked, the lens swings off the body within a limit instead.
 local function place()
     local ped    = PlayerPedId()
     local view   = GetGameplayCamRot(2)
     local head   = GetPedBoneCoords(ped, HEAD_BONE, 0.0, 0.0, 0.0)
-    local seated = IsPedInAnyVehicle(ped, true)
+    -- Seated and locked are the same constraint: the body is not going to turn, so the lens has to.
+    -- The lock is selfie only, hence the pairing rather than the flag alone.
+    local pinned = (locked and selfie) or IsPedInAnyVehicle(ped, true)
 
     local turn = angleDelta(view.z, lastViewYaw or view.z)
     lastViewYaw = view.z
@@ -146,7 +152,7 @@ local function place()
     -- just walking and the ped never fights its own movement. Standing still the heading is set
     -- outright: the selfie lens is welded to the body, so asking the ped to turn at its own pace
     -- would make that turn rate the mouse sensitivity and the whole lens feel weighted.
-    if not seated and (turn > TURN_EPSILON or turn < -TURN_EPSILON) then
+    if not pinned and (turn > TURN_EPSILON or turn < -TURN_EPSILON) then
         if GetEntitySpeed(ped) > MOVING_SPEED then
             SetPedDesiredHeading(ped, view.z)
         else
@@ -158,7 +164,7 @@ local function place()
         -- The body is already chasing the view, so the lens can track the mouse one to one and
         -- stay crisp; the holder is hidden from this lens anyway, so the catch-up never shows.
         local yaw = view.z
-        if seated then
+        if pinned then
             rearSwing = clamp(rearSwing + turn, SEATED_YAW_LIMIT)
             yaw = GetEntityHeading(ped) + rearSwing
         end
@@ -170,8 +176,9 @@ local function place()
 
     -- A selfie turns the player, not the lens. Welded to the body the outstretched arm points
     -- straight down the barrel and stays hidden behind the phone; swing the lens off the body
-    -- instead and the arm crosses the shot. Seated the arm is the price of being able to aim.
-    selfieSwing = seated and clamp(selfieSwing + turn, SELFIE_YAW_LIMIT) or 0.0
+    -- instead and the arm crosses the shot. Pinned that is the trade: a bit of arm in exchange for
+    -- an angle on yourself other than head-on.
+    selfieSwing = pinned and clamp(selfieSwing + turn, SELFIE_YAW_LIMIT) or 0.0
 
     local yaw   = GetEntityHeading(ped) + selfieSwing
     local pitch = clamp(view.x, SELFIE_PITCH_LIMIT)
@@ -199,6 +206,7 @@ function phonecam.start()
     lastViewYaw = nil
     zoomTarget = 1.0
     fov = CAM_FOV
+    locked = false
     cam = CreateCam('DEFAULT_SCRIPTED_CAMERA', true)
     SetCamFov(cam, fov)
     place()
@@ -237,10 +245,24 @@ function phonecam.setSelfie(on)
     rearSwing = 0.0
     lastViewYaw = nil
     zoomTarget = 1.0
+    -- Cleared on every flip so the page, which resets its own copy on the same event, can never
+    -- show "Unlock Angle" over a lens that is no longer holding one.
+    locked = false
     -- The selfie lens aims with PointCamAtCoord, which leaves a standing point-at target on the
     -- camera. Left in place the rear lens fights it: the constraint and SetCamRot both write the
     -- rotation every frame, so the view jitters and drags toward wherever the head last was.
     if not selfie then StopCamPointing(cam) end
+end
+
+---Stops the body turning with the selfie lens, or hands it back. Walking is untouched: the point is
+---to swing the shot around yourself for a different angle, not to be pinned down. Selfie only, since
+---the outward lens frames the world and gains nothing from being held off the body.
+---@return boolean|nil locked the state after the toggle, nil when the lens cannot use it
+function phonecam.toggleLock()
+    if not cam or not selfie then return nil end
+    locked = not locked
+    selfieSwing = 0.0
+    return locked
 end
 
 ---True while the scripted cam owns the view.

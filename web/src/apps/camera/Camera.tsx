@@ -11,6 +11,7 @@ import { NearbyVoiceCapture, registerGatedMic, unregisterGatedMic, gateAcquire, 
 import { isVideoUrl } from '@/core/photosApi';
 import { getGameRender, type GameRender } from '@/render';
 import { useDeckActive } from '@/shell/deckActive';
+import { useStatusBarLight } from '@/shell/useStatusBarLight';
 import { useLaunchIntent } from '@/shell/launchIntent';
 import { t } from '@/i18n';
 import { formatDuration } from '@/lib/time';
@@ -24,21 +25,28 @@ function playShutter() {
     } catch { /* audio unavailable — silent */ }
 }
 
-const CONTROL_HINTS: { keys: string[]; label: string }[] = [
+// `selfieOnly` hints stay mounted and collapse instead of unmounting, so they can animate out.
+const CONTROL_HINTS: { keys: string[]; label: string; selfieOnly?: boolean }[] = [
     { keys: ['Enter'],     label: 'Take Photo' },
     { keys: ['↑'],         label: 'Flip Camera' },
     { keys: ['E'],         label: 'Flash' },
     { keys: ['←', '→'],    label: 'Change Mode' },
     { keys: ['Alt'],       label: 'Toggle Cursor' },
+    { keys: ['↓'],         label: 'Angle', selfieOnly: true },
 ];
 
-function hintLabel(label: string): string {
+function hintLabel(label: string, angleLocked: boolean): string {
     switch (label) {
         case 'Take Photo':    return t('camera.hintTakePhoto', 'Take Photo');
         case 'Flip Camera':   return t('camera.hintFlipCamera', 'Flip Camera');
         case 'Flash':         return t('camera.hintFlash', 'Flash');
         case 'Change Mode':   return t('camera.hintChangeMode', 'Change Mode');
         case 'Toggle Cursor': return t('camera.hintToggleCursor', 'Toggle Cursor');
+        // Labels what the mouse will control after the press, not the state it is in: "Lock Angle"
+        // read equally well as "the angle is locked", which is what made it feel inverted.
+        case 'Angle':         return angleLocked
+            ? t('camera.hintMoveYourself', 'Move Yourself')
+            : t('camera.hintMoveCamera', 'Move Camera');
         default:              return label;
     }
 }
@@ -95,6 +103,8 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
     const [recSecs,   setRecSecs]   = useState(0);
     const [flash,     setFlash]     = useState(false);
     const [selfie,    setSelfie]    = useState(false);
+    // Mirrors the selfie angle lock held in Lua, so the hint can read "Unlock Angle" while it is on.
+    const [angleLocked, setAngleLocked] = useState(false);
     // True only when the native cell cam took the view, i.e. the server froze the player while
     // framing. Decides whether the selfie crop bias applies.
     const [nativeCam, setNativeCam] = useState(false);
@@ -107,6 +117,11 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
     // backgrounded (switcher open / pool) so nothing burns behind the blur, and
     // re-acquire on foreground.
     const deckActive = useDeckActive();
+
+    // The viewfinder is a live canvas, so nothing in the DOM tells auto-contrast how dark it is and
+    // the home pill renders dark against the game view. The other canvas apps declare this the same
+    // way; the hook scopes itself to the active deck entry, so it cannot leak under keep-alive.
+    useStatusBarLight(true);
 
     const landscape = mode === 'LANDSCAPE';
 
@@ -257,6 +272,16 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
         ro.observe(el);
         return () => ro.disconnect();
     }, []);
+
+    useNuiEvent('sd-phone:camera:lock', (data) => {
+        setAngleLocked(!!data?.on);
+    });
+
+    // Lua clears the lock on every lens flip, so drop it here on the same event rather than waiting
+    // to be told; otherwise the hint would read "Unlock Angle" over a freshly unlocked lens.
+    useEffect(() => {
+        setAngleLocked(false);
+    }, [selfie]);
 
     useNuiEvent('sd-phone:camera:key', (data) => {
         switch (data?.key) {
@@ -476,24 +501,41 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
         <div className="absolute inset-0 z-10 flex flex-col text-white">
             {createPortal(
                 <div
-                    className="pointer-events-none fixed right-4 top-4 z-[2147483647] flex flex-col items-end gap-1.5"
+                    // Row spacing lives on the rows, not as a gap here: a collapsed row would keep
+                    // its gap and leave a hole where the hidden hint used to be.
+                    className="pointer-events-none fixed right-4 top-4 z-[2147483647] flex flex-col items-end"
                     style={{ textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}
                 >
-                    {hints.map(hint => (
-                        <div key={hint.label} className="flex items-center gap-2">
-                            <span className="text-[13px] font-medium text-white">{hintLabel(hint.label)}</span>
-                            <span className="flex gap-1">
-                                {hint.keys.map(k => (
-                                    <kbd
-                                        key={k}
-                                        className="flex h-6 min-w-[26px] items-center justify-center rounded-[6px] border border-white/25 bg-black/55 px-1.5 text-[12px] font-semibold text-white backdrop-blur-sm"
-                                    >
-                                        {k}
-                                    </kbd>
-                                ))}
-                            </span>
-                        </div>
-                    ))}
+                    {hints.map(hint => {
+                        // Selfie-only hints stay mounted and collapse their own height, so they
+                        // slide and fade both ways instead of the row appearing from nothing.
+                        const shown = !hint.selfieOnly || selfie;
+                        return (
+                            <div
+                                key={hint.label}
+                                className="flex items-center gap-2 overflow-hidden transition-all duration-200 ease-out"
+                                style={{
+                                    opacity: shown ? 1 : 0,
+                                    maxHeight: shown ? 24 : 0,
+                                    marginBottom: shown ? 6 : 0,
+                                    transform: shown ? 'translateX(0)' : 'translateX(8px)',
+                                }}
+                                aria-hidden={!shown}
+                            >
+                                <span className="text-[13px] font-medium text-white">{hintLabel(hint.label, angleLocked)}</span>
+                                <span className="flex gap-1">
+                                    {hint.keys.map(k => (
+                                        <kbd
+                                            key={k}
+                                            className="flex h-6 min-w-[26px] items-center justify-center rounded-[6px] border border-white/25 bg-black/55 px-1.5 text-[12px] font-semibold text-white backdrop-blur-sm"
+                                        >
+                                            {k}
+                                        </kbd>
+                                    ))}
+                                </span>
+                            </div>
+                        );
+                    })}
                 </div>,
                 document.body,
             )}
@@ -576,13 +618,39 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
                     </div>
                 )}
 
-                {pending && (
-                    <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/25">
-                        <div className="text-[14px] font-medium text-white/90">
-                            {t('camera.saving', 'Saving…')}
-                        </div>
+                {/* Stays mounted so it fades both ways. The scrim ramps its blur radius and its own
+                    background alpha rather than the element's opacity: a backdrop-filter under an
+                    opacity transition flickers in CEF. */}
+                <div
+                    className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3.5 transition-all duration-200 ease-out"
+                    style={{
+                        backgroundColor:        pending ? 'rgba(0,0,0,0.72)' : 'rgba(0,0,0,0)',
+                        backdropFilter:         pending ? 'blur(6px)' : 'blur(0px)',
+                        WebkitBackdropFilter:   pending ? 'blur(6px)' : 'blur(0px)',
+                        pointerEvents:          pending ? 'auto' : 'none',
+                    }}
+                    aria-hidden={!pending}
+                    aria-busy={pending}
+                >
+                    <div
+                        className="flex flex-col items-center gap-3.5 transition-opacity duration-200 ease-out"
+                        style={{ opacity: pending ? 1 : 0 }}
+                    >
+                        {/* Upload progress is not reported back, so the ring spins rather than
+                            claiming a percentage it cannot know. */}
+                        <svg className="h-11 w-11 animate-spin" viewBox="0 0 44 44" fill="none">
+                            <circle cx="22" cy="22" r="19" stroke="rgba(255,255,255,0.18)" strokeWidth="3" />
+                            <circle
+                                cx="22" cy="22" r="19"
+                                stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round"
+                                strokeDasharray="119.4" strokeDashoffset="90"
+                            />
+                        </svg>
+                        <span className="text-[14px] font-medium text-white/90">
+                            {t('camera.uploading', 'Uploading…')}
+                        </span>
                     </div>
-                )}
+                </div>
 
                 <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 rounded-full bg-black/60 px-2 py-1.5 backdrop-blur">
                     {ZOOM_PRESETS.map(z => {
@@ -633,7 +701,9 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
                     </div>
                 )}
 
-                <div className={`flex items-center justify-center gap-10 px-6 pb-7 ${photoOnly ? 'pt-4' : 'pt-1'}`}>
+                {/* pb clears the home indicator: its pill sits 5-10px off the bottom inside a 21px
+                    hit area, so pb-7 left the shutter ring almost against it. */}
+                <div className={`flex items-center justify-center gap-10 px-6 pb-11 ${photoOnly ? 'pt-4' : 'pt-1'}`}>
                     {photoOnly ? (
                         <button
                             type="button"

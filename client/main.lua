@@ -27,6 +27,8 @@ local weatherBridge = require 'bridge.client.weather'
 local customApps = require 'client.customapps'
 ---@type table Hold pose and hand prop (client.pose): owns which clip is held and re-asserts it.
 local pose = require 'client.pose'
+---@type table Scripted phone camera (client.phonecam): owns the frame-a-shot movement lock.
+local phonecam = require 'client.phonecam'
 
 -- Loaded for side effects: each app module registers its own NUI callbacks, net events and
 -- server proxies.
@@ -282,6 +284,7 @@ AddEventHandler('sd-phone:client:cameraCursor', function(on)
     syncKeepInput()
 end)
 
+
 ---Opens the phone NUI onto the lockscreen, loads installed apps, focuses the NUI, and pushes a
 ---weather snapshot plus the session-start timestamp. Refuses while dead, swimming, or disabled.
 local function OpenPhone()
@@ -444,6 +447,19 @@ RegisterKeyMapping('+sdphone_toggle', 'Toggle Phone', 'keyboard', config.Phone.K
 RegisterCommand('+sdphone_look', enterLookMode, false)
 RegisterCommand('-sdphone_look', exitLookMode, false)
 RegisterKeyMapping('+sdphone_look', 'Phone: Hold to look around', 'keyboard', config.Phone.LookKeybind)
+
+-- Angle lock: stops the body turning with the selfie lens, so the shot can swing around the player
+-- for something other than head-on. Walking is untouched. toggleLock returns nil on the outward
+-- lens, which frames the world and gains nothing from it.
+RegisterCommand('sdphone_camlock', function()
+    if not cameraActive then return end
+    local locked = phonecam.toggleLock()
+    if locked == nil then return end
+    -- The viewfinder's own hint carries the state, so it flips to "Unlock Angle" rather than a
+    -- toast interrupting the shot.
+    SendNUIMessage({ action = 'sd-phone:camera:lock', data = { on = locked } })
+end, false)
+RegisterKeyMapping('sdphone_camlock', 'Phone: Move the selfie camera instead of yourself', 'keyboard', config.Phone.CameraLockKeybind)
 
 ---Opens the phone after a phone item is used, adopting the item variant's frame colour when it
 ---passes the FRAME_COLORS whitelist.

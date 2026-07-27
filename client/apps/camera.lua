@@ -22,6 +22,9 @@ local CTRL_FLIP   <const> = 172
 local CTRL_PREV   <const> = 174
 ---@type integer Right arrow (INPUT_CELLPHONE_RIGHT) - next capture mode.
 local CTRL_NEXT   <const> = 175
+---@type integer Down arrow (INPUT_CELLPHONE_DOWN) - the movement lock's default bind. Suppressed
+---like its siblings so the game's own action never fires underneath the keybind.
+local CTRL_DOWN   <const> = 173
 ---@type integer E (INPUT_PICKUP) - toggle the flash.
 local CTRL_FLASH  <const> = 38
 ---@type integer Left Alt (INPUT_CHARACTER_WHEEL) - take the cursor back.
@@ -81,6 +84,7 @@ local function startInputLoop()
             DisableControlAction(0, CTRL_FLIP, true)
             DisableControlAction(0, CTRL_PREV, true)
             DisableControlAction(0, CTRL_NEXT, true)
+            DisableControlAction(0, CTRL_DOWN, true)
             DisableControlAction(0, CTRL_ZOOM_IN, true)
             DisableControlAction(0, CTRL_ZOOM_OUT, true)
 

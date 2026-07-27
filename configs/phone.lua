@@ -62,6 +62,17 @@ return {
     -- is on.
     LookKeybind = 'MOUSE_EXTRABTN1',
 
+    -- Press this in SELFIE mode to move the camera instead of yourself: the lens
+    -- then swings around you rather than turning you with it, so you can frame
+    -- yourself from the side instead of head-on every time. Press again to go
+    -- back to turning your character. Walking works either way; only the body's
+    -- rotation is held. Does nothing on the outward lens, which frames the world.
+    -- Defaults to the down arrow: the viewfinder already owns that cluster (up
+    -- flips the lens, left and right change mode), every keyboard has one, and
+    -- nothing else binds it. X is deliberately avoided because it is the
+    -- hands-up key on most servers. Rebind it in FiveM's Key Bindings.
+    CameraLockKeybind = 'DOWN',
+
     -- Third-person "holding a phone" pose + prop, shown to other players while
     -- the phone is out. Looping upper-body anim so the player can still walk.
     -- The prop model is PropPrefix .. <frame colour> (e.g. sd_phone_red), so

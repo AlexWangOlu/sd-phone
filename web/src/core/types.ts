@@ -211,6 +211,7 @@ export type NuiMessage =
     | { action: 'sd-phone:stocks:prices'; data: { assets: { symbol: string; price: number; changePct: number }[] } }
     | { action: 'sd-phone:mail:received';         data: unknown }
     | { action: 'sd-phone:camera:key';            data: { key: string } }
+    | { action: 'sd-phone:camera:lock';           data: { on: boolean } }
     | { action: 'sd-phone:photos:added';          data: { id: string; url: string; createdAt: string } }
     | { action: 'sd-phone:groups:inviteReceived'; data: GroupInvitePush }
     | { action: 'sd-phone:groups:memberJoined';   data: GroupRosterPush }
