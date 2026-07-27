@@ -73,6 +73,14 @@ return {
     -- hands-up key on most servers. Rebind it in FiveM's Key Bindings.
     CameraLockKeybind = 'DOWN',
 
+    -- Press this in SELFIE mode to turn your character's head toward the lens,
+    -- so an angled shot still has them looking at the camera instead of past it.
+    -- Press again to let the head sit with the body. Defaults to right shift:
+    -- every keyboard has one, left shift is sprint but right shift is almost
+    -- never bound, and the viewfinder's arrow cluster is already spoken for.
+    -- Rebind it in FiveM's Key Bindings.
+    CameraFaceKeybind = 'RSHIFT',
+
     -- Third-person "holding a phone" pose + prop, shown to other players while
     -- the phone is out. Looping upper-body anim so the player can still walk.
     -- The prop model is PropPrefix .. <frame colour> (e.g. sd_phone_red), so

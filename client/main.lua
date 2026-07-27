@@ -461,6 +461,16 @@ RegisterCommand('sdphone_camlock', function()
 end, false)
 RegisterKeyMapping('sdphone_camlock', 'Phone: Move the selfie camera instead of yourself', 'keyboard', config.Phone.CameraLockKeybind)
 
+-- Head tracking: turns the face back toward the lens so an angled selfie still looks at the camera.
+-- Opt-in, because it reads as posed rather than candid and not every shot wants that.
+RegisterCommand('sdphone_camface', function()
+    if not cameraActive then return end
+    local facing = phonecam.toggleFaceCam()
+    if facing == nil then return end
+    SendNUIMessage({ action = 'sd-phone:camera:faceCam', data = { on = facing } })
+end, false)
+RegisterKeyMapping('sdphone_camface', 'Phone: Look at the selfie camera', 'keyboard', config.Phone.CameraFaceKeybind)
+
 ---Opens the phone after a phone item is used, adopting the item variant's frame colour when it
 ---passes the FRAME_COLORS whitelist.
 ---@param color string|nil frame colour of the used item variant

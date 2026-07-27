@@ -33,9 +33,10 @@ const CONTROL_HINTS: { keys: string[]; label: string; selfieOnly?: boolean }[] =
     { keys: ['←', '→'],    label: 'Change Mode' },
     { keys: ['Alt'],       label: 'Toggle Cursor' },
     { keys: ['↓'],         label: 'Angle', selfieOnly: true },
+    { keys: ['R Shift'],   label: 'Face', selfieOnly: true },
 ];
 
-function hintLabel(label: string, angleLocked: boolean): string {
+function hintLabel(label: string, angleLocked: boolean, facingCam: boolean): string {
     switch (label) {
         case 'Take Photo':    return t('camera.hintTakePhoto', 'Take Photo');
         case 'Flip Camera':   return t('camera.hintFlipCamera', 'Flip Camera');
@@ -47,6 +48,9 @@ function hintLabel(label: string, angleLocked: boolean): string {
         case 'Angle':         return angleLocked
             ? t('camera.hintMoveYourself', 'Move Yourself')
             : t('camera.hintMoveCamera', 'Move Camera');
+        case 'Face':          return facingCam
+            ? t('camera.hintLookAhead', 'Look Ahead')
+            : t('camera.hintFaceCamera', 'Face Camera');
         default:              return label;
     }
 }
@@ -103,8 +107,9 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
     const [recSecs,   setRecSecs]   = useState(0);
     const [flash,     setFlash]     = useState(false);
     const [selfie,    setSelfie]    = useState(false);
-    // Mirrors the selfie angle lock held in Lua, so the hint can read "Unlock Angle" while it is on.
+    // Mirror the selfie state held in Lua so the hints can describe what pressing each key does now.
     const [angleLocked, setAngleLocked] = useState(false);
+    const [facingCam,   setFacingCam]   = useState(false);
     // True only when the native cell cam took the view, i.e. the server froze the player while
     // framing. Decides whether the selfie crop bias applies.
     const [nativeCam, setNativeCam] = useState(false);
@@ -277,10 +282,15 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
         setAngleLocked(!!data?.on);
     });
 
-    // Lua clears the lock on every lens flip, so drop it here on the same event rather than waiting
-    // to be told; otherwise the hint would read "Unlock Angle" over a freshly unlocked lens.
+    useNuiEvent('sd-phone:camera:faceCam', (data) => {
+        setFacingCam(!!data?.on);
+    });
+
+    // Lua clears both on every lens flip, so drop them here on the same event rather than waiting to
+    // be told; otherwise a hint would describe behaviour the lens is no longer doing.
     useEffect(() => {
         setAngleLocked(false);
+        setFacingCam(false);
     }, [selfie]);
 
     useNuiEvent('sd-phone:camera:key', (data) => {
@@ -503,7 +513,9 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
                 <div
                     // Row spacing lives on the rows, not as a gap here: a collapsed row would keep
                     // its gap and leave a hole where the hidden hint used to be.
-                    className="pointer-events-none fixed right-4 top-4 z-[2147483647] flex flex-col items-end"
+                    // Single column on the left. Two columns left the outward lens with four hints
+                    // against one, because both selfie-only rows sat in the second column.
+                    className="pointer-events-none fixed left-4 top-4 z-[2147483647] flex flex-col items-start"
                     style={{ textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}
                 >
                     {hints.map(hint => {
@@ -518,11 +530,13 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
                                     opacity: shown ? 1 : 0,
                                     maxHeight: shown ? 24 : 0,
                                     marginBottom: shown ? 6 : 0,
-                                    transform: shown ? 'translateX(0)' : 'translateX(8px)',
+                                    transform: shown ? 'translateX(0)' : 'translateX(-8px)',
                                 }}
                                 aria-hidden={!shown}
                             >
-                                <span className="text-[13px] font-medium text-white">{hintLabel(hint.label, angleLocked)}</span>
+                                <span className="whitespace-nowrap text-[13px] font-medium text-white">
+                                    {hintLabel(hint.label, angleLocked, facingCam)}
+                                </span>
                                 <span className="flex gap-1">
                                     {hint.keys.map(k => (
                                         <kbd

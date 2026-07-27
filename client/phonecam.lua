@@ -51,6 +51,17 @@ local selfie = false
 ---instead of turning them with it, which is how you get an angle on yourself rather than the same
 ---head-on one every time. Walking is unaffected. Cleared on every lens flip and camera open.
 local locked = false
+---@type boolean True while the player's head is turned to follow the selfie lens, so an angled
+---shot still has them looking down the barrel. Cleared alongside the swing.
+local faceCam = false
+---@type integer Game time the look-at was last issued. Re-issued on a poll rather than every frame:
+---the target moves with the lens, but restarting the task 60 times a second makes the head twitch.
+local lastLookAt = 0
+---@type integer Milliseconds between look-at refreshes.
+local LOOK_REFRESH <const> = 150
+---@type integer Lifetime given to each look-at, longer than the refresh so tracking never lapses
+---between them.
+local LOOK_HOLD <const> = 400
 ---@type number Degrees the selfie lens is currently swung off the body. Integrated from the view's
 ---frame-to-frame turn rather than its absolute angle, so it saturates at the limit instead of
 ---flipping across the player when the view sweeps through their back.
@@ -134,6 +145,14 @@ function phonecam.setZoom(z)
     zoomTarget = z < 1.0 and 1.0 or z
 end
 
+---Stops the head tracking and lets it settle back onto the body's own facing. Safe to call when it
+---was never on; declared here so every exit path below can reach it.
+local function clearFaceCam()
+    faceCam = false
+    lastLookAt = 0
+    TaskClearLookAt(PlayerPedId())
+end
+
 ---Places the lens for this frame. When the body is free to turn the player faces whatever the lens
 ---is aimed at, so bystanders see them point the phone at what they are shooting; when it is pinned,
 ---seated or locked, the lens swings off the body within a limit instead.
@@ -194,6 +213,16 @@ local function place()
     -- at the head keeps them centred whatever the offsets are, and lets pitch raise and lower the
     -- phone around the face rather than tilting them out of shot.
     PointCamAtCoord(cam, head.x, head.y, head.z)
+
+    -- Head tracking rides on top of the pose: the body keeps the angle the swing gave it while the
+    -- face comes back round to the lens.
+    if faceCam then
+        local now = GetGameTimer()
+        if now - lastLookAt >= LOOK_REFRESH then
+            lastLookAt = now
+            TaskLookAtCoord(ped, pos.x, pos.y, pos.z, LOOK_HOLD, 2048, 3)
+        end
+    end
 end
 
 ---Takes the view with a scripted camera. Unlike CellCamActivate this leaves the ped free, so the
@@ -207,6 +236,7 @@ function phonecam.start()
     zoomTarget = 1.0
     fov = CAM_FOV
     locked = false
+    clearFaceCam()
     cam = CreateCam('DEFAULT_SCRIPTED_CAMERA', true)
     SetCamFov(cam, fov)
     place()
@@ -228,6 +258,7 @@ end
 ---Hands the view back to the gameplay camera. Idempotent.
 function phonecam.stop()
     if not cam then return end
+    clearFaceCam()
     RenderScriptCams(false, false, 0, true, true)
     SetCamActive(cam, false)
     DestroyCam(cam, false)
@@ -246,8 +277,9 @@ function phonecam.setSelfie(on)
     lastViewYaw = nil
     zoomTarget = 1.0
     -- Cleared on every flip so the page, which resets its own copy on the same event, can never
-    -- show "Unlock Angle" over a lens that is no longer holding one.
+    -- describe a lens that is no longer behaving that way.
     locked = false
+    clearFaceCam()
     -- The selfie lens aims with PointCamAtCoord, which leaves a standing point-at target on the
     -- camera. Left in place the rear lens fights it: the constraint and SetCamRot both write the
     -- rotation every frame, so the view jitters and drags toward wherever the head last was.
@@ -263,6 +295,20 @@ function phonecam.toggleLock()
     locked = not locked
     selfieSwing = 0.0
     return locked
+end
+
+---Turns the player's head to follow the selfie lens, so an angled shot still has them looking at the
+---camera, or lets it sit with the body. Selfie only, for the same reason the swing is.
+---@return boolean|nil facing the state after the toggle, nil when the lens cannot use it
+function phonecam.toggleFaceCam()
+    if not cam or not selfie then return nil end
+    if faceCam then
+        clearFaceCam()
+        return false
+    end
+    faceCam = true
+    lastLookAt = 0
+    return true
 end
 
 ---True while the scripted cam owns the view.
