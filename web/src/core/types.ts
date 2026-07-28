@@ -259,6 +259,8 @@ export type NuiMessage =
     | { action: 'sd-phone:payphone:open';     data: { number: string; anonymous: boolean; myNumber?: string | null; favorites: { name: string; phone: string }[]; connected?: boolean; callerName?: string; coin?: { enabled: boolean; cost: number }; credited?: boolean } }
     | { action: 'sd-phone:payphone:outgoing'; data: { channel: number; number: string } }
     | { action: 'sd-phone:payphone:ended';    data: { channel: number; reason: string } }
+    | { action: 'sd-phone:payphone:incoming';      data: { channel: number } }
+    | { action: 'sd-phone:payphone:incomingEnded'; data: { channel: number } }
     | { action: 'sd-phone:radio:status';   data: { on: boolean; freq: number; standby?: boolean } }
     | { action: 'sd-phone:radio:onair';    data: { active: boolean } }
     | { action: 'sd-phone:radio:count';    data: { count: number } }
