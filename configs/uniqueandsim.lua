@@ -1,7 +1,7 @@
 -- Phones, numbers and who owns what. Pick your setup:
 --
---   Stock phone (shared data, automatic numbers)        -> Enabled = false
---   Unique phones, SIM cards carry the number (default) -> Enabled = true, DataOwner = 'device'
+--   Stock phone (shared data, automatic numbers)        -> Enabled = false   (DEFAULT)
+--   Unique phones, SIM cards carry the number           -> Enabled = true, DataOwner = 'device'
 --   Unique phones, no SIM items (built-in numbers)      -> Enabled = true, DataOwner = 'device', BuiltInNumbers = true
 --   Stock data, SIMs only change your number            -> Enabled = true, DataOwner = 'character'
 --   The SIM IS the phone (original unique phones)       -> Enabled = true, DataOwner = 'sim'
@@ -37,7 +37,7 @@
 return {
     -- Master switch. Off = sd-phone behaves exactly as before (numbers auto-assigned per
     -- character, phone always has service).
-    Enabled = true,
+    Enabled = false,
 
     -- Where the phone DATA lives: 'device' | 'sim' | 'character' (see the header above).
     -- Flipping an existing 'sim' server to 'device' is safe: on first use each phone ADOPTS the
@@ -79,7 +79,7 @@ return {
     -- Renamed from `UseContainers`, which is still read when this key is absent. The old name
     -- described the ox item-container this used to be built on; trays are ox stashes now, because
     -- ox opens a container item on USE and that made the phone itself keybind-only.
-    SimTray = true,
+    SimTray = false,
 
     -- Metadata mode only: allow ejecting the installed SIM from Settings -> SIM & Backup. The
     -- player gets the sim_card item back (number intact) and the phone loses service. In tray
