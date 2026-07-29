@@ -68,12 +68,16 @@ return {
     -- A payphone leg is never dropped: a booth is a landline and has no cell signal to lose.
     DropCallsAfter = 6,
 
-    -- Minimum level each capability needs. Texts get through on a signal too weak to hold a
-    -- call, and data-backed apps need the most - the same order a real phone degrades in.
+    -- Minimum level each capability needs. Text and Data sit on the first bar's cutoff, so both
+    -- work anywhere the phone shows a bar at all; a voice call is the demanding one and needs
+    -- more. That ordering is deliberate: a call wants sustained bandwidth in both directions,
+    -- while a text or a feed request is a short burst that a weak signal still carries.
+    --
+    -- The practical result is a one-bar band where you can text and browse but not call.
     Thresholds = {
         Text = 0.05,
         Call = 0.15,
-        Data = 0.30,
+        Data = 0.05,
     },
 
     -- Ascending cutoffs mapping level to the 0..4 status bar bars. Bar count is how many
