@@ -6,6 +6,9 @@ local celltowers = require 'shared.celltowers'
 local util = require 'server.util'
 ---@type table Player bridge (bridge.server.player): citizenid lookup for the rate-limit key.
 local player = require 'bridge.server.player'
+---@type table Wi-Fi authority (server.wifi): a connection can carry what the masts will not. The
+---dependency is one-way, server.wifi never requires this module back.
+local wifiServer = require 'server.wifi'
 
 ---@type table Cell tower settings (configs/celltowers.lua).
 local cfg = config.CellTowers or {}
@@ -14,10 +17,13 @@ local cfg = config.CellTowers or {}
 local TOWERS = (cfg.Enabled == true and type(cfg.Towers) == 'table') and cfg.Towers or {}
 ---@type table Minimum level per capability.
 local THRESHOLDS = type(cfg.Thresholds) == 'table' and cfg.Thresholds or {}
----@type integer Milliseconds a player must wait between honoured back-in-range reports.
+---@type integer Milliseconds a player must wait between honoured coverage reports.
 local REPORT_WINDOW = 10000
 ---@type integer Reports honoured per window.
 local REPORTS_PER_WINDOW = 1
+
+---@type table<number, boolean> Coverage state last announced per player, nil until the first one.
+local announced = {}
 
 ---@type table Service module; the table returned at end of file.
 local service = {}
@@ -48,19 +54,42 @@ end
 ---@return boolean
 function service.allows(source, capability)
     if #TOWERS == 0 then return true end
-    return celltowers.allows(service.levelFor(source), capability, THRESHOLDS)
+    if celltowers.allows(service.levelFor(source), capability, THRESHOLDS) then return true end
+    return wifiServer.provides(source, capability)
 end
 
----A client reporting it walked back into coverage. The level is re-derived here before anything
----acts on it, so a forged report releases nothing; the rate limit keeps a spamming client from
----driving repeated drains.
-RegisterNetEvent('sd-phone:server:service:report', function()
+---A client reporting it crossed the coverage boundary: `{ lost = true }` for the falling edge, no
+---payload for the rising edge and the open sync. Re-derived server-side, so a forged report does nothing.
+RegisterNetEvent('sd-phone:server:service:report', function(payload)
     local source = source
-    if not service.allows(source, 'text') then return end
+    local reported = not (type(payload) == 'table' and payload.lost == true)
+    local hasService = service.allows(source, 'text')
+
+    if reported ~= hasService then return end
+
+    if not hasService and announced[source] == false then return end
+
     local cid = player.getIdentifier(source)
     if not cid then return end
+
     if not util.rateLimit(cid, 'service:report', REPORT_WINDOW, REPORTS_PER_WINDOW) then return end
-    TriggerEvent('sd-phone:server:service:regained', source)
+
+    announced[source] = hasService
+    if hasService then
+        ---A verified return to service, for scripts that release work withheld in a dead zone.
+        ---@param source number player server id
+        TriggerEvent('sd-phone:server:service:regained', source)
+    else
+        ---A verified loss of service, for scripts that react to a dead zone instead of polling.
+        ---@param source number player server id
+        TriggerEvent('sd-phone:server:service:lost', source)
+    end
+end)
+
+---A departing player takes their announced state with them, so a recycled server id never
+---inherits it.
+AddEventHandler('playerDropped', function()
+    announced[source] = nil
 end)
 
 ---Authoritative service level for a player, 0..1.

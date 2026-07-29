@@ -45,6 +45,28 @@ export interface SimStatePush {
     profile?: string;
 }
 
+/** One Wi-Fi network the phone can see. `strength` is 0..1 raw, `bars` the 0..3 the icon draws. */
+export interface WifiNetwork {
+    id: string;
+    ssid: string;
+    /** Already joined once by this character, so rejoining needs no password. */
+    known?: boolean;
+    /** Password protected. The client omits it on the connected network, where it normalizes to false. */
+    secured: boolean;
+    strength: number;
+    bars: number;
+}
+
+/** Live Wi-Fi snapshot: enabled=false means the radio is off, so there is nothing to join. */
+export interface WifiState {
+    enabled: boolean;
+    /** This server runs Wi-Fi at all. Distinguishes a switched-off radio from no networks. */
+    configured?: boolean;
+    connected: WifiNetwork | null;
+    networks: WifiNetwork[];
+    providesData?: boolean;
+}
+
 export interface AppDef {
     id: string;
     label: string;
@@ -52,6 +74,8 @@ export interface AppDef {
     route: string;
     accent: string;
     base?: boolean;
+    /** Wi-Fi network id (configs/wifi.lua) the phone must be joined to before this app downloads. */
+    wifi?: string;
 }
 
 export interface CustomAppDef {
@@ -69,6 +93,8 @@ export interface CustomAppDef {
     fixBlur?:    boolean;
     keepOpen?:   boolean;
     landscape?:  boolean;
+    /** Wi-Fi network id (configs/wifi.lua) the phone must be joined to before this app downloads. */
+    wifi?:       string;
     resource:    string;
 }
 
@@ -209,6 +235,7 @@ export type NuiMessage =
     | { action: 'sd-phone:launchApp'; data: { id: string; link?: Record<string, unknown> } }
     | { action: 'sd-phone:battery'; data: number }
     | { action: 'sd-phone:service'; data: { bars: number; level: number; data: boolean } }
+    | { action: 'sd-phone:wifi'; data: WifiState }
     | { action: 'sd-phone:weather'; data: WeatherPayload }
     | { action: 'sd-phone:session'; data: SessionPayload }
     | { action: 'sd-phone:health';  data: HealthPayload }

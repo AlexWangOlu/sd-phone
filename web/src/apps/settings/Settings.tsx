@@ -17,17 +17,26 @@ import { PushLayer } from './SettingsSubPage';
 import { WallpaperPage } from './appearance/WallpaperPage';
 import { SimBackupPage } from './sim/SimBackupPage';
 import { useSimStore } from '@/stores/simStore';
+import { WifiPage } from './wifi/WifiPage';
+import { useWifiConnected } from '@/stores/wifiStore';
 
-type SubPage = 'general' | 'display' | 'wallpaper' | 'notifications' | 'sound-haptics' | 'face-unlock' | 'phone' | 'battery' | 'privacy' | 'sim' | null;
+type SubPage = 'general' | 'display' | 'wallpaper' | 'notifications' | 'sound-haptics' | 'face-unlock' | 'phone' | 'battery' | 'privacy' | 'sim' | 'wifi' | null;
 
 export function Settings({ onClose }: { onClose: () => void }) {
     const [subPage, setSubPage] = useSessionState<SubPage>('settings:subPage', null);
     const [query,   setQuery]   = useSessionState('settings:query', '');
     const simEnabled = useSimStore(s => s.enabled);
+    const wifi = useWifiConnected();
 
     // The SIM & Backup row only exists while the server runs unique phones.
     const settingsGroups = getSettingsGroups()
         .map(g => simEnabled ? g : { ...g, rows: g.rows.filter(r => r.id !== 'sim') })
+        .map(g => ({
+            ...g,
+            rows: g.rows.map(r => (r.id === 'wifi'
+                ? { ...r, status: wifi ? wifi.ssid : t('settings.wifiNotConnected', 'Not Connected') }
+                : r)),
+        }))
         .filter(g => g.rows.length > 0);
     const allRows = settingsGroups.flatMap(g => g.rows);
     const searchResults = query.trim()
@@ -51,6 +60,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
         if (id === 'battery')       setSubPage('battery');
         if (id === 'privacy')       setSubPage('privacy');
         if (id === 'sim')           setSubPage('sim');
+        if (id === 'wifi')          setSubPage('wifi');
     }
 
     const sub =
@@ -64,6 +74,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
         : subPage === 'battery'       ? <BatteryPage           onBack={handleBack} />
         : subPage === 'privacy'       ? <PrivacySecurityPage   onBack={handleBack} onOpenFaceUnlock={() => setSubPage('face-unlock')} />
         : subPage === 'sim'           ? <SimBackupPage         onBack={handleBack} />
+        : subPage === 'wifi'          ? <WifiPage              onBack={handleBack} />
         : null;
 
     return (
