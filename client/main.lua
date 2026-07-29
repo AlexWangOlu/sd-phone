@@ -43,6 +43,8 @@ local customApps = require 'client.customapps'
 local pose = require 'client.pose'
 ---@type table Scripted phone camera (client.phonecam): owns the frame-a-shot movement lock.
 local phonecam = require 'client.phonecam'
+---@type table Cell service (client.service): live signal level, bars + capability gating.
+local service = require 'client.service'
 
 -- Loaded for side effects: each app module registers its own NUI callbacks, net events and
 -- server proxies.
@@ -91,6 +93,7 @@ require 'client.apps.settings'
 require 'client.apps.sim'
 require 'client.admin'
 require 'client.payphone'
+require 'client.celltowerblips'
 
 ---@type table Phone visibility state: open/locked flags + cosmetic battery percentage.
 local phoneState = {
@@ -356,7 +359,7 @@ local function OpenPhone()
             battery   = phoneState.battery,
             frameColor = currentFrameColor,
             carrier   = config.StatusBar.Carrier,
-            signal    = config.StatusBar.SignalBars,
+            signal    = service.active() and service.bars() or config.StatusBar.SignalBars,
             showWifi  = config.StatusBar.ShowWifi,
             use24h    = config.Lockscreen.Use24Hour,
             showDate  = config.Lockscreen.ShowDate,
@@ -777,6 +780,24 @@ exports('isLocked', phoneState.isLocked)
 exports('open',     OpenPhone)
 exports('close',    ClosePhone)
 exports('openApp',  OpenApp)
+
+---Current cell service, 0 (dead zone) to 1 (standing at a mast). Always 1 when no towers are
+---configured.
+exports('getServiceLevel', function() return service.level() end)
+
+---Current status bar bars, 0..4.
+exports('getServiceBars', function() return service.bars() end)
+
+---The configured masts as { tower = vector3, range = number }, mirroring configs/celltowers.lua.
+---Empty while the system is off. The lb-phone GetCellTowers export drops the ranges to match
+---their shape; this one keeps them.
+exports('getCellTowers', function() return service.towers() end)
+
+---Whether a capability is currently possible: 'text', 'call' or 'data' (default 'data').
+---@param capability string|nil
+exports('hasService', function(capability)
+    return service.allows(capability or 'data')
+end)
 
 ---Registers a third-party app - exports['sd-phone']:addCustomApp(data). Attribution is the calling
 ---resource; re-registering an identifier is only allowed from that same resource.

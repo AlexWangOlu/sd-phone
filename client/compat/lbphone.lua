@@ -23,11 +23,15 @@ if compatConvar == 'false' or compatConvar == '0' or realLbPhoneStarted() then r
 ---@type table Self-export proxy for the sd-phone client surface.
 local sd = exports['sd-phone']
 
----@type table sd-phone config root (configs/config.lua), read here only for the Debug flag.
+---@type table sd-phone config root (configs/config.lua), read here for the Debug flag and the
+---configured cell towers.
 local config = require 'configs.config'
 
 ---@type table Custom third-party app registry (client.customapps): identifier resolution + forwards.
 local customApps = require 'client.customapps'
+
+---@type table Cell service (client.service): level, bars + the SetServiceBars override.
+local service = require 'client.service'
 
 ---@type any[] AddEventHandler cookies for every registered export handler.
 local exportCookies = {}
@@ -328,12 +332,27 @@ eventCookies[#eventCookies + 1] = AddEventHandler('sd-phone:client:settingsUpdat
 
 -- Config and settings readers.
 stubLbExport('GetConfig', {})
-stubLbExport('GetCellTowers', {})
+
+---GetCellTowers() -> vector3[]. lb-phone's config is a bare coordinate list, so the per-tower
+---`range` sd-phone adds is dropped here; read it via exports['sd-phone']:getServiceLevel(). A
+---switched-off system reports no masts, matching the full service every phone actually has.
+registerLbExport('GetCellTowers', function()
+    local out = {}
+    for _, mast in ipairs(service.towers()) do out[#out + 1] = mast.tower end
+    return out
+end)
+
 ---GetSettings() -> table|nil, from the cache refreshed alongside lb-phone:settingsUpdated.
 registerLbExport('GetSettings', function()
     return settingsCache
 end)
 stubLbExport('GetStreamerMode', false)
+
+---SetServiceBars(bars): forces the displayed bars until called with nil. Display only; it never
+---changes what the server allows.
+registerLbExport('SetServiceBars', function(bars)
+    service.setBarsOverride(bars)
+end)
 
 -- Airplane mode reads as off.
 stubLbExport('GetAirplaneMode', false, 'state is server-side only in sd-phone; returning false')
@@ -363,7 +382,6 @@ stubLbExport('IsPhoneDead', false)
 
 -- Appearance and shell tweaks with no sd-phone counterpart.
 stubLbExport('SetPhoneVariation', nil)
-stubLbExport('SetServiceBars', nil)
 stubLbExport('ReloadPhone', nil)
 stubLbExport('ToggleHomeIndicator', nil)
 stubLbExport('ToggleLandscape', nil)

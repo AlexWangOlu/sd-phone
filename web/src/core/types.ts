@@ -208,6 +208,7 @@ export type NuiMessage =
     | { action: 'sd-phone:client:characterLoaded' }
     | { action: 'sd-phone:launchApp'; data: { id: string; link?: Record<string, unknown> } }
     | { action: 'sd-phone:battery'; data: number }
+    | { action: 'sd-phone:service'; data: { bars: number; level: number; data: boolean } }
     | { action: 'sd-phone:weather'; data: WeatherPayload }
     | { action: 'sd-phone:session'; data: SessionPayload }
     | { action: 'sd-phone:health';  data: HealthPayload }
@@ -256,6 +257,7 @@ export type NuiMessage =
     | { action: 'sd-phone:call:outgoing';  data: CallPush }
     | { action: 'sd-phone:call:connected'; data: { channel: number } }
     | { action: 'sd-phone:call:ended';     data: CallEndedPush }
+    | { action: 'sd-phone:call:dropped';   data: { lost: boolean } }
     | { action: 'sd-phone:payphone:open';     data: { number: string; anonymous: boolean; myNumber?: string | null; favorites: { name: string; phone: string }[]; connected?: boolean; callerName?: string; coin?: { enabled: boolean; cost: number }; credited?: boolean } }
     | { action: 'sd-phone:payphone:outgoing'; data: { channel: number; number: string } }
     | { action: 'sd-phone:payphone:ended';    data: { channel: number; reason: string } }
