@@ -164,7 +164,7 @@ export function Lockscreen({ use24h, showDate, wallpaper, unlockTrigger, onUnloc
                 <QuickAction label={t('shell.flashlight','Flashlight')} active={flashlightOn} onClick={(e) => { e.stopPropagation(); onToggleFlashlight(); }}>
                     <Flashlight
                         className={`h-[29px] w-[29px] ${flashlightOn ? 'text-black' : 'text-white'}`}
-                        fill={flashlightOn ? 'currentColor' : 'none'}
+                        fill="none"
                         strokeWidth={2.2}
                     />
                 </QuickAction>
