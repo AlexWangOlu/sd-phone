@@ -15,6 +15,7 @@ import { AppDeck, FullscreenStage, type DeckAppCtx } from '@/shell/AppDeck';
 import { Homescreen }  from '@/shell/Homescreen';
 import { useBadgeStore } from '@/stores/badgeStore';
 import { useBatteryStore } from '@/stores/batteryStore';
+import { useWidgetData } from '@/stores/widgetDataStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useDownloadStore, useDownloadingIds } from '@/stores/downloadStore';
 import { useLocaleStore } from '@/stores/localeStore';
@@ -709,6 +710,63 @@ function AppContent() {
 
     useNuiEvent('sd-phone:battery', useCallback((pct) => {
         if (typeof pct === 'number') { setBattery(pct); useBatteryStore.getState().setLevel(pct); }
+    }, []));
+
+    // Home screen widgets render while their app is closed, so the pushes those apps listen for
+    // are mirrored into a store here, the same way the battery level is above.
+    useNuiEvent('sd-phone:weather', useCallback((data) => {
+        useWidgetData.getState().setWeather(data ?? null);
+    }, []));
+
+    // The Wallet widget has no app to fetch for it, so it also refreshes on the pushes Banking
+    // itself listens to - money can arrive while the home screen is already on screen.
+    const refreshWallet = useCallback(() => {
+        void import('@/apps/banking/bankingApi')
+            .then(m => m.fetchOverview())
+            .then(o => useWidgetData.getState().setWallet(o.balance, o.cash, o.transactions))
+            .catch(() => {});
+    }, []);
+    useNuiEvent('sd-phone:bank:received', refreshWallet);
+    useNuiEvent('sd-phone:bank:txAdded', refreshWallet);
+
+    // Health is pushed on a timer whether or not the Health app is open, so the Activity widget
+    // just mirrors it. No fetch of its own.
+    useNuiEvent('sd-phone:health', useCallback((data) => {
+        useWidgetData.getState().setHealth(data ?? null);
+    }, []));
+
+    /**
+     * Server reads for the widgets that have no push of their own.
+     *
+     * Driven off the home screen BECOMING VISIBLE rather than the phone opening: vehicles get
+     * taken out in the world, articles get published by other players, and holdings change inside
+     * the Stocks app - none of which fire an event this UI can hear. Refreshing on arrival at the
+     * home screen catches all of it, while an idle phone and a phone sitting inside an app both
+     * cost nothing. Deliberately NOT watchMarket(): subscribing to per-tick pushes is the right
+     * cost for an open Stocks screen and the wrong one for a tile you glance at.
+     */
+    const homeVisible = !!view && !locked && !currentApp;
+    useEffect(() => {
+        if (!homeVisible) return;
+        refreshWallet();
+        void import('@/apps/garages/garagesApi')
+            .then(m => m.fetchVehicles())
+            .then(v => useWidgetData.getState().setVehicles(v))
+            .catch(() => {});
+        void import('@/apps/stocks/stocksApi')
+            .then(m => m.fetchMarket())
+            .then(mk => useWidgetData.getState().setAssets(mk.assets))
+            .catch(() => {});
+        void import('@/apps/weazelnews/weazelnewsApi')
+            .then(m => m.weazelFeed())
+            .then(f => useWidgetData.getState().setNews(f.articles, f.ticker))
+            .catch(() => {});
+    }, [homeVisible, refreshWallet]);
+
+    // Free liveness: these ticks are already arriving whenever the Stocks app is watching, so
+    // mirroring them means leaving the app does not drop you onto a frozen tile.
+    useNuiEvent('sd-phone:stocks:prices', useCallback((data) => {
+        if (data?.assets) useWidgetData.getState().setPrices(data.assets);
     }, []));
 
     useNuiEvent('sd-phone:session', useCallback((data) => {

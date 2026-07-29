@@ -61,6 +61,9 @@ files {
     'web/build/assets/*.webp',
     'web/build/assets/*.svg',
     'web/build/assets/*.woff2',
+    -- @fontsource ships a .woff fallback beside every .woff2. Browsers only reach for it when
+    -- woff2 fails, so an unlisted .woff 404s silently rather than breaking anything visibly.
+    'web/build/assets/*.woff',
     -- Ringtone + notification-tone audio (Settings -> Sound & Haptics).
     'web/build/assets/*.mp3',
     -- The iPhone bezel asset ships inside the Vite bundle (fingerprinted

@@ -82,7 +82,7 @@ interface SessionPayload {
     startMs: number;
 }
 
-interface HealthPayload {
+export interface HealthPayload {
     steps:     number;
     distanceM: number;
     heartRate: number;

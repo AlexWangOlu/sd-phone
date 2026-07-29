@@ -4,6 +4,7 @@ import type { AppDef } from '@/core/types';
 import { useDownloadProgress } from '@/stores/downloadStore';
 import { AppIconSVG } from './AppIconSVG';
 import { AppBadge } from './AppBadge';
+import { launchOriginFrom } from './launchOrigin';
 import { CircularProgress } from '@/ui/CircularProgress';
 
 export interface AppIconProps {
@@ -21,24 +22,7 @@ export function AppIcon({ app, label = true, onOpen, badge }: AppIconProps) {
 
     function handleClick() {
         if (downloading) return;
-        let origin = { x: 0.5, y: 0.8 };
-
-        if (btnRef.current) {
-            const iconRect   = btnRef.current.getBoundingClientRect();
-            const screenEl   = document.querySelector('[data-phone-screen]') as HTMLElement | null;
-            const screenRect = screenEl?.getBoundingClientRect();
-
-            if (screenRect && screenRect.width > 0) {
-                const cx = iconRect.left + iconRect.width  / 2;
-                const cy = iconRect.top  + iconRect.height / 2;
-                origin = {
-                    x: Math.max(0, Math.min(1, (cx - screenRect.left) / screenRect.width)),
-                    y: Math.max(0, Math.min(1, (cy - screenRect.top)  / screenRect.height)),
-                };
-            }
-        }
-
-        onOpen(app, origin);
+        onOpen(app, launchOriginFrom(btnRef.current));
     }
 
     return (
