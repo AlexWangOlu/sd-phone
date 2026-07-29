@@ -5,7 +5,7 @@ return {
     -- so a server can keep the mast list below intact while the system is parked. An empty
     -- Towers list does the same thing on its own, as does a list where every entry is malformed:
     -- a typo must never leave a whole server without phones.
-    Enabled = true,
+    Enabled = false,
 
     -- Each entry is a mast position and the flat radius it covers. Service at a point is the
     -- BEST reading across every tower: 1 - distance / range. So a player 200 units from a
@@ -39,7 +39,7 @@ return {
     -- deliberately independent of the Enabled switch above, so a network can be laid out and
     -- looked at before the system is ever switched on.
     Blips = {
-        Enabled = true,
+        Enabled = false,
 
         -- The marker sitting on the mast itself. Sprite and colour are GTA's own ids; the full
         -- lists live at https://docs.fivem.net/docs/game-references/blips/ Markers are drawn
