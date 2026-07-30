@@ -1,5 +1,12 @@
+---@type table sd-phone config root (configs/config.lua).
+local config = require 'configs.config'
+
 ---@type table Bluetooth module; the table returned at end of file.
 local bluetoothClient = {}
+
+---@type boolean Whether this server runs Bluetooth at all. Off hides the Settings row and leaves
+---every reading here empty, matching a server where nothing was ever registered.
+local CONFIGURED = (config.Bluetooth or {}).Enabled ~= false
 
 ---@type boolean The radio switch, mirrored from the server so an export never has to ask for it.
 local radioOn = true
@@ -8,10 +15,17 @@ local devices = {}
 ---@type table<string, boolean> The same devices as a set, for a lookup that does not walk the list.
 local index = {}
 
+---Whether this server runs Bluetooth at all. Separate from `enabled`, which answers for the
+---player's own radio switch on a server that does run it.
+---@return boolean
+function bluetoothClient.configured()
+    return CONFIGURED
+end
+
 ---Whether this character's Bluetooth radio is switched on.
 ---@return boolean
 function bluetoothClient.enabled()
-    return radioOn
+    return CONFIGURED and radioOn
 end
 
 ---Every device this phone is connected to, as fresh tables so a caller mutating the result cannot
@@ -57,6 +71,7 @@ end
 
 ---Asks the server for a fresh picture, for the points where this side cannot know it has gone stale.
 local function sync()
+    if not CONFIGURED then return end
     TriggerServerEvent('sd-phone:server:bluetooth:sync')
 end
 

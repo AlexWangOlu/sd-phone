@@ -4,6 +4,12 @@ local store = require 'server.bluetooth.store'
 local registry = require 'server.bluetooth.registry'
 ---@type table Bluetooth callbacks (server.bluetooth.actions): scan, pair, forget, disconnect.
 local actions = require 'server.bluetooth.actions'
+---@type table sd-phone config root (configs/config.lua).
+local config = require 'configs.config'
+
+---@type boolean Whether this server runs Bluetooth at all. Off leaves the schema uncreated, the
+---sweep asleep and every registration refused, so no device can exist to pair with.
+local ENABLED = (config.Bluetooth or {}).Enabled ~= false
 
 ---@type integer Milliseconds between reconnect sweeps. Slow on purpose: this is the only cost the
 ---feature carries when nobody is looking at the Bluetooth page.
@@ -13,12 +19,14 @@ local TICK_MS = 4000
 ---and dropped again by anything that changes it.
 local watch = {}
 
-CreateThread(function()
-    local ok, err = pcall(store.ensureSchema)
-    if not ok then
-        print(('^1[sd-phone:bluetooth]^0 schema failed, the feature is off: %s'):format(tostring(err)))
-    end
-end)
+if ENABLED then
+    CreateThread(function()
+        local ok, err = pcall(store.ensureSchema)
+        if not ok then
+            print(('^1[sd-phone:bluetooth]^0 schema failed, the feature is off: %s'):format(tostring(err)))
+        end
+    end)
+end
 
 ---A player's cached state, read from the database the first time and kept until they leave or change
 ---something. Returns nil when they have no loaded character to read for.
@@ -72,43 +80,49 @@ end
 AddEventHandler('sd-phone:server:bluetooth:connected', function(src) pushState(src) end)
 AddEventHandler('sd-phone:server:bluetooth:disconnected', function(src) pushState(src) end)
 
----Seeds the cache on the client's first ask, which is the earliest point a citizenid is sure to
----exist. Only ever answers the caller with their own state.
-RegisterNetEvent('sd-phone:server:bluetooth:sync', function()
-    pushState(source)
-end)
+-- The client-facing surface exists only while the feature does, so a switched-off server answers
+-- nothing rather than answering emptily.
+if ENABLED then
+    ---Seeds the cache on the client's first ask, which is the earliest point a citizenid is sure to
+    ---exist. Only ever answers the caller with their own state.
+    RegisterNetEvent('sd-phone:server:bluetooth:sync', function()
+        pushState(source)
+    end)
 
-lib.callback.register('sd-phone:server:bluetooth:scan', function(source)
-    invalidate(source)
-    return actions.scan(source)
-end)
+    lib.callback.register('sd-phone:server:bluetooth:scan', function(source)
+        invalidate(source)
+        return actions.scan(source)
+    end)
 
-lib.callback.register('sd-phone:server:bluetooth:pair', function(source, payload)
-    local res = actions.pair(source, payload)
-    invalidate(source)
-    return res
-end)
+    lib.callback.register('sd-phone:server:bluetooth:pair', function(source, payload)
+        local res = actions.pair(source, payload)
+        invalidate(source)
+        return res
+    end)
 
-lib.callback.register('sd-phone:server:bluetooth:forget', function(source, payload)
-    local res = actions.forget(source, payload)
-    invalidate(source)
-    return res
-end)
+    lib.callback.register('sd-phone:server:bluetooth:forget', function(source, payload)
+        local res = actions.forget(source, payload)
+        invalidate(source)
+        return res
+    end)
 
-lib.callback.register('sd-phone:server:bluetooth:disconnect', function(source, payload)
-    return actions.disconnect(source, payload)
-end)
+    lib.callback.register('sd-phone:server:bluetooth:disconnect', function(source, payload)
+        return actions.disconnect(source, payload)
+    end)
 
-lib.callback.register('sd-phone:server:bluetooth:setEnabled', function(source, payload)
-    local res = actions.setEnabled(source, payload)
-    invalidate(source)
-    pushState(source)
-    return res
-end)
+    lib.callback.register('sd-phone:server:bluetooth:setEnabled', function(source, payload)
+        local res = actions.setEnabled(source, payload)
+        invalidate(source)
+        pushState(source)
+        return res
+    end)
+end
 
 ---Connects paired devices that have come into reach and drops the ones that have left it. Only
 ---players with something paired are considered, so an empty server does no work at all.
 CreateThread(function()
+    if not ENABLED then return end
+
     while true do
         Wait(TICK_MS)
 
@@ -155,6 +169,7 @@ end)
 ---@param def table { id, name, kind?, coords?, entity?, range?, maxConnections?, onConnect?, onDisconnect? }
 ---@return boolean ok, string? err
 exports('registerBluetoothDevice', function(def)
+    if not ENABLED then return false, 'bluetooth is disabled' end
     return registry.add(def, GetInvokingResource() or GetCurrentResourceName())
 end)
 
@@ -221,6 +236,7 @@ end)
 ---@param source number player server id
 ---@return boolean enabled
 exports('isBluetoothEnabled', function(source)
+    if not ENABLED then return false end
     local state = stateOf(source)
     return state ~= nil and state.enabled == true
 end)
@@ -231,6 +247,7 @@ end)
 ---@param deviceId string
 ---@return boolean ok, string? err
 exports('connectBluetooth', function(source, deviceId)
+    if not ENABLED then return false, 'bluetooth is disabled' end
     local state = stateOf(source)
     if not state then return false, 'no character' end
     if not state.enabled then return false, 'bluetooth is off' end

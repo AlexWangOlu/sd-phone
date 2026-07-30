@@ -49,6 +49,7 @@ import { NoSimScreen } from '@/shell/NoSimScreen';
 import { useNoService, useNoSim, useSimStore } from '@/stores/simStore';
 import { useNoServiceArea, useServiceBars, useServiceStore } from '@/stores/serviceStore';
 import { useWifiConnected, useWifiStore } from '@/stores/wifiStore';
+import { useBluetoothStore } from '@/stores/bluetoothStore';
 import { resetContacts, syncSimNumber } from '@/stores/contactsStore';
 import { playOnce } from '@/apps/settings/tonePlayer';
 import { resolveTone, toneUrl } from '@/apps/settings/tones';
@@ -371,6 +372,7 @@ function AppContent() {
         if (data.mailDomain) setMailDomain(data.mailDomain);
         if (data.number) setNumberFormat(data.number.formats, data.number.length);
         useWifiStore.getState().setConfigured(data.wifiConfigured === true);
+        useBluetoothStore.getState().setConfigured(data.bluetoothConfigured === true);
         useSimStore.getState().apply(data.sim);
         applySimProfile(data.sim?.enabled, data.sim?.hasSim, data.sim?.number, data.sim?.device, data.sim?.profile);
         syncSimNumber(data.sim);

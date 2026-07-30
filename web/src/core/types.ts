@@ -14,6 +14,7 @@ export interface OpenPayload {
     signal: number;
     showWifi: boolean;
     wifiConfigured?: boolean;
+    bluetoothConfigured?: boolean;
     use24h: boolean;
     showDate: boolean;
     dock: string[];

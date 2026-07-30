@@ -21,6 +21,7 @@ import { useSimStore } from '@/stores/simStore';
 import { BluetoothPage } from './bluetooth/BluetoothPage';
 import { WifiPage } from './wifi/WifiPage';
 import { useWifiConfigured, useWifiConnected } from '@/stores/wifiStore';
+import { useBluetoothConfigured } from '@/stores/bluetoothStore';
 
 type SubPage = 'general' | 'display' | 'wallpaper' | 'app-icons' | 'notifications' | 'sound-haptics' | 'face-unlock' | 'phone' | 'battery' | 'privacy' | 'sim' | 'wifi' | 'bluetooth' | null;
 
@@ -29,12 +30,14 @@ export function Settings({ onClose }: { onClose: () => void }) {
     const [query,   setQuery]   = useSessionState('settings:query', '');
     const simEnabled = useSimStore(s => s.enabled);
     const wifiConfigured = useWifiConfigured();
+    const bluetoothConfigured = useBluetoothConfigured();
     const wifi = useWifiConnected();
 
     // The SIM & Backup row only exists while the server runs unique phones.
     const settingsGroups = getSettingsGroups()
         .map(g => simEnabled ? g : { ...g, rows: g.rows.filter(r => r.id !== 'sim') })
         .map(g => wifiConfigured ? g : { ...g, rows: g.rows.filter(r => r.id !== 'wifi') })
+        .map(g => bluetoothConfigured ? g : { ...g, rows: g.rows.filter(r => r.id !== 'bluetooth') })
         .map(g => ({
             ...g,
             rows: g.rows.map(r => (r.id === 'wifi'

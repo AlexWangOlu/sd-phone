@@ -70,6 +70,7 @@ export function devInjectMockData(): () => void {
         ],
         locale: new URLSearchParams(window.location.search).get('loc') ?? 'en',
         wifiConfigured: true,
+        bluetoothConfigured: true,
         wallpaper: { lock: 'lockscreen.jpg', home: 'lockscreen.jpg' },
     };
 

@@ -20,9 +20,11 @@ interface ScanResult {
 
 interface BluetoothState {
     enabled: boolean;
+    configured: boolean;
     devices: BluetoothDevice[];
     loading: boolean;
     busyId:  string | null;
+    setConfigured: (on: boolean) => void;
     scan:       (quiet?: boolean) => Promise<void>;
     setEnabled: (on: boolean) => Promise<void>;
     pair:       (id: string) => Promise<boolean>;
@@ -55,9 +57,12 @@ function toDevice(raw: unknown): BluetoothDevice | null {
 
 export const useBluetoothStore = create<BluetoothState>()((set, get) => ({
     enabled: true,
+    configured: false,
     devices: [],
     loading: false,
     busyId:  null,
+
+    setConfigured: on => set({ configured: on }),
 
     scan: async (quiet = false) => {
         if (!quiet) set({ loading: true });
@@ -125,3 +130,7 @@ export const useBluetoothStore = create<BluetoothState>()((set, get) => ({
         await get().scan(true);
     },
 }));
+
+export function useBluetoothConfigured(): boolean {
+    return useBluetoothStore(s => s.configured);
+}
