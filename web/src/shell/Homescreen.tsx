@@ -665,7 +665,7 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
         setOverCell(over);
         const targetId = slots[pageRef.current * ITEMS_PER_PAGE + over] ?? null;
         const sameAsOrigin = pageRef.current === fromPageRef.current && over === fromCell.current;
-        if (!isFolderId(dragId) && targetId && !sameAsOrigin) {
+        if (!isFolderId(dragId) && !fromDockRef.current && targetId && !sameAsOrigin) {
             if (dwellCell.current !== over) {
                 dwellCell.current = over;
                 if (mergeCellRef.current !== null) setMergeCell(null);
@@ -976,7 +976,7 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
                                     const isMergeTarget = mergeCell !== null && pi === page && li === mergeCell;
                                     const isSwapTarget = !!dragId && pi === page && overCell !== null && li === overCell
                                         && !(pi === fromPageRef.current && overCell === fromCell.current) && !isMergeTarget;
-                                    const slidePreview = isSwapTarget && page === fromPageRef.current;
+                                    const slidePreview = isSwapTarget && page === fromPageRef.current && fromCell.current >= 0;
                                     const pos = slidePreview ? slot(fromCell.current) : s;
                                     return (
                                         <div
@@ -994,7 +994,7 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
                                 const isSwapTarget = !!dragId && pi === page && overCell !== null && li === overCell
                                     && !(pi === fromPageRef.current && overCell === fromCell.current) && !isMergeTarget;
                                 const isDisplaced = dockPlan?.displacedCell === pi * ITEMS_PER_PAGE + li;
-                                const slidePreview = isSwapTarget && page === fromPageRef.current;
+                                const slidePreview = isSwapTarget && page === fromPageRef.current && fromCell.current >= 0;
                                 const pos = slidePreview ? slot(fromCell.current) : s;
                                 return (
                                     <div
