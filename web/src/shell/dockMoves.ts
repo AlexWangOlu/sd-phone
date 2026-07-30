@@ -15,25 +15,6 @@ export function insertIntoDock(dock: string[], id: string, index: number, max: n
     return { dock: next, displaced };
 }
 
-export function dockIndexAt(
-    x: number,
-    left: number,
-    slotWidth: number,
-    count: number,
-    current: number | null,
-    margin = 0.28,
-): number {
-    if (slotWidth <= 0 || count <= 0) return 0;
-    const clamp = (n: number) => Math.max(0, Math.min(count - 1, n));
-    const raw = (x - left) / slotWidth;
-    const target = clamp(Math.floor(raw));
-    if (current === null) return target;
-    const held = clamp(current);
-    if (target === held) return held;
-    const frac = raw - Math.floor(raw);
-    return (frac < margin || frac > 1 - margin) ? held : target;
-}
-
 export function freeCellNear(cells: (string | null)[], covered: Set<number>, from: number): number | null {
     const usable = (c: number) => c >= 0 && c < cells.length && !covered.has(c) && cells[c] === null;
     if (usable(from)) return from;

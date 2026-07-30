@@ -14,7 +14,7 @@ import { useIconAppearance, useShowAppNames } from '@/stores/iconThemeStore';
 import { AlertDialog } from '@/ui/AlertDialog';
 import type { SavedLayout, WidgetAlign, WidgetPlacement, WidgetSize, WidgetTheme } from '@/apps/appstore/appsApi';
 import type { DockDrag, DockPlan } from './dockMoves';
-import { DOCK_MAX, dockIndexAt, planDockDrag } from './dockMoves';
+import { DOCK_MAX, planDockDrag } from './dockMoves';
 import { SPAN, coveredCells, firstFit, jiggleDeg, landingCell, pageMoves, placeNewApps, reflowAround, trySwap, widgetPx } from './widgets/geometry';
 import { useDockReflow } from './useDockReflow';
 import { widgetByKind } from './widgets/registry';
@@ -26,6 +26,7 @@ import { t } from '@/i18n';
 const COLS = 4;
 const ROWS = 6;
 const ITEMS_PER_PAGE = COLS * ROWS;
+const DOCK_SETTLE_MOVES = 2;
 const SCREEN_W = 440;
 const SCREEN_H = 956;
 const COMMIT_THRESHOLD = SCREEN_W * 0.2;
@@ -638,20 +639,23 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
         stripRef.current?.setPointerCapture(e.pointerId);
     }
 
+    const dockSettle = useRef<{ idx: number | null; hits: number }>({ idx: null, hits: 0 });
+    function settleDockIndex(raw: number | null): number | null {
+        const held = dockOverRef.current;
+        if (raw === held) { dockSettle.current = { idx: null, hits: 0 }; return held; }
+        if (dockSettle.current.idx === raw) dockSettle.current.hits++;
+        else dockSettle.current = { idx: raw, hits: 1 };
+        if (dockSettle.current.hits < DOCK_SETTLE_MOVES) return held;
+        dockSettle.current = { idx: null, hits: 0 };
+        return raw;
+    }
+
     function dockHitAt(clientX: number, clientY: number): number | null {
         const el = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
         if (!el || !dockRef.current?.contains(el)) return null;
-        const row = dockRowRef.current;
-        if (!row) return dockOverRef.current ?? dockShownRef.current.length;
-        const count = row.querySelectorAll('[data-dock-idx]').length;
-        if (!count) return 0;
-        const r = row.getBoundingClientRect();
-        const cs = getComputedStyle(row);
-        const z = ancestorZoom(row);
-        const insetL = ((parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.borderLeftWidth) || 0)) * z;
-        const insetR = ((parseFloat(cs.paddingRight) || 0) + (parseFloat(cs.borderRightWidth) || 0)) * z;
-        const inner = r.width - insetL - insetR;
-        return dockIndexAt(clientX, r.left + insetL, inner / count, count, dockOverRef.current);
+        const idx = el.closest('[data-dock-idx]')?.getAttribute('data-dock-idx');
+        if (idx != null) return Number(idx);
+        return dockOverRef.current ?? dockShownRef.current.length;
     }
 
     function onIconMove(e: ReactPointerEvent) {
@@ -660,7 +664,8 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
         const x = grabSlot.current.x + (e.clientX - startClient.current.x) / z;
         const y = grabSlot.current.y + (e.clientY - startClient.current.y) / z;
         setDragPos({ x, y });
-        const onDock = isFolderId(dragId) ? null : dockHitAt(e.clientX, e.clientY);
+        const raw = isFolderId(dragId) ? null : dockHitAt(e.clientX, e.clientY);
+        const onDock = settleDockIndex(raw);
         if (onDock !== dockOverRef.current) { dockOverRef.current = onDock; setDockOver(onDock); }
         if (onDock !== null) {
             clearDwell();
