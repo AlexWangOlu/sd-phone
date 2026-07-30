@@ -24,12 +24,4 @@ boundary and stop there. Several lb-phone features are deliberately absent rathe
 ### The rule for contributors
 
 Interop code may name lb-phone's interface. Everywhere else, sd-phone's text is its own: player-facing
-copy, i18n key names and demo fixtures are written for this project, not adapted from another phone
-resource. That applies to key names as well as to the strings they hold, because a key name outlives
-the wording it was first given.
-
-`npm run guard:strings`, run from `web/`, checks both in CI against a hashed set of another
-resource's public UI sentences. It holds hashes rather than the sentences, so the check cannot itself
-become a copy of what it screens for. If it flags something you wrote, reword it; if the match is
-genuinely a platform-standard label, add the hash to the allowlist in `web/scripts/string-guard.mjs`
-with a one-line reason.
+copy, i18n key names and demo fixtures are written for this project.
