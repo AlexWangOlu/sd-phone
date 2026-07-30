@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 import { fetchNui, isFiveM } from '@/core/nui';
 import { t } from '@/i18n';
-import { customAccent } from '@/stores/customAppsStore';
+import { customAccent, isCustomApp } from '@/stores/customAppsStore';
 import { useThemeStore } from '@/stores/themeStore';
 
 type BuiltinIconThemeId =
@@ -673,10 +673,14 @@ function appearanceOf(source: ThemeSource, appId: string, accent: string, dark: 
         shadow.push('inset 0 1px 0 rgba(255,255,255,0.28)', 'inset 0 -1px 0 rgba(0,0,0,0.3)');
     }
 
+    const art: IconArt = override?.icon ? source.art
+        : isCustomApp(appId) ? 'native'
+        : source.art;
+
     return {
-        art:         source.art,
+        art,
         background:  layers.join(', '),
-        glyph:       source.art === 'native'
+        glyph:       art === 'native'
             ? symbol
             : legible(symbol, shades, source.minContrast ?? MIN_CONTRAST),
         radius:      look.radius ?? DEFAULT_RADIUS,

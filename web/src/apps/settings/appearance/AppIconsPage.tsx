@@ -85,7 +85,7 @@ export function AppIconsPage({ onBack }: { onBack: () => void }) {
                         ))}
                     </div>
                 </div>
-                <p className="px-3 pt-2 text-[13px] font-normal text-ios-gray">
+                <p className="px-3 pt-2 text-[14px] font-normal text-ios-gray">
                     {t('settings.appIconsPreviewHint', 'A preview of your Home Screen icons.')}
                 </p>
             </div>
