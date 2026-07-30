@@ -1,3 +1,4 @@
+import { fitsGrid } from '@/shell/widgets/geometry';
 import { fetchNui, isFiveM } from '@/core/nui';
 import { apiData } from '@/core/api';
 import { readJson, writeJson } from '@/lib/storage';
@@ -108,8 +109,11 @@ function sanitiseWidgets(v: unknown): WidgetPlacement[] {
         && typeof (w as WidgetPlacement).kind === 'string'
         && SIZES.has((w as WidgetPlacement).size)
         && Number.isInteger((w as WidgetPlacement).page) && (w as WidgetPlacement).page >= 0
-        && Number.isInteger((w as WidgetPlacement).col) && (w as WidgetPlacement).col >= 0
-        && Number.isInteger((w as WidgetPlacement).row) && (w as WidgetPlacement).row >= 0);
+        && Number.isInteger((w as WidgetPlacement).col)
+        && Number.isInteger((w as WidgetPlacement).row)
+        // Bounds, not just non-negative: a widget hanging off the grid draws over cells that
+        // coveredCells() clips away, so icons get placed where they cannot be seen.
+        && fitsGrid(w as WidgetPlacement));
 }
 
 /**

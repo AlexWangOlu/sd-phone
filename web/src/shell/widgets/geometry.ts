@@ -1,3 +1,4 @@
+import { freeCellNear } from '../dockMoves';
 import type { WidgetSize, WidgetPlacement } from '@/apps/appstore/appsApi';
 
 const COLS = 4;
@@ -70,7 +71,10 @@ export function firstFit(
 
 type Placed = Pick<WidgetPlacement, 'size' | 'col' | 'row'>;
 
-function fitsGrid(w: Placed): boolean {
+/** Does the whole widget sit on the grid? coveredCells() clips anything past the edge, so an
+ *  off-grid widget draws over cells it never reports as covered, and an icon can be placed in a
+ *  cell it cannot be seen in. Stored layouts are checked with this before being trusted. */
+export function fitsGrid(w: Placed): boolean {
     const { w: sw, h: sh } = SPAN[w.size];
     return w.col >= 0 && w.row >= 0 && w.col + sw <= COLS && w.row + sh <= ROWS;
 }
@@ -134,6 +138,28 @@ export function pageMoves(
     });
 
     return count ? { count, page } : { count: 0, page: 0 };
+}
+
+/** Where an icon dropped on `cell` should actually land, as an absolute slot index.
+ *
+ *  An ordinary drop lands where it was aimed, occupied or not, because dropping onto an icon is a
+ *  swap and that is wanted. A drop aimed at a cell under a widget is diverted to the nearest free
+ *  cell instead: the home screen will not draw an icon it would hide, so landing there loses it.
+ *  Returns null when the page has nowhere to put it, meaning the drag should be abandoned.
+ *
+ *  `covered` holds page-local indices, matching coveredCells(). */
+export function landingCell(
+    slots: (string | null)[],
+    covered: Set<number> | undefined,
+    page: number,
+    cell: number,
+    itemsPerPage: number,
+): number | null {
+    const base = page * itemsPerPage;
+    if (!covered?.has(cell)) return base + cell;
+
+    const local = freeCellNear(slots.slice(base, base + itemsPerPage), covered, cell);
+    return local === null ? null : base + local;
 }
 
 /** page -> cells sitting under a widget on that page. */

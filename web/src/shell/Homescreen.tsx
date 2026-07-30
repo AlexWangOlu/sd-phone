@@ -15,7 +15,7 @@ import { AlertDialog } from '@/ui/AlertDialog';
 import type { SavedLayout, WidgetAlign, WidgetPlacement, WidgetSize, WidgetTheme } from '@/apps/appstore/appsApi';
 import type { DockDrag, DockPlan } from './dockMoves';
 import { DOCK_MAX, planDockDrag } from './dockMoves';
-import { SPAN, coveredCells, firstFit, jiggleDeg, pageMoves, placeNewApps, reflowAround, trySwap, widgetPx } from './widgets/geometry';
+import { SPAN, coveredCells, firstFit, jiggleDeg, landingCell, pageMoves, placeNewApps, reflowAround, trySwap, widgetPx } from './widgets/geometry';
 import { widgetByKind } from './widgets/registry';
 import { launchOriginFrom } from './launchOrigin';
 import { WidgetGallery } from './widgets/WidgetGallery';
@@ -762,13 +762,18 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
             return;
         }
 
-        if (to !== from) {
-            const displaced = slots[to] ?? null;
+        // Aiming at a cell under a widget lands beside it instead. Dropping there would hand the
+        // icon a slot the home screen refuses to draw, losing it exactly as a fresh install used to.
+        const dest = landingCell(slots, coveredByPage.get(pageRef.current), pageRef.current, overCellRef.current, ITEMS_PER_PAGE);
+        if (dest === null) { endIconDrag(); return; }
+
+        if (dest !== from) {
+            const displaced = slots[dest] ?? null;
             setSlots(prev => {
                 const n = [...prev];
-                while (n.length <= to) n.push(null);
-                if (n[to] === null) { n[to] = n[from]; n[from] = null; }
-                else { const t = n[to]; n[to] = n[from]; n[from] = t; }
+                while (n.length <= dest) n.push(null);
+                if (n[dest] === null) { n[dest] = n[from]; n[from] = null; }
+                else { const t = n[dest]; n[dest] = n[from]; n[from] = t; }
                 return normalize(n);
             });
             plop([dragged, displaced]);
