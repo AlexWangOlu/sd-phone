@@ -14,7 +14,7 @@ import { useIconAppearance, useShowAppNames } from '@/stores/iconThemeStore';
 import { AlertDialog } from '@/ui/AlertDialog';
 import type { SavedLayout, WidgetAlign, WidgetPlacement, WidgetSize, WidgetTheme } from '@/apps/appstore/appsApi';
 import type { DockDrag, DockPlan } from './dockMoves';
-import { DOCK_MAX, planDockDrag } from './dockMoves';
+import { DOCK_MAX, dockIndexAt, planDockDrag } from './dockMoves';
 import { SPAN, coveredCells, firstFit, jiggleDeg, landingCell, pageMoves, placeNewApps, reflowAround, trySwap, widgetPx } from './widgets/geometry';
 import { useDockReflow } from './useDockReflow';
 import { widgetByKind } from './widgets/registry';
@@ -641,9 +641,16 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
     function dockHitAt(clientX: number, clientY: number): number | null {
         const el = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
         if (!el || !dockRef.current?.contains(el)) return null;
-        const idx = el.closest('[data-dock-idx]')?.getAttribute('data-dock-idx');
-        if (idx != null) return Number(idx);
-        return dockOverRef.current ?? dockShownRef.current.length;
+        const row = dockRowRef.current;
+        if (!row) return dockOverRef.current ?? dockShownRef.current.length;
+        const count = row.querySelectorAll('[data-dock-idx]').length;
+        if (!count) return 0;
+        const r = row.getBoundingClientRect();
+        const cs = getComputedStyle(row);
+        const padL = parseFloat(cs.paddingLeft) || 0;
+        const padR = parseFloat(cs.paddingRight) || 0;
+        const inner = r.width - padL - padR;
+        return dockIndexAt(clientX, r.left + padL, inner / count, count, dockOverRef.current);
     }
 
     function onIconMove(e: ReactPointerEvent) {
