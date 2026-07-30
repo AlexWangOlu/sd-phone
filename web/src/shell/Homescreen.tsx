@@ -13,7 +13,8 @@ import { useBadges } from '@/stores/badgeStore';
 import { useIconAppearance, useShowAppNames } from '@/stores/iconThemeStore';
 import { AlertDialog } from '@/ui/AlertDialog';
 import type { SavedLayout, WidgetAlign, WidgetPlacement, WidgetSize, WidgetTheme } from '@/apps/appstore/appsApi';
-import { DOCK_MAX, freeCellNear, insertIntoDock } from './dockMoves';
+import type { DockDrag, DockPlan } from './dockMoves';
+import { DOCK_MAX, planDockDrag } from './dockMoves';
 import { SPAN, coveredCells, firstFit, jiggleDeg, pageMoves, reflowAround, trySwap, widgetPx } from './widgets/geometry';
 import { widgetByKind } from './widgets/registry';
 import { launchOriginFrom } from './launchOrigin';
@@ -393,7 +394,6 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
         [slots, widgets, previewWidgets],
     );
 
-    const pages = useMemo(() => chunk(previewSlots, ITEMS_PER_PAGE), [previewSlots]);
     const reflowNote = useMemo(() => pageMoves(slots, previewSlots, ITEMS_PER_PAGE), [slots, previewSlots]);
 
     /** page -> cells hidden beneath a widget, so an icon is never drawn under one. */
@@ -461,6 +461,47 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
     const edgeDir = useRef<'l' | 'r' | null>(null);
     const clearEdge = () => { if (edgeTimer.current) { window.clearTimeout(edgeTimer.current); edgeTimer.current = null; } edgeDir.current = null; };
 
+    const blockedCells = useCallback((pg: number) => {
+        const set = new Set(coveredByPage.get(pg) ?? []);
+        const base = pg * ITEMS_PER_PAGE;
+        for (let i = 0; i < ITEMS_PER_PAGE; i++) {
+            const v = slots[base + i];
+            if (v && isFolderId(v)) set.add(i);
+        }
+        return set;
+    }, [coveredByPage, slots]);
+
+    const dockDragOf = useCallback((id: string, dockIndex: number | null, fromDock: boolean, fromIndex: number, pg: number, cell: number, armed: number | null): DockDrag => ({
+        id,
+        dock:         dockShown,
+        slots,
+        dockIndex,
+        fromDock,
+        fromIndex,
+        page:         pg,
+        overCell:     cell,
+        blocked:      blockedCells(pg),
+        merge:        armed !== null && armed === cell && !!slots[pg * ITEMS_PER_PAGE + armed],
+        itemsPerPage: ITEMS_PER_PAGE,
+    }), [dockShown, slots, blockedCells]);
+
+    const dockPlan = useMemo(() => {
+        if (!dragId) return null;
+        if (dockOver === null && (!dragFromDock || overCell === null)) return null;
+        const fromIndex = fromPageRef.current * ITEMS_PER_PAGE + fromCell.current;
+        return planDockDrag(dockDragOf(dragId, dockOver, dragFromDock, fromIndex, page, overCell ?? 0, mergeCell));
+    }, [dragId, dockOver, dragFromDock, overCell, page, mergeCell, dockDragOf]);
+
+    const dockView = useMemo(
+        () => (dockPlan ? dockPlan.dock.map(id => appMap.get(id)).filter((a): a is AppDef => !!a) : dockApps),
+        [dockPlan, dockApps, appMap],
+    );
+
+    const pages = useMemo(
+        () => chunk(dockPlan ? normalize(dockPlan.slots) : previewSlots, ITEMS_PER_PAGE),
+        [dockPlan, previewSlots],
+    );
+
     const mergeCellRef = useRef<number | null>(null);
     mergeCellRef.current = mergeCell;
     const dwellTimer = useRef<number | null>(null);
@@ -517,17 +558,26 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
         markPageMotion();
     }, [page, markPageMotion]);
 
-    function onPointerDown(e: ReactPointerEvent) {
+    function armLongPress(e: ReactPointerEvent) {
         startXRef.current = e.clientX; startYRef.current = e.clientY;
+        clearLP();
+        if (!editingRef.current) lpTimer.current = window.setTimeout(() => setEditing(true), 450);
+    }
+    function longPressMove(e: ReactPointerEvent) {
+        if (lpTimer.current === null) return;
+        if (Math.abs(e.clientX - startXRef.current) > 8 || Math.abs(e.clientY - startYRef.current) > 8) clearLP();
+    }
+
+    function onPointerDown(e: ReactPointerEvent) {
+        armLongPress(e);
         lastXRef.current = e.clientX; lastTRef.current = e.timeStamp; velRef.current = 0;
         lockedAxis.current = null; capturedRef.current = false; isDraggingRef.current = true;
-        if (!editing) { clearLP(); lpTimer.current = window.setTimeout(() => setEditing(true), 450); }
     }
     function onPointerMove(e: ReactPointerEvent) {
         if (dragId) { onIconMove(e); return; }
         if (!isDraggingRef.current) return;
+        longPressMove(e);
         const dx = e.clientX - startXRef.current, dy = e.clientY - startYRef.current;
-        if (Math.abs(dx) > 8 || Math.abs(dy) > 8) clearLP();
         if (!lockedAxis.current && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) lockedAxis.current = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v';
         if (lockedAxis.current !== 'h') return;
         if (!capturedRef.current) { capturedRef.current = true; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); }
@@ -654,6 +704,10 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
         fromDockRef.current = false;
         setDragId(null); setOverCell(null); setDockOver(null); setDragFromDock(false);
     }
+    function applyDockPlan(plan: DockPlan) {
+        setDockIds(prev => (prev.length === plan.dock.length && prev.every((x, i) => x === plan.dock[i]) ? prev : plan.dock));
+        setSlots(prev => (plan.slots === prev ? prev : normalize(plan.slots)));
+    }
     function onIconUp() {
         if (!dragId) return;
         clearEdge();
@@ -666,11 +720,10 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
         const to   = pageRef.current * ITEMS_PER_PAGE + overCellRef.current;
 
         if (onDock !== null && !isFolderId(dragged)) {
-            const { dock: nextDock, displaced } = insertIntoDock(dockShownRef.current, dragged, onDock, DOCK_MAX);
-            setDockIds(prev => (prev.length === nextDock.length && prev.every((x, i) => x === nextDock[i]) ? prev : nextDock));
-            if (!fromDock) {
-                setSlots(prev => normalize(prev.map((x, i) => (i === from ? displaced : x))));
-                plop([dragged, displaced]);
+            const plan = planDockDrag(dockDragOf(dragged, onDock, fromDock, from, pageRef.current, overCellRef.current, armed));
+            if (plan) {
+                applyDockPlan(plan);
+                if (!fromDock) plop([dragged, plan.displaced]);
             }
             endIconDrag();
             return;
@@ -696,25 +749,11 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
         }
 
         if (fromDock) {
-            const base = pageRef.current * ITEMS_PER_PAGE;
-            const covered = coveredByPage.get(pageRef.current) ?? new Set<number>();
-            const cells = Array.from({ length: ITEMS_PER_PAGE }, (_, i) => slots[base + i] ?? null);
-            let cell = overCellRef.current;
-            const sitting = cells[cell];
-            if (covered.has(cell) || (sitting !== null && isFolderId(sitting))) {
-                const free = freeCellNear(cells, covered, cell);
-                if (free === null) { endIconDrag(); return; }
-                cell = free;
+            const plan = planDockDrag(dockDragOf(dragged, null, true, from, pageRef.current, overCellRef.current, armed));
+            if (plan && plan.landedCell !== null) {
+                applyDockPlan(plan);
+                plop([dragged, plan.intoDock]);
             }
-            const swapped = cells[cell];
-            setSlots(prev => {
-                const n = [...prev];
-                while (n.length <= base + cell) n.push(null);
-                n[base + cell] = dragged;
-                return normalize(n);
-            });
-            setDockIds(prev => (swapped ? prev.map(x => (x === dragged ? swapped : x)) : prev.filter(x => x !== dragged)));
-            plop([dragged, swapped]);
             endIconDrag();
             return;
         }
@@ -741,6 +780,7 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
 
     function removeApp(id: string) {
         setSlots(prev => normalize(prev.map(x => (x === id ? null : x))));
+        setDockIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : prev));
     }
 
     function ejectFromFolder(key: string, appId: string) {
@@ -764,6 +804,7 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
     }
 
     const tx = -(page * SCREEN_W) + dragX;
+    const padCell = dockPlan?.landedCell != null ? dockPlan.landedCell - page * ITEMS_PER_PAGE : overCell;
 
     const dragWidget = dragW ? previewWidgets.find(w => w.uid === dragW.uid) : undefined;
     const dragWidgetDef = dragWidget ? widgetByKind(dragWidget.kind) : undefined;
@@ -824,10 +865,10 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
                 >
                     {renderPages.map((cells, pi) => (
                         <div key={pi} style={{ width: SCREEN_W, flexShrink: 0, position: 'relative', height: ROWS * ROW_STRIDE + ROW_Y0 }}>
-                            {editing && dragId && pi === page && overCell !== null && !(pi === fromPageRef.current && overCell === fromCell.current) && (
+                            {editing && dragId && pi === page && padCell !== null && !(pi === fromPageRef.current && padCell === fromCell.current) && (
                                 <div
                                     className="pointer-events-none absolute rounded-[18px] border border-white/40 bg-white/15"
-                                    style={{ left: 0, top: 0, width: ICON, height: ICON, transform: `translate(${slot(overCell).x}px, ${slot(overCell).y}px)` }}
+                                    style={{ left: 0, top: 0, width: ICON, height: ICON, transform: `translate(${slot(padCell).x}px, ${slot(padCell).y}px)` }}
                                 />
                             )}
                             {/* Landing pad under the dragged widget, so the snap target is visible. */}
@@ -950,6 +991,7 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
                                 const isMergeTarget = mergeCell !== null && pi === page && li === mergeCell;
                                 const isSwapTarget = !!dragId && pi === page && overCell !== null && li === overCell
                                     && !(pi === fromPageRef.current && overCell === fromCell.current) && !isMergeTarget;
+                                const isDisplaced = dockPlan?.displacedCell === pi * ITEMS_PER_PAGE + li;
                                 const slidePreview = isSwapTarget && page === fromPageRef.current;
                                 const pos = slidePreview ? slot(fromCell.current) : s;
                                 return (
@@ -963,7 +1005,7 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
                                             zIndex: 1,
                                         }}
                                     >
-                                        <EditTile app={app!} dragging={false} swapTarget={isSwapTarget} plopping={plopIds.has(id)} removable={!app!.base} merging={isMergeTarget} badge={badges?.[app!.id]} onRemove={() => setConfirmRemove(app!)} />
+                                        <EditTile app={app!} dragging={false} swapTarget={isSwapTarget || isDisplaced} plopping={plopIds.has(id)} removable={!app!.base} merging={isMergeTarget} badge={badges?.[app!.id]} onRemove={() => setConfirmRemove(app!)} />
                                     </div>
                                 );
                             })}
@@ -1040,9 +1082,16 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
                 )}
             </div>
 
-            <div ref={dockRef} className="absolute bottom-5 left-4 right-4 z-10">
+            <div
+                ref={dockRef}
+                className="absolute bottom-5 left-4 right-4 z-10"
+                onPointerDown={armLongPress}
+                onPointerMove={longPressMove}
+                onPointerUp={clearLP}
+                onPointerCancel={clearLP}
+            >
                 <div className="flex items-center rounded-[28px] border border-white/20 bg-white/15 px-4 py-3.5 backdrop-blur-2xl">
-                    {dockApps.map((app, di) => (
+                    {dockView.map((app, di) => (
                         <div
                             key={app.id}
                             data-dock-idx={di}
@@ -1050,7 +1099,7 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
                             className="relative flex flex-1 justify-center"
                             style={{ touchAction: 'none' }}
                         >
-                            {dockOver === di && !!dragId && (
+                            {!!dragId && (dockOver === di || app.id === dockPlan?.intoDock) && (
                                 <div
                                     className="pointer-events-none absolute left-1/2 top-0 h-[78px] w-[78px] -translate-x-1/2"
                                     style={{ borderRadius: '27.6%', boxShadow: '0 0 0 3.5px rgba(255,255,255,0.92), 0 2px 12px rgba(0,0,0,0.42)' }}
@@ -1066,15 +1115,27 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
                                             : (bloom ? { animation: 'home-icon-in 0.38s cubic-bezier(0.34,1.3,0.64,1) both', animationDelay: `${140 + di * 25}ms` } : undefined)}
                                     >
                                         <AppIcon app={app} label={false} onOpen={launch} badge={badges?.[app.id]} />
+                                        {editing && !app.base && (
+                                            <button
+                                                type="button"
+                                                aria-label={t('shell.removeApp','Remove {label}', { label: app.label })}
+                                                onPointerDown={e => e.stopPropagation()}
+                                                onClick={() => setConfirmRemove(app)}
+                                                className="absolute z-10 flex h-[24px] w-[24px] items-center justify-center rounded-full bg-[#e4e4e6] shadow-[0_1px_3px_rgba(0,0,0,0.4)] active:scale-90"
+                                                style={{ left: 'calc(50% - 46px)', top: -7 }}
+                                            >
+                                                <Minus className="h-[16px] w-[16px] text-black/75" strokeWidth={3} />
+                                            </button>
+                                        )}
                                     </div>
                                 )}
                         </div>
                     ))}
-                    {dockOver !== null && !dragFromDock && dockApps.length < DOCK_MAX && (
-                        <div data-dock-idx={dockApps.length} className="relative flex flex-1 justify-center" style={{ touchAction: 'none' }}>
+                    {dockOver !== null && !dragFromDock && dockView.length < DOCK_MAX && (
+                        <div data-dock-idx={dockView.length} className="relative flex flex-1 justify-center" style={{ touchAction: 'none' }}>
                             <div
                                 className="h-[78px] w-[78px] border border-white/40 bg-white/10"
-                                style={{ borderRadius: '27.6%', boxShadow: dockOver === dockApps.length ? '0 0 0 3.5px rgba(255,255,255,0.92)' : undefined }}
+                                style={{ borderRadius: '27.6%', boxShadow: dockOver === dockView.length ? '0 0 0 3.5px rgba(255,255,255,0.92)' : undefined }}
                             />
                         </div>
                     )}
