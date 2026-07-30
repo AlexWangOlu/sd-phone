@@ -16,6 +16,7 @@ import type { SavedLayout, WidgetAlign, WidgetPlacement, WidgetSize, WidgetTheme
 import type { DockDrag, DockPlan } from './dockMoves';
 import { DOCK_MAX, planDockDrag } from './dockMoves';
 import { SPAN, coveredCells, firstFit, jiggleDeg, landingCell, pageMoves, placeNewApps, reflowAround, trySwap, widgetPx } from './widgets/geometry';
+import { useDockReflow } from './useDockReflow';
 import { widgetByKind } from './widgets/registry';
 import { launchOriginFrom } from './launchOrigin';
 import { WidgetGallery } from './widgets/WidgetGallery';
@@ -492,6 +493,8 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
         () => (dockPlan ? dockPlan.dock.map(id => appMap.get(id)).filter((a): a is AppDef => !!a) : dockApps),
         [dockPlan, dockApps, appMap],
     );
+
+    const dockRowRef = useDockReflow<HTMLDivElement>(dockView.map(a => a.id).join('|'));
 
     const pages = useMemo(
         () => chunk(dockPlan ? normalize(dockPlan.slots) : previewSlots, ITEMS_PER_PAGE),
@@ -1089,11 +1092,12 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
                 onPointerUp={clearLP}
                 onPointerCancel={clearLP}
             >
-                <div className="flex items-center rounded-[28px] border border-white/20 bg-white/15 px-4 py-3.5 backdrop-blur-2xl">
+                <div ref={dockRowRef} className="flex items-center rounded-[28px] border border-white/20 bg-white/15 px-4 py-3.5 backdrop-blur-2xl">
                     {dockView.map((app, di) => (
                         <div
                             key={app.id}
                             data-dock-idx={di}
+                            data-dock-id={app.id}
                             onPointerDown={e => onDockIconDown(e, app.id, di)}
                             className="relative flex flex-1 justify-center"
                             style={{ touchAction: 'none' }}
