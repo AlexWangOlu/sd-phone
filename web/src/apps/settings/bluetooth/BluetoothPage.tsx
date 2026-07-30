@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Bluetooth, BluetoothOff, Car, Headphones, Info, Loader2, Speaker, Watch } from 'lucide-react';
+import { Bluetooth, BluetoothOff, Car, Headphones, Info, Loader2, RefreshCw, Speaker, Watch } from 'lucide-react';
 
 import { t } from '@/i18n';
 import type { BluetoothDevice } from '@/stores/bluetoothStore';
@@ -49,7 +49,7 @@ export function BluetoothPage({ onBack }: { onBack: () => void }) {
 
     useEffect(() => {
         void scan();
-        const id = window.setInterval(() => { if (enabledRef.current) void scan(); }, RESCAN_MS);
+        const id = window.setInterval(() => { if (enabledRef.current) void scan(true); }, RESCAN_MS);
         return () => window.clearInterval(id);
     }, [scan]);
 
@@ -125,8 +125,9 @@ export function BluetoothPage({ onBack }: { onBack: () => void }) {
                             left={loading
                                 ? <Loader2 className="h-[16px] w-[16px] animate-spin text-ios-gray" />
                                 : <Bluetooth className="h-[20px] w-[20px] text-ios-gray" strokeWidth={2} />}
+                            divider
                         />
-                    ) : other.map((d, i) => (
+                    ) : other.map(d => (
                         <ListRow
                             key={d.id}
                             label={d.name}
@@ -135,10 +136,15 @@ export function BluetoothPage({ onBack }: { onBack: () => void }) {
                             right={busyId === d.id
                                 ? <Loader2 className="h-[16px] w-[16px] animate-spin text-ios-gray" />
                                 : undefined}
-                            divider={i < other.length - 1}
+                            divider
                             onPress={() => void onRowPress(d)}
                         />
                     ))}
+                    <ListRow
+                        label={t('settings.btScanAgain', 'Scan for Devices')}
+                        left={<RefreshCw className={`h-[19px] w-[19px] text-ios-blue ${loading ? 'animate-spin' : ''}`} strokeWidth={2} />}
+                        onPress={() => { if (!loading) void scan(); }}
+                    />
                 </ListGroup>
             )}
 

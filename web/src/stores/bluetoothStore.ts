@@ -23,7 +23,7 @@ interface BluetoothState {
     devices: BluetoothDevice[];
     loading: boolean;
     busyId:  string | null;
-    scan:       () => Promise<void>;
+    scan:       (quiet?: boolean) => Promise<void>;
     setEnabled: (on: boolean) => Promise<void>;
     pair:       (id: string) => Promise<boolean>;
     forget:     (id: string) => Promise<void>;
@@ -59,8 +59,8 @@ export const useBluetoothStore = create<BluetoothState>()((set, get) => ({
     loading: false,
     busyId:  null,
 
-    scan: async () => {
-        set({ loading: true });
+    scan: async (quiet = false) => {
+        if (!quiet) set({ loading: true });
         if (!isFiveM) {
             set({ enabled: true, devices: DEV_DEVICES.map(d => ({ ...d })), loading: false });
             return;
@@ -84,7 +84,7 @@ export const useBluetoothStore = create<BluetoothState>()((set, get) => ({
         }
         const res = await apiData<{ enabled: boolean }>('sd-phone:bluetooth:setEnabled', { on });
         if (!res) { set({ enabled: before }); return; }
-        await get().scan();
+        await get().scan(true);
     },
 
     pair: async (id) => {
@@ -98,7 +98,7 @@ export const useBluetoothStore = create<BluetoothState>()((set, get) => ({
         }
         const res = await apiData<{ id: string }>('sd-phone:bluetooth:pair', { id });
         set({ busyId: null });
-        await get().scan();
+        await get().scan(true);
         return res !== null;
     },
 
@@ -111,7 +111,7 @@ export const useBluetoothStore = create<BluetoothState>()((set, get) => ({
         }
         await apiData('sd-phone:bluetooth:forget', { id });
         set({ busyId: null });
-        await get().scan();
+        await get().scan(true);
     },
 
     disconnect: async (id) => {
@@ -122,6 +122,6 @@ export const useBluetoothStore = create<BluetoothState>()((set, get) => ({
         }
         await apiData('sd-phone:bluetooth:disconnect', { id });
         set({ busyId: null });
-        await get().scan();
+        await get().scan(true);
     },
 }));
