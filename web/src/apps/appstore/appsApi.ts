@@ -111,8 +111,6 @@ function sanitiseWidgets(v: unknown): WidgetPlacement[] {
         && Number.isInteger((w as WidgetPlacement).page) && (w as WidgetPlacement).page >= 0
         && Number.isInteger((w as WidgetPlacement).col)
         && Number.isInteger((w as WidgetPlacement).row)
-        // Bounds, not just non-negative: a widget hanging off the grid draws over cells that
-        // coveredCells() clips away, so icons get placed where they cannot be seen.
         && fitsGrid(w as WidgetPlacement));
 }
 

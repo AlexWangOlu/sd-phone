@@ -27,8 +27,6 @@ export interface ListingDraft {
     email?: string;
 }
 
-// Titles stay under about 18 characters: the listing row truncates past that, and the qualifier
-// after the comma is the part that tells a buyer whether to bother opening it.
 export const LISTINGS: Listing[] = [
     {
         id: 'l1',

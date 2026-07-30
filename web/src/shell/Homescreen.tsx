@@ -161,8 +161,6 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
     });
     const folderedIds = useMemo(() => new Set(Object.values(folders).flatMap(f => f.appIds)), [folders]);
 
-    // Declared before the effect that reconciles apps into slots, which needs the widget
-    // placements to know which cells are really free.
     const [widgets, setWidgets] = useState<WidgetPlacement[]>(() => savedLayout?.widgets ?? []);
 
     const [slots, setSlots] = useState<(string | null)[]>(() => {
@@ -762,8 +760,6 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
             return;
         }
 
-        // Aiming at a cell under a widget lands beside it instead. Dropping there would hand the
-        // icon a slot the home screen refuses to draw, losing it exactly as a fresh install used to.
         const dest = landingCell(slots, coveredByPage.get(pageRef.current), pageRef.current, overCellRef.current, ITEMS_PER_PAGE);
         if (dest === null) { endIconDrag(); return; }
 

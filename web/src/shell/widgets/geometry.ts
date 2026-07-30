@@ -71,9 +71,6 @@ export function firstFit(
 
 type Placed = Pick<WidgetPlacement, 'size' | 'col' | 'row'>;
 
-/** Does the whole widget sit on the grid? coveredCells() clips anything past the edge, so an
- *  off-grid widget draws over cells it never reports as covered, and an icon can be placed in a
- *  cell it cannot be seen in. Stored layouts are checked with this before being trusted. */
 export function fitsGrid(w: Placed): boolean {
     const { w: sw, h: sh } = SPAN[w.size];
     return w.col >= 0 && w.row >= 0 && w.col + sw <= COLS && w.row + sh <= ROWS;
@@ -140,14 +137,6 @@ export function pageMoves(
     return count ? { count, page } : { count: 0, page: 0 };
 }
 
-/** Where an icon dropped on `cell` should actually land, as an absolute slot index.
- *
- *  An ordinary drop lands where it was aimed, occupied or not, because dropping onto an icon is a
- *  swap and that is wanted. A drop aimed at a cell under a widget is diverted to the nearest free
- *  cell instead: the home screen will not draw an icon it would hide, so landing there loses it.
- *  Returns null when the page has nowhere to put it, meaning the drag should be abandoned.
- *
- *  `covered` holds page-local indices, matching coveredCells(). */
 export function landingCell(
     slots: (string | null)[],
     covered: Set<number> | undefined,
@@ -162,7 +151,6 @@ export function landingCell(
     return local === null ? null : base + local;
 }
 
-/** page -> cells sitting under a widget on that page. */
 function coveredByPage(widgets: WidgetPlacement[]): Map<number, Set<number>> {
     const covered = new Map<number, Set<number>>();
     for (const w of widgets) {
@@ -173,9 +161,6 @@ function coveredByPage(widgets: WidgetPlacement[]): Map<number, Set<number>> {
     return covered;
 }
 
-/** Drops newly installed apps into free cells, leaving every placed icon where it is.
- *  A free cell is one that holds nothing AND is not under a widget: the home screen
- *  refuses to draw an icon it would hide, so a covered cell swallows the app silently. */
 export function placeNewApps(
     slots: (string | null)[],
     ids: string[],
