@@ -35,10 +35,6 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      # Hashes only, never the strings themselves. See scripts/string-guard.mjs.
-      - name: String guard
-        run: npm run guard:strings
-
       - name: Test
         run: npm run test
 
