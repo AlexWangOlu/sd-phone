@@ -21,18 +21,21 @@ end
 ---@type boolean True while the local mic is muted for the active call.
 local micMuted = false
 
----@type integer Voice target pma-voice keeps the call and radio channels on; 0 carries neither.
-local PMA_TARGET = 1
-
----Mutes/unmutes the local mic for the call and for proximity. The target is only touched when
----pma-voice is running, since the index is its own and another voice system may be using it.
+---Mutes/unmutes the local mic entirely (call AND proximity).
+---Switching the voice target to 0 (the default, which carries no call channels) prevents audio
+---from reaching the pma-voice call channel; zeroing the input distance silences proximity too.
+---The target is only touched when pma-voice is running, since the index is its own.
 ---@param on boolean
 local function setMicMuted(on)
     micMuted = on == true
-    if GetResourceState('pma-voice') == 'started' then
-        MumbleSetVoiceTarget(micMuted and 0 or PMA_TARGET)
+    local pma = GetResourceState('pma-voice') == 'started'
+    if micMuted then
+        if pma then MumbleSetVoiceTarget(0) end
+        MumbleSetAudioInputDistance(0.0)
+    else
+        if pma then MumbleSetVoiceTarget(1) end
+        MumbleSetAudioInputDistance(9999.0)
     end
-    MumbleSetAudioInputDistance(micMuted and 0.0 or 9999.0)
 end
 
 ---React to Lua: the call UI's Mute button.
