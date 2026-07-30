@@ -6,6 +6,7 @@ interface WifiStoreState extends WifiState {
     providesData: boolean;
     configured: boolean;
     apply: (push?: WifiPush | null) => void;
+    setConfigured: (on: boolean) => void;
 }
 
 interface WifiPush {
@@ -56,7 +57,12 @@ export const useWifiStore = create<WifiStoreState>()(set => ({
             providesData: connected !== null && push?.providesData === true,
         });
     },
+    setConfigured: on => set({ configured: on }),
 }));
+
+export function useWifiConfigured(): boolean {
+    return useWifiStore(s => s.configured);
+}
 
 export function useWifiData(): boolean {
     return useWifiStore(s => s.providesData);

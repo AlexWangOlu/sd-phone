@@ -13,6 +13,7 @@ export interface OpenPayload {
     carrier: string;
     signal: number;
     showWifi: boolean;
+    wifiConfigured?: boolean;
     use24h: boolean;
     showDate: boolean;
     dock: string[];

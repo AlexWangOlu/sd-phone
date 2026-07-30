@@ -67,11 +67,18 @@ local lastConnection = ''
 ---@type string Last pushed nearby signature: the ids in scan order.
 local lastNearby = ''
 
+---Whether this server runs Wi-Fi at all. Separate from `enabled`, which also answers for the
+---player's own radio switch, so a switched-off radio still reports a configured system.
+---@return boolean
+function wifiClient.configured()
+    return #NETWORKS > 0
+end
+
 ---Whether the system is on with at least one joinable network. False means nothing is scanned and
 ---the phone falls back to cell service alone.
 ---@return boolean
 function wifiClient.enabled()
-    return radioOn and #NETWORKS > 0
+    return radioOn and wifiClient.configured()
 end
 
 ---Switches the radio. Turning it off leaves whatever is joined and stops the scan answering, so
@@ -166,7 +173,7 @@ end
 local function snapshot()
     return {
         enabled   = wifiClient.enabled(),
-        configured = #NETWORKS > 0,
+        configured = wifiClient.configured(),
         connected = wifiClient.current(),
         networks  = wifiClient.nearby(),
         providesData = wifiClient.provides('data'),

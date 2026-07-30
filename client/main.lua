@@ -365,6 +365,7 @@ local function OpenPhone()
             carrier   = config.StatusBar.Carrier,
             signal    = service.active() and service.bars() or config.StatusBar.SignalBars,
             showWifi  = config.StatusBar.ShowWifi,
+            wifiConfigured = wifiClient.configured(),
             use24h    = config.Lockscreen.Use24Hour,
             showDate  = config.Lockscreen.ShowDate,
             dock      = ENABLED_DOCK,

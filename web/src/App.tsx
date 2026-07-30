@@ -370,6 +370,7 @@ function AppContent() {
         if (data.locale) useLocaleStore.getState().applyServerDefault(data.locale);   // server default, unless the player already picked their own
         if (data.mailDomain) setMailDomain(data.mailDomain);
         if (data.number) setNumberFormat(data.number.formats, data.number.length);
+        useWifiStore.getState().setConfigured(data.wifiConfigured === true);
         useSimStore.getState().apply(data.sim);
         applySimProfile(data.sim?.enabled, data.sim?.hasSim, data.sim?.number, data.sim?.device, data.sim?.profile);
         syncSimNumber(data.sim);
