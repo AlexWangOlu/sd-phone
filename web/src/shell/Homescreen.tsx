@@ -27,6 +27,7 @@ const COLS = 4;
 const ROWS = 6;
 const ITEMS_PER_PAGE = COLS * ROWS;
 const DOCK_SETTLE_MOVES = 2;
+const DOCK_SLOT_EDGE = 0.3;
 const SCREEN_W = 440;
 const SCREEN_H = 956;
 const COMMIT_THRESHOLD = SCREEN_W * 0.2;
@@ -495,7 +496,7 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
         [dockPlan, dockApps, appMap],
     );
 
-    const dockRowRef = useDockReflow<HTMLDivElement>(dockView.map(a => a.id).join('|'));
+    const dockRowRef = useDockReflow<HTMLDivElement>(dragId ? 'drag' : dockView.map(a => a.id).join('|'));
 
     const pages = useMemo(
         () => chunk(dockPlan ? normalize(dockPlan.slots) : previewSlots, ITEMS_PER_PAGE),
@@ -653,9 +654,15 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
     function dockHitAt(clientX: number, clientY: number): number | null {
         const el = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
         if (!el || !dockRef.current?.contains(el)) return null;
-        const idx = el.closest('[data-dock-idx]')?.getAttribute('data-dock-idx');
-        if (idx != null) return Number(idx);
-        return dockOverRef.current ?? dockShownRef.current.length;
+        const zone = el.closest('[data-dock-idx]');
+        if (!zone) return dockOverRef.current ?? dockShownRef.current.length;
+        const idx = Number(zone.getAttribute('data-dock-idx'));
+        const held = dockOverRef.current;
+        if (held === null || idx === held) return idx;
+        const r = zone.getBoundingClientRect();
+        if (!(r.width > 0)) return idx;
+        const frac = (clientX - r.left) / r.width;
+        return (frac > DOCK_SLOT_EDGE && frac < 1 - DOCK_SLOT_EDGE) ? idx : held;
     }
 
     function onIconMove(e: ReactPointerEvent) {
