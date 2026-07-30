@@ -962,9 +962,9 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
                                     return (
                                         <div key={id} style={{ position: 'absolute', left: 0, top: 0, width: ICON, transform: `translate(${s.x}px, ${s.y}px)` }}>
                                             {/* Scale/opacity live on this inner div so the positioned parent's translate is untouched. */}
-                                            <div style={bloom ? { animation: 'home-icon-in 0.38s cubic-bezier(0.34,1.3,0.64,1) both', animationDelay: `${li * 20}ms` } : undefined}>
+                                            <div style={bloom ? { animation: `${folder ? 'home-folder-in' : 'home-icon-in'} 0.38s cubic-bezier(0.34,1.3,0.64,1) both`, animationDelay: `${li * 20}ms` } : undefined}>
                                                 {folder
-                                                    ? <FolderTile label={def!.name} apps={folderApps(fkey)} badge={folderBadge(fkey)} frosted={!bloom} onOpen={() => setOpenFolder(fkey)} />
+                                                    ? <FolderTile label={def!.name} apps={folderApps(fkey)} badge={folderBadge(fkey)} onOpen={() => setOpenFolder(fkey)} />
                                                     : <AppIcon app={app!} onOpen={launch} badge={badges?.[app!.id]} />}
                                             </div>
                                         </div>
@@ -1245,20 +1245,16 @@ function FolderMini({ app }: { app: AppDef }): ReactNode {
     );
 }
 
-function FolderTile({ label, apps, onOpen, merging = false, badge, frosted = true }: { label: string; apps: AppDef[]; onOpen: () => void; merging?: boolean; badge?: number; frosted?: boolean }): ReactNode {
+function FolderTile({ label, apps, onOpen, merging = false, badge }: { label: string; apps: AppDef[]; onOpen: () => void; merging?: boolean; badge?: number }): ReactNode {
     const showNames = useShowAppNames();
-    const glass = `blur(${frosted ? 24 : 0}px)`;
     return (
         <button type="button" onClick={onOpen} className="group block w-[78px]">
             <div className="relative">
                 <div
-                    className="grid h-[78px] w-[78px] grid-cols-3 grid-rows-3 gap-[3px] overflow-hidden p-[9px] group-active:scale-[0.94]"
+                    className="grid h-[78px] w-[78px] grid-cols-3 grid-rows-3 gap-[3px] overflow-hidden p-[9px] backdrop-blur-xl transition-[transform,box-shadow] duration-150 group-active:scale-[0.94]"
                     style={{
                         borderRadius: '27.6%',
-                        backdropFilter: glass,
-                        WebkitBackdropFilter: glass,
-                        transition: 'transform 150ms, box-shadow 150ms, background-color 260ms ease, backdrop-filter 260ms ease, -webkit-backdrop-filter 260ms ease',
-                        background: merging ? 'rgba(118,122,132,0.6)' : (frosted ? 'rgba(70,70,78,0.42)' : 'rgba(64,64,72,0.74)'),
+                        background: merging ? 'rgba(118,122,132,0.6)' : 'rgba(70,70,78,0.42)',
                         boxShadow: merging
                             ? 'inset 0 0 0 0.5px rgba(255,255,255,0.3), 0 3px 16px rgba(0,0,0,0.45), 0 0 0 3.5px rgba(255,255,255,0.92)'
                             : 'inset 0 0 0 0.5px rgba(255,255,255,0.18), 0 2px 10px rgba(0,0,0,0.4)',
