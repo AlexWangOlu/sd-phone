@@ -4,6 +4,21 @@ local config = require 'configs.config'
 ---@type table Shared server helpers; the table returned at end of file.
 local util = {}
 
+---@type table<string, boolean> Apps switched off in configs/apps.lua. Keyed on the disabled ones
+---rather than the enabled ones, so an id this file has never heard of still counts as on.
+local DISABLED_APPS = {}
+for _, app in ipairs((config.Apps or {}).Apps or {}) do
+    if app.id and app.enabled == false then DISABLED_APPS[app.id] = true end
+end
+
+---Whether an app is switched on in configs/apps.lua. Background work belonging to a single app is
+---gated on this, so a disabled app costs no threads, no ticks and no writes.
+---@param id string app id as configs/apps.lua names it
+---@return boolean enabled
+function util.appEnabled(id)
+    return not DISABLED_APPS[id]
+end
+
 ---Success response envelope - the shape every callback/action returns on the happy path. `data`
 ---is optional and passed straight through to the React side.
 ---@param data? any payload the caller wants the frontend to receive

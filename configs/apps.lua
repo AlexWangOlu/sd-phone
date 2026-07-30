@@ -3,8 +3,9 @@
 --   base = true       ships installed and cannot be removed (never in the App Store)
 --   enabled = false   the app does not exist on this server: hidden from the home screen
 --                     and the App Store, uninstallable, and removed from phones that had it
---                     installed. Content and server modules keep running; only the app's
---                     presence on the phone is gated.
+--                     installed. Background work belonging to the app stops too: no ticks, no
+--                     sweeps, no write-behind flushes. Its schema and stored data are left
+--                     untouched, so switching it back on picks up where it left off.
 --   wifi = '<id>'     the app only downloads while the phone is on that Wi-Fi network, an `id`
 --                     from configs/wifi.lua. The server re-checks the connection from its own
 --                     coords, so the App Store dimming it is presentation only. An id no
