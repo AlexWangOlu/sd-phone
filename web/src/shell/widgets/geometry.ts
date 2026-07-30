@@ -136,17 +136,52 @@ export function pageMoves(
     return count ? { count, page } : { count: 0, page: 0 };
 }
 
-export function reflowAround(
-    slots: (string | null)[],
-    widgets: WidgetPlacement[],
-    itemsPerPage: number,
-): (string | null)[] {
+/** page -> cells sitting under a widget on that page. */
+function coveredByPage(widgets: WidgetPlacement[]): Map<number, Set<number>> {
     const covered = new Map<number, Set<number>>();
     for (const w of widgets) {
         const set = covered.get(w.page) ?? new Set<number>();
         for (const c of coveredCells(w)) set.add(c);
         covered.set(w.page, set);
     }
+    return covered;
+}
+
+/** Drops newly installed apps into free cells, leaving every placed icon where it is.
+ *  A free cell is one that holds nothing AND is not under a widget: the home screen
+ *  refuses to draw an icon it would hide, so a covered cell swallows the app silently. */
+export function placeNewApps(
+    slots: (string | null)[],
+    ids: string[],
+    widgets: WidgetPlacement[],
+    itemsPerPage: number,
+): (string | null)[] {
+    if (!ids.length) return slots;
+
+    const covered = coveredByPage(widgets);
+    const out = [...slots];
+    let cell = 0;
+
+    const taken = (c: number) => out[c] !== null && out[c] !== undefined;
+    const hidden = (c: number) => !!covered.get(Math.floor(c / itemsPerPage))?.has(c % itemsPerPage);
+
+    for (const id of ids) {
+        while (taken(cell) || hidden(cell)) cell++;
+        while (out.length <= cell) out.push(null);
+        out[cell] = id;
+        cell++;
+    }
+
+    while (out.length % itemsPerPage !== 0) out.push(null);
+    return out;
+}
+
+export function reflowAround(
+    slots: (string | null)[],
+    widgets: WidgetPlacement[],
+    itemsPerPage: number,
+): (string | null)[] {
+    const covered = coveredByPage(widgets);
 
     const out: (string | null)[] = slots.map(() => null);
     let cell = 0;

@@ -15,7 +15,7 @@ import { AlertDialog } from '@/ui/AlertDialog';
 import type { SavedLayout, WidgetAlign, WidgetPlacement, WidgetSize, WidgetTheme } from '@/apps/appstore/appsApi';
 import type { DockDrag, DockPlan } from './dockMoves';
 import { DOCK_MAX, planDockDrag } from './dockMoves';
-import { SPAN, coveredCells, firstFit, jiggleDeg, pageMoves, reflowAround, trySwap, widgetPx } from './widgets/geometry';
+import { SPAN, coveredCells, firstFit, jiggleDeg, pageMoves, placeNewApps, reflowAround, trySwap, widgetPx } from './widgets/geometry';
 import { widgetByKind } from './widgets/registry';
 import { launchOriginFrom } from './launchOrigin';
 import { WidgetGallery } from './widgets/WidgetGallery';
@@ -161,6 +161,10 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
     });
     const folderedIds = useMemo(() => new Set(Object.values(folders).flatMap(f => f.appIds)), [folders]);
 
+    // Declared before the effect that reconciles apps into slots, which needs the widget
+    // placements to know which cells are really free.
+    const [widgets, setWidgets] = useState<WidgetPlacement[]>(() => savedLayout?.widgets ?? []);
+
     const [slots, setSlots] = useState<(string | null)[]>(() => {
         if (savedLayout && savedLayout.slots.length) return normalize(savedLayout.slots);
         const seeded = new Set(Object.values(folders).flatMap(f => f.appIds));
@@ -204,16 +208,10 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
                 .filter(a => !docked.has(a.id) && !folderedIds.has(a.id) && !placed.has(a.id))
                 .map(a => a.id);
             if (!missing.length && cleaned.every((v, i) => v === prev[i])) return prev;
-            const next = [...cleaned];
-            for (const id of missing) {
-                const idx = next.indexOf(null);
-                if (idx === -1) next.push(id); else next[idx] = id;
-            }
-            return normalize(next);
+            return normalize(placeNewApps(cleaned, missing, widgets, ITEMS_PER_PAGE));
         });
-    }, [apps, dockIds, folders, folderedIds]);
+    }, [apps, dockIds, folders, folderedIds, widgets]);
 
-    const [widgets, setWidgets] = useState<WidgetPlacement[]>(() => savedLayout?.widgets ?? []);
     // Read by the drag listeners, which are bound once per drag and would otherwise close over
     // the widget list as it was when the drag started.
     const widgetsRef = useRef(widgets);
