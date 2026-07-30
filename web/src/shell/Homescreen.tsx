@@ -647,10 +647,11 @@ export function Homescreen({ apps, dock, wallpaper, onLaunchApp, onUninstall, sa
         if (!count) return 0;
         const r = row.getBoundingClientRect();
         const cs = getComputedStyle(row);
-        const padL = parseFloat(cs.paddingLeft) || 0;
-        const padR = parseFloat(cs.paddingRight) || 0;
-        const inner = r.width - padL - padR;
-        return dockIndexAt(clientX, r.left + padL, inner / count, count, dockOverRef.current);
+        const z = ancestorZoom(row);
+        const insetL = ((parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.borderLeftWidth) || 0)) * z;
+        const insetR = ((parseFloat(cs.paddingRight) || 0) + (parseFloat(cs.borderRightWidth) || 0)) * z;
+        const inner = r.width - insetL - insetR;
+        return dockIndexAt(clientX, r.left + insetL, inner / count, count, dockOverRef.current);
     }
 
     function onIconMove(e: ReactPointerEvent) {
