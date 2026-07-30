@@ -18,10 +18,11 @@ import { PushLayer } from './SettingsSubPage';
 import { WallpaperPage } from './appearance/WallpaperPage';
 import { SimBackupPage } from './sim/SimBackupPage';
 import { useSimStore } from '@/stores/simStore';
+import { BluetoothPage } from './bluetooth/BluetoothPage';
 import { WifiPage } from './wifi/WifiPage';
 import { useWifiConnected } from '@/stores/wifiStore';
 
-type SubPage = 'general' | 'display' | 'wallpaper' | 'app-icons' | 'notifications' | 'sound-haptics' | 'face-unlock' | 'phone' | 'battery' | 'privacy' | 'sim' | 'wifi' | null;
+type SubPage = 'general' | 'display' | 'wallpaper' | 'app-icons' | 'notifications' | 'sound-haptics' | 'face-unlock' | 'phone' | 'battery' | 'privacy' | 'sim' | 'wifi' | 'bluetooth' | null;
 
 export function Settings({ onClose }: { onClose: () => void }) {
     const [subPage, setSubPage] = useSessionState<SubPage>('settings:subPage', null);
@@ -63,6 +64,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
         if (id === 'privacy')       setSubPage('privacy');
         if (id === 'sim')           setSubPage('sim');
         if (id === 'wifi')          setSubPage('wifi');
+        if (id === 'bluetooth')     setSubPage('bluetooth');
     }
 
     const sub =
@@ -78,6 +80,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
         : subPage === 'privacy'       ? <PrivacySecurityPage   onBack={handleBack} onOpenFaceUnlock={() => setSubPage('face-unlock')} />
         : subPage === 'sim'           ? <SimBackupPage         onBack={handleBack} />
         : subPage === 'wifi'          ? <WifiPage              onBack={handleBack} />
+        : subPage === 'bluetooth'     ? <BluetoothPage         onBack={handleBack} />
         : null;
 
     return (

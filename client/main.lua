@@ -50,6 +50,7 @@ local wifiClient = require 'client.wifi'
 
 -- Loaded for side effects: each app module registers its own NUI callbacks, net events and
 -- server proxies.
+require 'client.bluetooth'
 require 'client.apps.groups'
 require 'client.apps.health'
 require 'client.apps.mail'
