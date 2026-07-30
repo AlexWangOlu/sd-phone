@@ -118,9 +118,10 @@ export function AppIconsPage({ onBack }: { onBack: () => void }) {
                 <ListRow
                     label={t('settings.iconThemeCreate', 'Create Icon Theme')}
                     sub={t('settings.iconThemeCount', '{used} of {max} used', { used: custom.length, max: MAX_CUSTOM_ICON_THEMES })}
+                    large
                     left={(
-                        <span className="flex h-[24px] w-[24px] items-center justify-center rounded-[7px] bg-ios-blue">
-                            <Plus className="h-[15px] w-[15px] text-white" strokeWidth={3} />
+                        <span className="flex h-[27px] w-[27px] items-center justify-center rounded-[8px] bg-ios-blue">
+                            <Plus className="h-[17px] w-[17px] text-white" strokeWidth={3} />
                         </span>
                     )}
                     onPress={() => { if (custom.length < MAX_CUSTOM_ICON_THEMES) setEditing('new'); }}
@@ -168,9 +169,10 @@ function ThemeRow({ def, selected, divider, onSelect }: {
             sub={def.hint()}
             selected={selected}
             divider={divider}
+            large
             left={(
                 <span className="flex gap-[3px]">
-                    {SWATCH_PREVIEW_APPS.map(app => <Tile key={app.id} theme={def.id} app={app} size={24} />)}
+                    {SWATCH_PREVIEW_APPS.map(app => <Tile key={app.id} theme={def.id} app={app} size={27} />)}
                 </span>
             )}
             onPress={onSelect}
@@ -202,9 +204,10 @@ function CustomRow({ def, selected, onSelect, onEdit }: {
                     label={def.name}
                     sub={sub}
                     selected={selected}
+                    large
                     left={(
                         <span className="flex gap-[3px]">
-                            {SWATCH_PREVIEW_APPS.map(app => <Tile key={app.id} theme={def.id} app={app} size={24} />)}
+                            {SWATCH_PREVIEW_APPS.map(app => <Tile key={app.id} theme={def.id} app={app} size={27} />)}
                         </span>
                     )}
                     onPress={onSelect}
