@@ -205,7 +205,7 @@ warrants.issue = access.audited('warrants.issue', function(_, payload, me)
 
     local raw = {}
     if reportRef then
-        local report, suspect, rows = paperwork.suspectCharges(reportRef, citizenid)
+        local report, suspect, rows = paperwork.suspectCharges(me, reportRef, citizenid)
         if not report then return util.fail('That report is not available') end
         if not suspect then return util.fail('That citizen is not a suspect on that report') end
         reportId = report.id
@@ -273,11 +273,14 @@ warrants.issue = access.audited('warrants.issue', function(_, payload, me)
     }
 end)
 
----Closes a warrant by expiring it. The row survives, so the subject's history stays intact.
-warrants.close = access.audited('warrants.close', function(_, payload)
+---Closes a warrant by expiring it. The row survives, so the subject's history stays intact. Only
+---the department that issued a warrant may close it, however wide the read is.
+warrants.close = access.audited('warrants.close', function(_, payload, me)
     local ref = util.limitedString(payload.ref, 16)
-    local row = ref and MySQL.single.await('SELECT * FROM phone_mdt_warrants WHERE ref = ? LIMIT 1', { ref })
-    if not row then return util.fail('That warrant no longer exists') end
+    local row = ref and MySQL.single.await([[
+        SELECT * FROM phone_mdt_warrants WHERE ref = ? AND (department = ? OR department = ?) LIMIT 1
+    ]], { ref, me.job, '' })
+    if not row then return util.fail('That warrant was issued by another department') end
 
     local now = os.time()
     if (tonumber(row.expiry) or 0) <= now then return util.fail('That warrant is already closed') end

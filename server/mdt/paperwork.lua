@@ -414,19 +414,20 @@ paperwork.reportsDelete = access.audited('reports.delete', function(_, payload, 
 end)
 
 ---The report, the suspect's own involvement row and their charge lines, or nils when that citizen
----is not a listed suspect on it. The single lookup a warrant and a booking derive their figures
----from, so neither can be handed a sentence the paperwork does not support.
+---is not a listed suspect on it. The report is resolved through the same visibility clause a
+---report read applies, so a warrant or a booking can never reach paperwork the caller cannot open.
+---@param me table caller identity from access.identity
 ---@param reportRef any
 ---@param citizenid any
 ---@return table|nil report row from phone_mdt_reports
 ---@return table|nil suspect { citizenid, name }
 ---@return table[] charges raw { code, count } lines attributed to that citizen
-function paperwork.suspectCharges(reportRef, citizenid)
+function paperwork.suspectCharges(me, reportRef, citizenid)
     local ref = util.limitedString(reportRef, 16)
     local cid = util.limitedString(citizenid, 64)
     if not ref or not cid then return nil, nil, {} end
 
-    local report = MySQL.single.await('SELECT * FROM phone_mdt_reports WHERE ref = ? LIMIT 1', { ref })
+    local report = readable(me, ref)
     if not report then return nil, nil, {} end
 
     local party = MySQL.single.await([[
@@ -535,12 +536,17 @@ local CASE_SELECT = [[
     FROM phone_mdt_cases c
 ]]
 
----Loads a case row by ref, or nil.
+---@type string Case scoping clause, against the alias `c`: a case file belongs to the department
+---that opened it, and an unstamped row is shared.
+local CASE_SCOPE = '(c.department = ? OR c.department = ?)'
+
+---Loads a case row of the caller's own department by ref, or nil.
+---@param me table caller identity from access.identity
 ---@param ref string
 ---@return table|nil row
-local function caseRow(ref)
+local function caseRow(me, ref)
     return MySQL.single.await(
-        ('%s WHERE c.ref = ? LIMIT 1'):format(CASE_SELECT), { ref })
+        ('%s WHERE c.ref = ? AND %s LIMIT 1'):format(CASE_SELECT, CASE_SCOPE), { ref, me.job, '' })
 end
 
 ---Composes the case the detail pane renders.
@@ -559,8 +565,8 @@ local function caseDetail(src, row)
 end
 
 ---A page of cases, filtered by status, priority and a title or ref search.
-paperwork.casesList = access.gated('cases.view', function(_, payload)
-    local where, params = { '1 = 1' }, {}
+paperwork.casesList = access.gated('cases.view', function(_, payload, me)
+    local where, params = { CASE_SCOPE }, { me.job, '' }
 
     local status = type(payload.status) == 'string' and payload.status or nil
     if status and STATUSES[status] then
@@ -597,9 +603,9 @@ paperwork.casesList = access.gated('cases.view', function(_, payload)
 end)
 
 ---One case in full.
-paperwork.casesGet = access.gated('cases.view', function(src, payload)
+paperwork.casesGet = access.gated('cases.view', function(src, payload, me)
     local ref = util.limitedString(payload.ref, 16)
-    local row = ref and caseRow(ref)
+    local row = ref and caseRow(me, ref)
     if not row then return util.fail('That case no longer exists') end
     return util.ok({ case = caseDetail(src, row) })
 end)
@@ -629,14 +635,14 @@ local function createCase(src, payload, me)
         VALUES (?, ?, 'primary', ?, ?)
     ]], { id, me.citizenid, me.citizenid, now })
 
-    return util.ok({ case = caseDetail(src, caseRow(ref)) }),
+    return util.ok({ case = caseDetail(src, caseRow(me, ref)) }),
         { entityType = 'case', entityId = ref, details = { title = title } }
 end
 
 ---Amends an existing case file.
-local function updateCase(src, payload)
+local function updateCase(src, payload, me)
     local ref = util.limitedString(payload.ref, 16)
-    local row = ref and caseRow(ref)
+    local row = ref and caseRow(me, ref)
     if not row then return util.fail('That case no longer exists') end
 
     local title = util.limitedString(payload.title, tonumber(LIMITS.CaseTitle) or 160)
@@ -651,7 +657,7 @@ local function updateCase(src, payload)
         WHERE id = ?
     ]], { title, summary, status, priority, os.time(), row.id })
 
-    return util.ok({ case = caseDetail(src, caseRow(ref)) }),
+    return util.ok({ case = caseDetail(src, caseRow(me, ref)) }),
         { entityType = 'case', entityId = ref, details = { title = title, status = status, priority = priority } }
 end
 
@@ -667,9 +673,9 @@ function paperwork.casesSave(src, payload)
 end
 
 ---Deletes a case file. Its reports are unlinked, never deleted.
-paperwork.casesDelete = access.audited('cases.delete', function(_, payload)
+paperwork.casesDelete = access.audited('cases.delete', function(_, payload, me)
     local ref = util.limitedString(payload.ref, 16)
-    local row = ref and caseRow(ref)
+    local row = ref and caseRow(me, ref)
     if not row then return util.fail('That case no longer exists') end
 
     MySQL.transaction.await({
@@ -685,7 +691,7 @@ end)
 ---Adds a note to a case thread.
 paperwork.casesNote = access.audited('cases.edit', function(src, payload, me)
     local ref = util.limitedString(payload.ref, 16)
-    local row = ref and caseRow(ref)
+    local row = ref and caseRow(me, ref)
     if not row then return util.fail('That case no longer exists') end
 
     local body = util.limitedString(payload.body, tonumber(LIMITS.CaseNote) or 1000)
@@ -700,13 +706,13 @@ paperwork.casesNote = access.audited('cases.edit', function(src, payload, me)
         { query = 'UPDATE phone_mdt_cases SET updated_at = ? WHERE id = ?', values = { now, row.id } },
     })
 
-    return util.ok({ case = caseDetail(src, caseRow(ref)) }), { entityType = 'case', entityId = ref }
+    return util.ok({ case = caseDetail(src, caseRow(me, ref)) }), { entityType = 'case', entityId = ref }
 end)
 
 ---Puts an officer on a case, or takes them off it.
 paperwork.casesAssign = access.audited('cases.edit', function(src, payload, me)
     local ref = util.limitedString(payload.ref, 16)
-    local row = ref and caseRow(ref)
+    local row = ref and caseRow(me, ref)
     if not row then return util.fail('That case no longer exists') end
 
     local cid = util.limitedString(payload.citizenid, 64)
@@ -727,14 +733,14 @@ paperwork.casesAssign = access.audited('cases.edit', function(src, payload, me)
     end
     MySQL.update.await('UPDATE phone_mdt_cases SET updated_at = ? WHERE id = ?', { now, row.id })
 
-    return util.ok({ case = caseDetail(src, caseRow(ref)) }),
+    return util.ok({ case = caseDetail(src, caseRow(me, ref)) }),
         { entityType = 'case', entityId = ref, details = { officer = cid, assigned = payload.assigned ~= false } }
 end)
 
 ---Links a report into a case, or unlinks it.
 paperwork.casesLinkReport = access.audited('cases.edit', function(src, payload, me)
     local ref = util.limitedString(payload.ref, 16)
-    local row = ref and caseRow(ref)
+    local row = ref and caseRow(me, ref)
     if not row then return util.fail('That case no longer exists') end
 
     local reportRef = util.limitedString(payload.reportRef, 16)
@@ -752,7 +758,7 @@ paperwork.casesLinkReport = access.audited('cases.edit', function(src, payload, 
     end
     MySQL.update.await('UPDATE phone_mdt_cases SET updated_at = ? WHERE id = ?', { os.time(), row.id })
 
-    return util.ok({ case = caseDetail(src, caseRow(ref)) }),
+    return util.ok({ case = caseDetail(src, caseRow(me, ref)) }),
         { entityType = 'case', entityId = ref, details = { report = reportRef, linked = payload.linked ~= false } }
 end)
 

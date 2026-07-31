@@ -154,6 +154,7 @@ local function stampArrest(reportRef, citizenid, arrestRef)
 end
 
 ---Resolves a report and suspect payload into the charges filed against that person.
+---@param me table caller identity from access.identity
 ---@param payload table { reportRef, citizenid }
 ---@return table|nil report
 ---@return table|nil suspect
@@ -161,12 +162,12 @@ end
 ---@return integer months
 ---@return integer fine
 ---@return string? message failure reason when report or suspect is nil
-local function quoteFor(payload)
+local function quoteFor(me, payload)
     local reportRef = util.limitedString(payload.reportRef, 16)
     local citizenid = util.limitedString(payload.citizenid, 64)
     if not reportRef or not citizenid then return nil, nil, {}, 0, 0, 'Pick a report and a suspect' end
 
-    local report, suspect, rows = paperwork.suspectCharges(reportRef, citizenid)
+    local report, suspect, rows = paperwork.suspectCharges(me, reportRef, citizenid)
     if not report then return nil, nil, {}, 0, 0, 'That report is not available' end
     if not suspect then return report, nil, {}, 0, 0, 'That citizen is not a suspect on that report' end
 
@@ -204,8 +205,8 @@ end)
 
 ---What a report's charges actually cost this suspect, and whether either half has already been
 ---enforced. Every figure the booking dialog shows comes from here and none of them is editable.
-jail.quote = access.gated('jail.view', function(_, payload)
-    local report, suspect, lines, months, fine, message = quoteFor(payload)
+jail.quote = access.gated('jail.view', function(_, payload, me)
+    local report, suspect, lines, months, fine, message = quoteFor(me, payload)
     if not report or not suspect then return util.fail(message) end
 
     local charges = {}
@@ -239,7 +240,7 @@ end)
 ---Books a suspect: a sentence, a citation, or both. Nothing here trusts a client figure, the
 ---ledger is claimed before the world is touched, and a refused sentence hands its claim back.
 jail.book = access.audited('jail.book', function(_, payload, me)
-    local report, suspect, lines, months, fine, message = quoteFor(payload)
+    local report, suspect, lines, months, fine, message = quoteFor(me, payload)
     if not report or not suspect then return util.fail(message) end
     if #lines == 0 then return util.fail('That suspect has no charges on this report') end
 
