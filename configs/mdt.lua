@@ -172,6 +172,11 @@ return {
         -- services looking at one CAD, in which case every unit and every call
         -- is visible to both and the seal on a row says which service it is.
         Shared         = false,
+
+        -- How often, in milliseconds, unit positions are refreshed for the CAD map. Coarse on
+        -- purpose: the map wants to know roughly where a unit is, and a tighter tick pushes the
+        -- whole board to every terminal that much more often. Skipped entirely with nobody on air.
+        PositionMs     = 4000,
     },
 
     -- Department radio channel. In-memory ring buffer, nothing persisted.

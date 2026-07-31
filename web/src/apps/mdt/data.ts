@@ -462,6 +462,7 @@ export interface Unit {
     department: string;
     domain:     DepartmentType;
     callId?:    string;
+    coords?:    MapPoint;
 }
 
 export interface Call {
@@ -478,6 +479,7 @@ export interface Call {
     createdAt:  number;
     expiresAt:  number;
     hasCoords:  boolean;
+    coords?:    MapPoint;
 }
 
 export interface DispatchState {
@@ -522,6 +524,11 @@ export interface MdtHome {
     recentReports: ReportSummary[];
     bulletins:     Bulletin[];
     units:         Unit[];
+}
+
+export interface MapPoint {
+    x: number;
+    y: number;
 }
 
 export interface Coords {

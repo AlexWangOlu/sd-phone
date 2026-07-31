@@ -396,10 +396,10 @@ const DEV_GRADES = [
 ];
 
 let DEV_UNITS: Unit[] = [
-    { citizenid: 'HRT10098', name: 'Grace Hartley', callsign: 'LS-100', rank: 'Chief', code: '10-8', department: 'police', domain: 'leo' },
-    { citizenid: 'WHT44012', name: 'Dana Whitlock', callsign: 'LS-114', rank: 'Sergeant', code: '10-8', department: 'police', domain: 'leo' },
-    { citizenid: 'OKF77120', name: 'Miles Okafor', callsign: 'LS-208', rank: 'Corporal', code: '10-6', department: 'police', callId: 'call-1', domain: 'leo' },
-    { citizenid: 'BNC30554', name: 'Rosa Bianchi', callsign: 'LS-301', rank: 'Officer', code: '10-7', department: 'police', domain: 'leo' },
+    { citizenid: 'HRT10098', name: 'Grace Hartley', callsign: 'LS-100', rank: 'Chief', code: '10-8', department: 'police', domain: 'leo', coords: { x: 425.1, y: -979.4 } },
+    { citizenid: 'WHT44012', name: 'Dana Whitlock', callsign: 'LS-114', rank: 'Sergeant', code: '10-8', department: 'police', domain: 'leo', coords: { x: -1037.7, y: -2737.6 } },
+    { citizenid: 'OKF77120', name: 'Miles Okafor', callsign: 'LS-208', rank: 'Corporal', code: '10-6', department: 'police', callId: 'call-1', domain: 'leo', coords: { x: 118.9, y: -1300.2 } },
+    { citizenid: 'BNC30554', name: 'Rosa Bianchi', callsign: 'LS-301', rank: 'Officer', code: '10-7', department: 'police', domain: 'leo', coords: { x: -710.4, y: -158.9 } },
 ];
 
 let DEV_CALLS: Call[] = [
@@ -408,11 +408,13 @@ let DEV_CALLS: Call[] = [
         location: 'Rob’s Liquor, Strawberry Avenue', direction: 'Southbound',
         suspect: 'Male, dark hooded jacket', weapon: 'Handgun',
         units: ['LS-208'], unitCount: 1, createdAt: now - 240, expiresAt: now + 660, hasCoords: true,
+        coords: { x: 130.2, y: -1287.5 },
     },
     {
         id: 'call-2', code: '10-50', type: 'Traffic collision', priority: 3,
         location: 'Power Street at Alta Street', direction: 'Eastbound',
         units: [], unitCount: 0, createdAt: now - 900, expiresAt: now + 300, hasCoords: true,
+        coords: { x: -247.8, y: -885.1 },
     },
 ];
 

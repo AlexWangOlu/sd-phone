@@ -21,6 +21,9 @@ local FLUSH_MS = 150
 local STATUS_GAP = 1500
 ---@type boolean Whether police and medical share one call board (configs/mdt.lua Dispatch.Shared).
 local SHARED = DISPATCH.Shared == true
+---@type integer Milliseconds between position refreshes for the map. Coarse on purpose: a CAD map
+---wants to know roughly where a unit is, and a tighter tick would push the whole board every time.
+local POSITION_MS = math.max(1000, math.floor(tonumber(DISPATCH.PositionMs) or 4000))
 
 ---@type table<string, boolean> 10-codes a unit may put itself on.
 local CODES = { ['10-8'] = true, ['10-6'] = true, ['10-7'] = true, ['10-90'] = true }
@@ -88,6 +91,10 @@ end
 ---@param u table live unit
 ---@return table unit
 local function unitPublic(u)
+    -- Live position travels with the unit rather than waiting for a locate: the map plots every
+    -- unit at once, so asking per marker would be one round trip per pin per refresh. It is the
+    -- same set a CAD already shows on the list, so this discloses nothing new to the terminal.
+    local coords = coordsOf(u.source)
     return {
         citizenid  = u.citizenid,
         name       = u.name,
@@ -97,6 +104,7 @@ local function unitPublic(u)
         domain     = u.domain or 'leo',
         code       = u.code,
         callId     = u.callId,
+        coords     = coords and { x = coords.x, y = coords.y } or nil,
     }
 end
 
@@ -131,6 +139,7 @@ local function callPublic(call)
         createdAt = call.at,
         expiresAt = call.expiresAt,
         hasCoords = call.coords ~= nil,
+        coords    = call.coords and { x = call.coords.x, y = call.coords.y } or nil,
     }
 end
 
@@ -186,6 +195,16 @@ local function markDirty()
         end
     end)
 end
+
+-- Units move without anything on the board changing, so the map would freeze between attaches
+-- without a tick of its own. It rides the existing coalesced broadcast rather than adding a second
+-- push path, and it is skipped entirely when nobody is on air, so an empty server pays nothing.
+CreateThread(function()
+    while true do
+        Wait(POSITION_MS)
+        if next(units) ~= nil then markDirty() end
+    end
+end)
 
 ---Takes a call off the board and returns every unit that was on it to 10-8.
 ---@param id string call id
