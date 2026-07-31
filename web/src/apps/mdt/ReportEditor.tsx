@@ -21,8 +21,8 @@ import type {
 } from './data';
 import { mdtDeleteReport, mdtReport, mdtReports, mdtSaveReport } from './mdtApi';
 import { PersonPicker } from './PersonPicker';
-import { useMdtSession } from './useMdtSession';
-import { mdtPanePad, mdtRef, mdtRowHover, mdtRowMeta, mdtRowTitle, mdtSectionHeader, STATUS_TONE } from './mdtTheme';
+import { useMdtSession, useViewEnter } from './useMdtSession';
+import { mdtFieldXs, mdtPanePad, mdtRef, mdtRowHover, mdtRowMeta, mdtRowTitle, mdtSectionHeader, STATUS_TONE } from './mdtTheme';
 import { MdtButton } from './ui/MdtButton';
 import { MdtCard } from './ui/MdtCard';
 import { MdtField } from './ui/MdtField';
@@ -109,6 +109,8 @@ export function ReportEditor({ reportRef, onSaved, onDeleted, onClose }: {
     const [error, setError] = useState('');
     const [saving, setSaving] = useState(false);
 
+    const enter = useViewEnter(draft ? 'edit' : report ? 'read' : null);
+
     function edit(next: EditDraft) {
         setDraft(next);
         setStored(next);
@@ -167,6 +169,7 @@ export function ReportEditor({ reportRef, onSaved, onDeleted, onClose }: {
                     draft={draft}
                     saving={saving}
                     error={error}
+                    enter={enter}
                     onChange={edit}
                     onAddPerson={() => setPicking(true)}
                     onSave={() => void save()}
@@ -217,7 +220,7 @@ export function ReportEditor({ reportRef, onSaved, onDeleted, onClose }: {
     const totals = chargeTotals(report.charges);
 
     return (
-        <Scroller className={`h-full ${mdtPanePad}`}>
+        <Scroller key="read" className={`h-full ${mdtPanePad} ${enter}`}>
             <div className="flex flex-wrap items-start gap-3">
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
@@ -367,10 +370,11 @@ export function ReportEditor({ reportRef, onSaved, onDeleted, onClose }: {
     );
 }
 
-function DraftView({ draft, saving, error, onChange, onAddPerson, onSave, onCancel }: {
+function DraftView({ draft, saving, error, enter, onChange, onAddPerson, onSave, onCancel }: {
     draft:       EditDraft;
     saving:      boolean;
     error:       string;
+    enter:       string;
     onChange:    (draft: EditDraft) => void;
     onAddPerson: () => void;
     onSave:      () => void;
@@ -408,7 +412,7 @@ function DraftView({ draft, saving, error, onChange, onAddPerson, onSave, onCanc
     }
 
     return (
-        <Scroller className={`h-full ${mdtPanePad}`}>
+        <Scroller key="edit" className={`h-full ${mdtPanePad} ${enter}`}>
             <h1 className="text-[26px] font-bold tracking-ios-display text-black dark:text-white">
                 {draft.ref
                     ? t('mdt.editingReport', 'Editing {ref}', { ref: draft.ref })
@@ -478,7 +482,7 @@ function DraftView({ draft, saving, error, onChange, onAddPerson, onSave, onCanc
                                 value={person.role}
                                 onChange={e => setPerson(index, { role: e.target.value as InvolvedRole })}
                                 aria-label={t('mdt.role', 'Role')}
-                                className="shrink-0 rounded-[9px] border border-black/15 bg-white px-2 py-1 text-[13px] text-black outline-none focus:border-ios-blue dark:border-white/20 dark:bg-base/40 dark:text-white"
+                                className={`shrink-0 ${mdtFieldXs}`}
                             >
                                 {INVOLVED_ROLES.map((role: InvolvedRole) => (
                                     <option key={role} value={role}>{roleLabel(role)}</option>

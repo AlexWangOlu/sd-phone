@@ -2,6 +2,17 @@
 -- the server enforces is declared here and nowhere else: the UI only ever hides
 -- controls, it never grants them.
 return {
+    -- Whether this server runs an MDT at all. OFF by default, because the terminal
+    -- is laid out for a tablet and most servers run the phone alone: leaving it on
+    -- would build a dozen tables, seed the penal code and tick a dispatch sweep for
+    -- a screen nobody can open.
+    --
+    -- Turn it on if you run sd-tablet, or if you want the terminal on the phone
+    -- itself (set `mdt` to `enabled = true` in configs/apps.lua as well for that).
+    -- The app catalog cannot decide this on its own: a companion device carries its
+    -- own catalog and this server never reads it.
+    Enabled = false,
+
     -- Departments whose members reach the MDT. A player's ACTIVE framework job
     -- must appear here or every callback refuses, including the reads.
     --   job       framework job name

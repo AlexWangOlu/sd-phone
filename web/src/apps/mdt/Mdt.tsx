@@ -91,7 +91,9 @@ function MdtTerminal() {
                     <div className="flex min-h-0 flex-1">
                         <MdtSidebar compact={compact} />
                         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col pb-6">
-                            {pane(active)}
+                            <div key={active} className="flex min-h-0 flex-1 flex-col animate-mdt-pane">
+                                {pane(active)}
+                            </div>
                         </div>
                     </div>
                 </>

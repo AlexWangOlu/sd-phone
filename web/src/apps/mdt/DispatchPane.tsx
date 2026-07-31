@@ -9,7 +9,7 @@ import { Scroller } from '@/ui/Scroller';
 import { SegmentedControl } from '@/ui/SegmentedControl';
 import { useNuiEvent } from '@/hooks/useNuiEvent';
 import { UNIT_CODES, type Call, type Unit, type UnitCode } from './data';
-import { mdtRef, mdtRowMeta, mdtRowTitle, mdtRuleX, mdtSectionHeader } from './mdtTheme';
+import { mdtRef, mdtRowHover, mdtRowMeta, mdtRowTitle, mdtRuleX, mdtSectionHeader } from './mdtTheme';
 import {
     mdtAttach, mdtDetach, mdtDispatchState, mdtLocate, mdtSetStatus, mdtSetWaypoint,
 } from './mdtApi';
@@ -170,7 +170,7 @@ export function DispatchPane() {
                                 ? 'bg-ios-blue/10'
                                 : c.id === flashId
                                     ? 'bg-ios-red/10'
-                                    : 'active:bg-black/[0.05] dark:active:bg-white/[0.06]'
+                                    : mdtRowHover
                         }`}
                     >
                         <div className="flex min-w-0 items-center gap-2">
