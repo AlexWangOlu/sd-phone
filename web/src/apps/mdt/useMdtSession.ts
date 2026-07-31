@@ -6,7 +6,7 @@ import { useDeckActive } from '@/shell/deckActive';
 
 import { mdtViewEnter } from './mdtTheme';
 import { SECTION_PERMISSION } from './data';
-import type { Department, MdtPermission, MdtSection, Offence, Officer } from './data';
+import type { Department, DepartmentType, MdtPermission, MdtSection, Offence, Officer } from './data';
 import { mdtBootstrap } from './mdtApi';
 
 export interface MdtSessionValue {
@@ -58,12 +58,12 @@ export function useDeckRefresh(fn: () => void): void {
     }, [active]);
 }
 
-export function useMdtSessionState(): MdtSessionValue {
+export function useMdtSessionState(devDomain?: DepartmentType): MdtSessionValue {
     const [section, setSection] = useSessionState<MdtSection>('mdt:section', 'home');
     const [selection, setSelection] = useSessionState<Partial<Record<MdtSection, string | null>>>('mdt:selection', {});
     const [meOverride, setMeOverride] = useState<Officer | null>(null);
 
-    const { data, loading, refetch } = useAsyncData(mdtBootstrap, []);
+    const { data, loading, refetch } = useAsyncData(() => mdtBootstrap(devDomain), [devDomain]);
     const [settled, setSettled] = useState(false);
 
     useEffect(() => {

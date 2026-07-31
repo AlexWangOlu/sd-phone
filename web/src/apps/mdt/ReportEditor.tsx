@@ -16,8 +16,9 @@ import { Scroller } from '@/ui/Scroller';
 import { SearchBar } from '@/ui/SearchBar';
 
 import { catalogIndex, ChargePicker, inputTotals, sentenceLabel } from './ChargePicker';
+import { EMS_INVOLVED_ROLES, EMS_REPORT_TYPES } from './data';
 import type {
-    Charge, ChargeInput, Involved, InvolvedRole, ReportDetail, ReportSummary, ReportType,
+    AnyReportType, Charge, ChargeInput, Involved, InvolvedRole, ReportDetail, ReportSummary, ReportType,
 } from './data';
 import { mdtDeleteReport, mdtReport, mdtReports, mdtSaveReport } from './mdtApi';
 import { PersonPicker } from './PersonPicker';
@@ -43,7 +44,7 @@ function chargeTotals(charges: readonly Charge[]): { months: number; fine: numbe
 interface EditDraft {
     ref:      string | null;
     title:    string;
-    type:     ReportType;
+    type:     AnyReportType;
     body:     string;
     involved: Involved[];
     charges:  ChargeInput[];
@@ -55,25 +56,35 @@ export function reportTypeLabel(type: string): string {
         case 'Arrest':        return t('mdt.typeArrest', 'Arrest');
         case 'Investigation': return t('mdt.typeInvestigation', 'Investigation');
         case 'Warrant':       return t('mdt.typeWarrant', 'Warrant');
+        case 'Patient Care':  return t('mdt.typePatientCare', 'Patient Care');
+        case 'Trauma':        return t('mdt.typeTrauma', 'Trauma');
+        case 'Cardiac':       return t('mdt.typeCardiac', 'Cardiac');
+        case 'Overdose':      return t('mdt.typeOverdose', 'Overdose');
+        case 'Transport':     return t('mdt.typeTransport', 'Transport');
+        case 'Death':         return t('mdt.typeDeath', 'Death');
         default:              return t('mdt.typeIncident', 'Incident');
     }
 }
 
 export function reportTypeTone(type: string): PillTone {
-    if (type === 'Arrest' || type === 'Warrant') return 'red';
-    if (type === 'Traffic') return 'orange';
-    if (type === 'Investigation') return 'green';
+    if (type === 'Arrest' || type === 'Warrant' || type === 'Cardiac' || type === 'Death') return 'red';
+    if (type === 'Traffic' || type === 'Trauma' || type === 'Overdose') return 'orange';
+    if (type === 'Investigation' || type === 'Transport') return 'green';
     return 'blue';
 }
 
 export function roleLabel(role: string): string {
     if (role === 'victim') return t('mdt.roleVictim', 'Victim');
     if (role === 'witness') return t('mdt.roleWitness', 'Witness');
+    if (role === 'patient') return t('mdt.rolePatient', 'Patient');
+    if (role === 'responder') return t('mdt.roleResponder', 'Responder');
+    if (role === 'other') return t('mdt.roleOther', 'Other');
     return t('mdt.roleSuspect', 'Suspect');
 }
 
-function blankDraft(): EditDraft {
-    return { ref: null, title: '', type: REPORT_TYPES[0], body: '', involved: [], charges: [] };
+function blankDraft(medical: boolean): EditDraft {
+    const type = medical ? EMS_REPORT_TYPES[0] : REPORT_TYPES[0];
+    return { ref: null, title: '', type, body: '', involved: [], charges: [] };
 }
 
 function draftFrom(report: ReportDetail): EditDraft {
@@ -93,7 +104,8 @@ export function ReportEditor({ reportRef, onSaved, onDeleted, onClose }: {
     onDeleted: () => void;
     onClose:   () => void;
 }) {
-    const { open } = useMdtSession();
+    const { open, department } = useMdtSession();
+    const isMedical = department?.type === 'ems';
 
     const { data: report, loading, refetch } = useAsyncData(
         () => (reportRef ? mdtReport(reportRef) : Promise.resolve(null)),
@@ -102,7 +114,7 @@ export function ReportEditor({ reportRef, onSaved, onDeleted, onClose }: {
 
     const [stored, setStored] = useSessionState<EditDraft | null>('mdt:reportDraft', null);
     const [draft, setDraft] = useState<EditDraft | null>(() => (
-        stored && stored.ref === reportRef ? stored : (reportRef === null ? blankDraft() : null)
+        stored && stored.ref === reportRef ? stored : (reportRef === null ? blankDraft(isMedical) : null)
     ));
     const [picking, setPicking] = useState(false);
     const [confirm, setConfirm] = useState(false);
@@ -380,7 +392,8 @@ function DraftView({ draft, saving, error, enter, onChange, onAddPerson, onSave,
     onSave:      () => void;
     onCancel:    () => void;
 }) {
-    const { offences } = useMdtSession();
+    const { offences, department } = useMdtSession();
+    const medical = department?.type === 'ems';
     const byCode = useMemo(() => catalogIndex(offences), [offences]);
     const totals = useMemo(() => inputTotals(draft.charges, byCode), [draft.charges, byCode]);
 
@@ -431,7 +444,8 @@ function DraftView({ draft, saving, error, enter, onChange, onAddPerson, onSave,
                     label={t('mdt.type', 'Type')}
                     value={draft.type}
                     onChange={v => onChange({ ...draft, type: v as ReportType })}
-                    options={REPORT_TYPES.map((type: ReportType) => ({ value: type, label: reportTypeLabel(type) }))}
+                    options={(medical ? EMS_REPORT_TYPES : REPORT_TYPES)
+                        .map((type: string) => ({ value: type, label: reportTypeLabel(type) }))}
                 />
             </div>
 
@@ -484,7 +498,7 @@ function DraftView({ draft, saving, error, enter, onChange, onAddPerson, onSave,
                                 aria-label={t('mdt.role', 'Role')}
                                 className={`shrink-0 ${mdtFieldXs}`}
                             >
-                                {INVOLVED_ROLES.map((role: InvolvedRole) => (
+                                {(medical ? EMS_INVOLVED_ROLES : INVOLVED_ROLES).map((role: string) => (
                                     <option key={role} value={role}>{roleLabel(role)}</option>
                                 ))}
                             </select>
@@ -501,21 +515,23 @@ function DraftView({ draft, saving, error, enter, onChange, onAddPerson, onSave,
                 </MdtCard>
             </div>
 
-            <div className="mt-5">
-                <div className={`mb-2 px-1 ${mdtSectionHeader}`}>{t('mdt.charges', 'Charges')}</div>
-                {suspects.length === 0 ? (
-                    <MdtCard className="px-4 py-5 text-center text-[14px] text-ios-gray">
-                        {t('mdt.needSuspect', 'Attach someone as a suspect before adding charges.')}
-                    </MdtCard>
-                ) : (
-                    <ChargePicker
-                        className="min-h-[320px]"
-                        lines={draft.charges}
-                        subjects={suspects}
-                        onChange={charges => onChange({ ...draft, charges })}
-                    />
-                )}
-            </div>
+            {!medical && (
+                <div className="mt-5">
+                    <div className={`mb-2 px-1 ${mdtSectionHeader}`}>{t('mdt.charges', 'Charges')}</div>
+                    {suspects.length === 0 ? (
+                        <MdtCard className="px-4 py-5 text-center text-[14px] text-ios-gray">
+                            {t('mdt.needSuspect', 'Attach someone as a suspect before adding charges.')}
+                        </MdtCard>
+                    ) : (
+                        <ChargePicker
+                            className="min-h-[320px]"
+                            lines={draft.charges}
+                            subjects={suspects}
+                            onChange={charges => onChange({ ...draft, charges })}
+                        />
+                    )}
+                </div>
+            )}
 
             {error && <div className="mt-4 text-[14px] text-ios-red">{error}</div>}
 

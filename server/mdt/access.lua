@@ -25,6 +25,33 @@ local DEPARTMENTS = MDT.Departments or {}
 local PERMISSIONS = MDT.Permissions or {}
 ---@type boolean Whether a boss of their department holds every key.
 local BOSS_BYPASS = MDT.BossBypass ~= false
+
+---@type table<string, 'leo'|'ems'> Keys that exist on ONE terminal only. A key absent from this
+---table is shared by both (home, reports, cases, roster, dispatch, chat, bulletins, logs).
+---
+---This is declared here rather than in configs/mdt.lua because it is not a setting: it states
+---which service a capability belongs to, and a server owner moving `jail.book` to the medical
+---terminal would be describing something that has no handler behind it.
+local KEY_DOMAIN = {
+    ['patients.view']    = 'ems',
+    ['patients.edit']    = 'ems',
+    ['protocols.view']   = 'ems',
+    ['protocols.manage'] = 'ems',
+
+    ['persons.view']     = 'leo',
+    ['persons.edit']     = 'leo',
+    ['profiles.view']    = 'leo',
+    ['vehicles.view']    = 'leo',
+    ['vehicles.edit']    = 'leo',
+    ['warrants.view']    = 'leo',
+    ['warrants.issue']   = 'leo',
+    ['warrants.close']   = 'leo',
+    ['offences.view']    = 'leo',
+    ['offences.manage']  = 'leo',
+    ['offences.delete']  = 'leo',
+    ['jail.view']        = 'leo',
+    ['jail.book']        = 'leo',
+}
 ---@type string Sequence format auto-generated callsigns are minted with.
 local CALLSIGN_FORMAT = (MDT.Dispatch or {}).CallsignFormat or '%s-%03d'
 
@@ -141,6 +168,14 @@ end
 function access.can(src, key)
     local dept = deptOf(src)
     if not dept then return false end
+
+    -- Which terminal the key belongs to is checked BEFORE the boss bypass, and before the grade.
+    -- The permission table is one flat list of names, so without this a police chief would clear
+    -- `patients.view` on grade alone and read medical files, and a medic would clear `jail.view`.
+    -- A service's own keys are unreachable from the other service at any rank.
+    local only = KEY_DOMAIN[key]
+    if only and only ~= (dept.type == 'ems' and 'ems' or 'leo') then return false end
+
     if BOSS_BYPASS and job.isBoss(src, dept.job, dept.bossGrade or 0) then return true end
 
     local minimum = PERMISSIONS[key]
@@ -195,6 +230,22 @@ function access.belowMe(src, targetCid)
     if jobName and jobName ~= me.job then return false, 'That officer is not in your department' end
     if grade >= me.grade then return false, 'That officer is not below your rank' end
     return true
+end
+
+---The record domain a caller reads and writes: 'ems' for a medical department, 'leo' for everyone
+---else. This is the whole of the separation between the two terminals' paperwork, so it is derived
+---from the CONFIGURED department type and never from anything the client sends.
+---@param me table caller identity from access.identity
+---@return 'leo'|'ems' domain
+function access.domain(me)
+    return me.department.type == 'ems' and 'ems' or 'leo'
+end
+
+---Whether the caller works the medical terminal.
+---@param me table caller identity
+---@return boolean
+function access.isMedical(me)
+    return me.department.type == 'ems'
 end
 
 ---The restriction identifiers that admit this caller to a record: their own citizenid, their job,

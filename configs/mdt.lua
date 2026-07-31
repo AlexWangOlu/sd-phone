@@ -54,6 +54,25 @@ return {
             callsign  = 'SA',
             bossGrade = 4,
         },
+
+        -- An `ems` department gets the MEDICAL terminal instead of the police
+        -- one: Patients rather than Profiles, Protocols rather than the penal
+        -- code, and no Vehicles, Warrants or Jail. Its paperwork lives in its
+        -- own domain, which the server enforces - a medic cannot read a police
+        -- report and an officer cannot read a medical one.
+        --
+        -- Fire, air ambulance or a second hospital are just more `ems`
+        -- departments; they each get their own roster, chat and call board.
+        {
+            job       = 'ambulance',
+            type      = 'ems',
+            label     = 'San Andreas Medical Services',
+            short     = 'SAMS',
+            seal      = 'ems',
+            accent    = '#E11D48',
+            callsign  = 'M',
+            bossGrade = 4,
+        },
     },
 
     -- When true a boss of their department (QBCore/QBox `isboss` flag, ESX
@@ -87,8 +106,16 @@ return {
         ['bulletins.view']   = 0,
         ['me.update']        = 0,
 
+        -- Medical terminal. `patients.view` is the EMS counterpart of
+        -- persons.view and `protocols.view` of offences.view; a department of
+        -- type 'leo' never sees either section, so listing them here costs a
+        -- police server nothing.
+        ['patients.view']    = 0,
+        ['protocols.view']   = 0,
+
         ['persons.edit']     = 1,
         ['vehicles.edit']    = 1,
+        ['patients.edit']    = 1,
         ['cases.create']     = 1,
         ['cases.edit']       = 1,
         ['jail.view']        = 1,
@@ -106,6 +133,7 @@ return {
         ['cases.delete']     = 4,
         ['offences.delete']  = 4,
         ['offences.manage']  = 4,
+        ['protocols.manage'] = 4,
         ['roster.grade']     = 4,
         ['roster.dismiss']   = 4,
         ['logs.view']        = 4,
@@ -137,6 +165,13 @@ return {
         MaxCalls       = 60,
         CallsignFormat = '%s-%03d', -- prefix, sequence
         SweepSeconds   = 15,
+
+        -- Whether police and medical share one call board. Off by default: a
+        -- medic's board carries medical calls and medical units only, and an
+        -- officer's carries neither. Turn it on for a server that wants both
+        -- services looking at one CAD, in which case every unit and every call
+        -- is visible to both and the seal on a row says which service it is.
+        Shared         = false,
     },
 
     -- Department radio channel. In-memory ring buffer, nothing persisted.
@@ -158,6 +193,16 @@ return {
     -- web/src/apps/mdt/data.ts.
     ReportTypes = { 'Incident', 'Traffic', 'Arrest', 'Investigation', 'Warrant' },
 
+    -- The medical terminal's own report types, offered instead of the list
+    -- above when the author's department is type 'ems'. Must match the
+    -- EmsReportType union in web/src/apps/mdt/data.ts.
+    EmsReportTypes = { 'Patient Care', 'Trauma', 'Cardiac', 'Overdose', 'Transport', 'Death' },
+
+    -- Roles a person can hold on a MEDICAL report, replacing the police
+    -- suspect/victim/witness set. Must match EMS_INVOLVED_ROLES in
+    -- web/src/apps/mdt/data.ts.
+    EmsInvolvedRoles = { 'patient', 'witness', 'responder', 'other' },
+
     -- Officer-set flags offered on a citizen record. Must match PERSON_FLAGS in
     -- web/src/apps/mdt/data.ts.
     PersonFlags = { 'wanted', 'armed', 'gang', 'mental_health', 'flight_risk', 'informant' },
@@ -178,5 +223,13 @@ return {
         MediaUrl      = 512,
         Charges       = 40, -- charge lines per report
         Involved      = 24, -- involved persons per report
+
+        -- Medical terminal.
+        MedicalNotes  = 4000,
+        Allergies     = 400,
+        Conditions    = 400,
+        Medications   = 400,
+        ProtocolTitle = 120,
+        ProtocolBody  = 4000,
     },
 }

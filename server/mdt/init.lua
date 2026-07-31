@@ -29,6 +29,10 @@ local chat      = require 'server.mdt.chat'
 local bulletins = require 'server.mdt.bulletins'
 ---@type table Audit viewer (server.mdt.logs).
 local logs      = require 'server.mdt.logs'
+---@type table Patients and medical files (server.mdt.medical): the medical terminal's person half.
+local medical   = require 'server.mdt.medical'
+---@type table Treatment protocols (server.mdt.protocols): the medical counterpart of the penal code.
+local protocols = require 'server.mdt.protocols'
 
 ---@type table MDT config (configs/mdt.lua): the enable switch and the dispatch sweep interval.
 local MDT = config.Mdt
@@ -117,6 +121,14 @@ local ROUTES = {
     { 'bulletins:delete',    bulletins, 'delete' },
 
     { 'logs:list',           logs,      'list' },
+
+    { 'patients:search',     medical,   'patientsSearch' },
+    { 'patients:get',        medical,   'patientsGet' },
+    { 'patients:update',     medical,   'patientsUpdate' },
+
+    { 'protocols:list',      protocols, 'list' },
+    { 'protocols:save',      protocols, 'save' },
+    { 'protocols:delete',    protocols, 'delete' },
 }
 
 ---Registers one MDT callback under the app's 'sd-phone:server:mdt:' prefix, normalising a

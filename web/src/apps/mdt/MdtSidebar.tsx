@@ -1,12 +1,12 @@
 import {
-    Car, ChevronLeft, ChevronRight, FileText, FolderOpen, Gavel, IdCard, LayoutDashboard, Lock,
-    MessageSquare, RadioTower, Scale, ScrollText, Users, type LucideIcon,
+    Car, ChevronLeft, ChevronRight, ClipboardList, FileText, FolderOpen, Gavel, HeartPulse, IdCard,
+    LayoutDashboard, Lock, MessageSquare, RadioTower, Scale, ScrollText, Users, type LucideIcon,
 } from 'lucide-react';
 
 import { t } from '@/i18n';
 import { Scroller } from '@/ui/Scroller';
 import { useSessionState } from '@/hooks/useSessionState';
-import type { MdtSection } from './data';
+import { sectionsFor, type MdtSection } from './data';
 import { MDT_ACCENT, MDT_RAIL_W, MDT_RAIL_W_COLLAPSED, mdtRuleY } from './mdtTheme';
 import { useMdtSession } from './useMdtSession';
 
@@ -16,21 +16,23 @@ interface RailItem {
     icon:  LucideIcon;
 }
 
-function items(): RailItem[] {
-    return [
-        { id: 'home',      label: t('mdt.navHome', 'Home'),           icon: LayoutDashboard },
-        { id: 'dispatch',  label: t('mdt.navDispatch', 'Dispatch'),   icon: RadioTower },
-        { id: 'profiles',  label: t('mdt.navProfiles', 'Profiles'),   icon: IdCard },
-        { id: 'vehicles',  label: t('mdt.navVehicles', 'Vehicles'),   icon: Car },
-        { id: 'reports',   label: t('mdt.navReports', 'Reports'),     icon: FileText },
-        { id: 'cases',     label: t('mdt.navCases', 'Cases'),         icon: FolderOpen },
-        { id: 'warrants',  label: t('mdt.navWarrants', 'Warrants'),   icon: Gavel },
-        { id: 'offences',  label: t('mdt.navOffences', 'Offences'),   icon: Scale },
-        { id: 'employees', label: t('mdt.navEmployees', 'Employees'), icon: Users },
-        { id: 'chat',      label: t('mdt.navChat', 'Chat'),           icon: MessageSquare },
-        { id: 'jail',      label: t('mdt.navJail', 'Jail'),           icon: Lock },
-        { id: 'logs',      label: t('mdt.navLogs', 'Logs'),           icon: ScrollText },
-    ];
+function items(): Record<MdtSection, RailItem> {
+    return {
+        home:      { id: 'home',      label: t('mdt.navHome', 'Home'),           icon: LayoutDashboard },
+        dispatch:  { id: 'dispatch',  label: t('mdt.navDispatch', 'Dispatch'),   icon: RadioTower },
+        profiles:  { id: 'profiles',  label: t('mdt.navProfiles', 'Profiles'),   icon: IdCard },
+        vehicles:  { id: 'vehicles',  label: t('mdt.navVehicles', 'Vehicles'),   icon: Car },
+        reports:   { id: 'reports',   label: t('mdt.navReports', 'Reports'),     icon: FileText },
+        cases:     { id: 'cases',     label: t('mdt.navCases', 'Cases'),         icon: FolderOpen },
+        warrants:  { id: 'warrants',  label: t('mdt.navWarrants', 'Warrants'),   icon: Gavel },
+        offences:  { id: 'offences',  label: t('mdt.navOffences', 'Offences'),   icon: Scale },
+        employees: { id: 'employees', label: t('mdt.navEmployees', 'Employees'), icon: Users },
+        chat:      { id: 'chat',      label: t('mdt.navChat', 'Chat'),           icon: MessageSquare },
+        jail:      { id: 'jail',      label: t('mdt.navJail', 'Jail'),           icon: Lock },
+        logs:      { id: 'logs',      label: t('mdt.navLogs', 'Logs'),           icon: ScrollText },
+        patients:  { id: 'patients',  label: t('mdt.navPatients', 'Patients'),   icon: HeartPulse },
+        protocols: { id: 'protocols', label: t('mdt.navProtocols', 'Protocols'), icon: ClipboardList },
+    };
 }
 
 export function MdtSidebar({ compact = false }: { compact?: boolean }) {
@@ -39,7 +41,10 @@ export function MdtSidebar({ compact = false }: { compact?: boolean }) {
 
     const open = railOpen && !compact;
     const accent = department?.accent ?? MDT_ACCENT;
-    const visible = items().filter(item => item.id === 'home' || canOpen(item.id));
+    const catalog = items();
+    const visible = sectionsFor(department?.type)
+        .map(id => catalog[id])
+        .filter(item => item.id === 'home' || canOpen(item.id));
 
     return (
         <div className="relative flex shrink-0">

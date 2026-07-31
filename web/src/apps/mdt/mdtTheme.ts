@@ -11,8 +11,6 @@ export const mdtBackdrop = 'bg-[#d4d4d4] dark:bg-base';
 
 export const mdtCardSurface = 'rounded-[16px] bg-[#e5e5e5] shadow-[0_1px_3px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.04] dark:bg-surface dark:shadow-none dark:ring-white/[0.06]';
 
-export const mdtInsetSurface = 'bg-black/[0.05] dark:bg-white/[0.07]';
-export const mdtRaisedSurface = 'bg-[#efefef] dark:bg-elevated';
 
 export const mdtHairline = 'bg-black/[0.13] dark:bg-white/[0.13]';
 export const mdtRuleX = `h-px w-full shrink-0 ${mdtHairline}`;

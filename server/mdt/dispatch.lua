@@ -19,6 +19,8 @@ local MAX_CALLS = math.max(1, math.floor(tonumber(DISPATCH.MaxCalls) or 60))
 local FLUSH_MS = 150
 ---@type integer Minimum gap between accepted 10-code changes, in ms.
 local STATUS_GAP = 1500
+---@type boolean Whether police and medical share one call board (configs/mdt.lua Dispatch.Shared).
+local SHARED = DISPATCH.Shared == true
 
 ---@type table<string, boolean> 10-codes a unit may put itself on.
 local CODES = { ['10-8'] = true, ['10-6'] = true, ['10-7'] = true, ['10-90'] = true }
@@ -64,11 +66,22 @@ local function ensureUnit(me)
         callsign   = me.callsign or '',
         rank       = me.rank,
         department = me.job,
+        domain     = access.domain(me),
         code       = '10-8',
         callId     = nil,
     }
     units[me.source] = unit
     return unit
+end
+
+---Whether a unit or a call belongs on `domain`'s board. With Dispatch.Shared on there is one board
+---and this is always true; otherwise police and medical never see each other's traffic.
+---@param rowDomain string|nil the unit's or call's own domain
+---@param domain string the viewer's domain
+---@return boolean
+local function onBoard(rowDomain, domain)
+    if SHARED then return true end
+    return (rowDomain or 'leo') == domain
 end
 
 ---Public unit shape every terminal receives.
@@ -81,6 +94,7 @@ local function unitPublic(u)
         callsign   = u.callsign,
         rank       = u.rank,
         department = u.department,
+        domain     = u.domain or 'leo',
         code       = u.code,
         callId     = u.callId,
     }
@@ -122,18 +136,22 @@ end
 
 ---Every live unit, sorted by callsign.
 ---@return table[] units
-local function unitList()
+local function unitList(domain)
     local out = {}
-    for _, u in pairs(units) do out[#out + 1] = unitPublic(u) end
+    for _, u in pairs(units) do
+        if onBoard(u.domain, domain) then out[#out + 1] = unitPublic(u) end
+    end
     table.sort(out, function(a, b) return a.callsign < b.callsign end)
     return out
 end
 
 ---Every live call, most urgent first then newest.
 ---@return table[] calls
-local function callList()
+local function callList(domain)
     local ordered = {}
-    for _, c in pairs(calls) do ordered[#ordered + 1] = c end
+    for _, c in pairs(calls) do
+        if onBoard(c.domain, domain) then ordered[#ordered + 1] = c end
+    end
     table.sort(ordered, function(a, b)
         if a.priority ~= b.priority then return a.priority < b.priority end
         return a.at > b.at
@@ -146,8 +164,8 @@ end
 
 ---The full CAD state, which is what both the read and the push carry.
 ---@return table state { units, calls }
-local function snapshot()
-    return { units = unitList(), calls = callList() }
+local function snapshot(domain)
+    return { units = unitList(domain), calls = callList(domain) }
 end
 
 ---Schedules one coalesced full-state broadcast, so a burst of attach and detach traffic costs a
@@ -157,9 +175,14 @@ local function markDirty()
     flushPending = true
     SetTimeout(FLUSH_MS, function()
         flushPending = false
-        local state = snapshot()
+        -- Both boards are built once and handed out by the recipient's own domain, rather than
+        -- rebuilt per terminal: the snapshot is the expensive half and there are only ever two.
+        local byDomain = { leo = snapshot('leo'), ems = snapshot('ems') }
         for _, src in ipairs(access.audience()) do
-            TriggerClientEvent('sd-phone:client:mdt:dispatch', src, state)
+            local me = access.identity(src)
+            if me then
+                TriggerClientEvent('sd-phone:client:mdt:dispatch', src, byDomain[access.domain(me)])
+            end
         end
     end)
 end
@@ -255,11 +278,16 @@ function dispatch.createCall(data)
     local id = ('c%d%s'):format(callSeq, util.newId(4))
     local now = os.time()
 
+    -- Which board the call lands on. Callers that predate the medical terminal pass no domain and
+    -- get 'leo', which is what every existing dispatch integration expects.
+    local domain = data.domain == 'ems' and 'ems' or 'leo'
+
     calls[id] = {
         id        = id,
         code      = code or '10-00',
         type      = kind or 'Call for Service',
         priority  = priority,
+        domain    = domain,
         location  = util.limitedString(data.location, 120) or 'Unknown location',
         direction = util.limitedString(data.direction, 60),
         suspect   = util.limitedString(data.suspect, 120),
@@ -287,7 +315,7 @@ dispatch.state = access.gated('dispatch.view', function(_src, _payload, me)
     local known = units[me.source] ~= nil
     ensureUnit(me)
     if not known then markDirty() end
-    return util.ok(snapshot())
+    return util.ok(snapshot(access.domain(me)))
 end)
 
 ---Puts the caller's unit on a 10-code. Going available or out of service also drops whatever call
@@ -316,7 +344,11 @@ end)
 ---Attaches the caller's unit to a call and flips them to 10-6.
 dispatch.attach = access.gated('dispatch.attach', function(_src, payload, me)
     local call = calls[payload.callId]
-    if not call then return util.fail('That call is no longer active') end
+    -- A call off this terminal's board is reported as gone rather than refused, because to this
+    -- caller it never existed: the id could only have been guessed.
+    if not call or not onBoard(call.domain, access.domain(me)) then
+        return util.fail('That call is no longer active')
+    end
 
     local unit = ensureUnit(me)
     local previous = unit.callId and calls[unit.callId]
@@ -347,17 +379,21 @@ dispatch.detach = access.gated('dispatch.attach', function(_src, payload, me)
 end)
 
 ---Coordinates for a call or for a unit on the air, so the client can drop a waypoint on it.
-dispatch.locate = access.gated('dispatch.view', function(_src, payload, _me)
+dispatch.locate = access.gated('dispatch.view', function(_src, payload, me)
+    local domain = access.domain(me)
+
     if payload.callId ~= nil then
         local call = calls[payload.callId]
-        if not call then return util.fail('That call is no longer active') end
+        if not call or not onBoard(call.domain, domain) then
+            return util.fail('That call is no longer active')
+        end
         if not call.coords then return util.fail('That call has no coordinates') end
         return util.ok({ coords = call.coords })
     end
 
     if payload.citizenid ~= nil then
         for _, u in pairs(units) do
-            if u.citizenid == payload.citizenid then
+            if u.citizenid == payload.citizenid and onBoard(u.domain, domain) then
                 local coords = coordsOf(u.source)
                 if not coords then return util.fail('That unit is not on the map') end
                 return util.ok({ coords = coords })
