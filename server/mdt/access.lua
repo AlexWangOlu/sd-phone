@@ -226,6 +226,27 @@ end
 local NO_ACCESS = 'You do not have access to this terminal'
 ---@type string Refusal shown when the caller's grade is below the key's threshold.
 local NO_RANK = 'Your rank does not allow that'
+---@type string Refusal shown when a handler faulted instead of answering.
+local NO_ANSWER = 'That did not go through'
+
+---Runs a handler under pcall, so a fault answers the client instead of leaving its callback
+---pending forever. The error is printed, never swallowed.
+---@param label string permission key, or the wrapper name for an ungated handler
+---@param fn fun(src: integer, payload: table, me: table): table, table?
+---@param src integer player server id
+---@param payload table
+---@param me table caller identity
+---@return table envelope
+---@return table? audit
+local function run(label, fn, src, payload, me)
+    local ok, res, audit = pcall(fn, src, payload, me)
+    if not ok then
+        print(('^1[sd-phone:mdt]^0 %s failed: %s'):format(label, res))
+        return util.fail(NO_ANSWER)
+    end
+    if type(res) ~= 'table' then return util.fail(NO_ANSWER) end
+    return res, audit
+end
 
 ---Wraps a READ handler: resolves identity, checks the key, and normalises the payload. The handler
 ---receives `(src, payload, me)` and returns the response envelope.
@@ -238,7 +259,7 @@ function access.gated(key, fn)
         if not me then return util.fail(NO_ACCESS) end
         if not access.can(src, key) then return util.fail(NO_RANK) end
         if type(payload) ~= 'table' then payload = {} end
-        return fn(src, payload, me) or util.fail('That did not go through')
+        return (run(key, fn, src, payload, me))
     end
 end
 
@@ -256,8 +277,7 @@ function access.audited(key, fn)
         if not access.can(src, key) then return util.fail(NO_RANK) end
         if type(payload) ~= 'table' then payload = {} end
 
-        local res, audit = fn(src, payload, me)
-        if type(res) ~= 'table' then return util.fail('That did not go through') end
+        local res, audit = run(key, fn, src, payload, me)
 
         if res.success == true then
             audit = type(audit) == 'table' and audit or {}
@@ -276,7 +296,7 @@ function access.open(fn)
         local me = access.identity(src)
         if not me then return util.fail(NO_ACCESS) end
         if type(payload) ~= 'table' then payload = {} end
-        return fn(src, payload, me) or util.fail('That did not go through')
+        return (run('open', fn, src, payload, me))
     end
 end
 

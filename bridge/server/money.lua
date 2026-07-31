@@ -37,21 +37,24 @@ function money.add(source, moneyType, amount, reason)
     end
 end
 
----Debit one of the player's framework accounts. Returns nothing and cannot report a declined
----debit; callers must pre-check money.get(src, type) >= amount first.
+---Debit one of the player's framework accounts. False when the player could not be resolved or the
+---framework declined the debit; callers must still pre-check money.get(src, type) >= amount.
 ---@param source number
 ---@param moneyType string
 ---@param amount number
 ---@param reason? string Optional reason string passed to the framework's logger.
+---@return boolean removed
 function money.remove(source, moneyType, amount, reason)
     local p = player_mod.get(source)
-    if not p then return end
+    if not p then return false end
 
     if framework.qb then
-        p.Functions.RemoveMoney(convertType(moneyType), amount, reason)
+        return p.Functions.RemoveMoney(convertType(moneyType), amount, reason) ~= false
     elseif framework.name == 'esx' then
         p.removeAccountMoney(convertType(moneyType), amount)
+        return true
     end
+    return false
 end
 
 ---The player's current balance for one of their accounts. Read-only; 0 when the player or

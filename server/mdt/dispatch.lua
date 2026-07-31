@@ -291,8 +291,9 @@ dispatch.state = access.gated('dispatch.view', function(_src, _payload, me)
 end)
 
 ---Puts the caller's unit on a 10-code. Going available or out of service also drops whatever call
----they were on.
-dispatch.setStatus = access.audited('dispatch.status', function(_src, payload, me)
+---they were on. Not audited: the unit board is volatile memory, and a shift of 10-codes would bury
+---the actions the Logs section exists to show.
+dispatch.setStatus = access.gated('dispatch.status', function(_src, payload, me)
     local code = payload.code
     if not CODES[code] then return util.fail('Unknown status code') end
     if not util.cooldown(me.citizenid, 'mdt:dispatch:status', STATUS_GAP) then
@@ -309,12 +310,11 @@ dispatch.setStatus = access.audited('dispatch.status', function(_src, payload, m
     end
 
     markDirty()
-    return util.ok({ unit = unitPublic(unit) }),
-        { entityType = 'unit', entityId = unit.callsign, details = { code = code } }
+    return util.ok({ unit = unitPublic(unit) })
 end)
 
 ---Attaches the caller's unit to a call and flips them to 10-6.
-dispatch.attach = access.audited('dispatch.attach', function(_src, payload, me)
+dispatch.attach = access.gated('dispatch.attach', function(_src, payload, me)
     local call = calls[payload.callId]
     if not call then return util.fail('That call is no longer active') end
 
@@ -327,12 +327,11 @@ dispatch.attach = access.audited('dispatch.attach', function(_src, payload, me)
     unit.code = '10-6'
 
     markDirty()
-    return util.ok({ call = callPublic(call) }),
-        { entityType = 'call', entityId = call.id, details = { code = call.code, attached = true } }
+    return util.ok({ call = callPublic(call) })
 end)
 
 ---Detaches the caller's unit from a call and returns them to 10-8.
-dispatch.detach = access.audited('dispatch.attach', function(_src, payload, me)
+dispatch.detach = access.gated('dispatch.attach', function(_src, payload, me)
     local call = calls[payload.callId]
     if not call then return util.fail('That call is no longer active') end
 
@@ -344,8 +343,7 @@ dispatch.detach = access.audited('dispatch.attach', function(_src, payload, me)
     end
 
     markDirty()
-    return util.ok({ call = callPublic(call) }),
-        { entityType = 'call', entityId = call.id, details = { code = call.code, attached = false } }
+    return util.ok({ call = callPublic(call) })
 end)
 
 ---Coordinates for a call or for a unit on the air, so the client can drop a waypoint on it.
