@@ -1,5 +1,7 @@
+import { device } from '@device';
+import { ISLAND_PETS, IslandPetArt, islandPetLabel } from '@/shell/islandPets';
 import { useEffect, useState } from 'react';
-import { Check, ChevronRight, Minus, Moon, Plus, Sun } from 'lucide-react';
+import { Check, ChevronRight, Minus, Moon, Plus, Sun, X } from 'lucide-react';
 
 import { t } from '@/i18n';
 import { useIosPush } from '@/hooks/useIosPush';
@@ -24,7 +26,8 @@ export function DisplayBrightnessPage({ onBack }: { onBack: () => void }) {
         phoneScale, setPhoneScale,
         chatTextScale, setChatTextScale,
         phoneAlign, setPhoneAlign,
-    } = useTheme('theme', 'setTheme', 'darkTheme', 'brightness', 'setBrightness', 'phoneScale', 'setPhoneScale', 'chatTextScale', 'setChatTextScale', 'phoneAlign', 'setPhoneAlign');
+        islandPet, setIslandPet,
+    } = useTheme('theme', 'setTheme', 'darkTheme', 'brightness', 'setBrightness', 'phoneScale', 'setPhoneScale', 'chatTextScale', 'setChatTextScale', 'phoneAlign', 'setPhoneAlign', 'islandPet', 'setIslandPet');
 
     const isDark     = theme === 'dark';
     const trackEmpty = isDark ? '#3A3A3C' : '#E5E5EA';
@@ -54,6 +57,51 @@ export function DisplayBrightnessPage({ onBack }: { onBack: () => void }) {
 
             <div className="flex-1 overflow-y-auto no-scrollbar">
                 <div className="mt-8 flex flex-col gap-8 px-4 pb-10">
+
+                    {device.screen.island && (
+                        <section>
+                            <p className="mb-2 text-[12px] uppercase tracking-widest text-ios-gray">
+                                {t('settings.islandPet', 'Dynamic Island Pet')}
+                            </p>
+                            <div className="overflow-hidden rounded-[12px] bg-[#e5e5e5] dark:bg-surface px-3 py-3">
+                                <div className="grid grid-cols-4 gap-x-2 gap-y-3">
+                                    {ISLAND_PETS.map(id => {
+                                        const selected = id === islandPet;
+                                        return (
+                                            <button
+                                                key={id}
+                                                type="button"
+                                                onClick={() => setIslandPet(id)}
+                                                className="flex flex-col items-center gap-1.5"
+                                            >
+                                                <span
+                                                    className={[
+                                                        'flex h-[52px] w-[52px] items-center justify-center rounded-[13px] transition-colors',
+                                                        selected
+                                                            ? 'bg-ios-blue'
+                                                            : 'bg-black/[0.06] dark:bg-white/[0.08]',
+                                                    ].join(' ')}
+                                                >
+                                                    {id === 'none'
+                                                        ? <X className="h-[19px] w-[19px] text-ios-gray" strokeWidth={2.4} />
+                                                        : <IslandPetArt id={id} mood="idle" size={34} />}
+                                                </span>
+                                                <span className={[
+                                                    'text-[11px]',
+                                                    selected ? 'font-semibold text-ios-blue' : 'text-ios-gray',
+                                                ].join(' ')}>
+                                                    {islandPetLabel(id)}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <p className="mt-2 px-1 text-[12.5px] leading-snug text-ios-gray">
+                                    {t('settings.islandPetHint', 'Your pet sits on the Dynamic Island and steps aside for calls, music and alarms.')}
+                                </p>
+                            </div>
+                        </section>
+                    )}
 
                     <section>
                         <p className="mb-2 text-[12px] uppercase tracking-widest text-ios-gray">

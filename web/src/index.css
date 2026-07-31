@@ -545,3 +545,28 @@ input[type='number'] {
     15%  { opacity: 1; }
     100% { opacity: 0; transform: translateY(-180px) translateX(var(--drift,0)) scale(1.15); }
 }
+
+/* Dynamic Island pets. CSS only: rAF is starved in CEF in game, so every pet
+   motion is a keyframe the compositor owns rather than a per-frame callback. */
+.sd-pet { display: block; overflow: visible; will-change: transform; }
+
+@keyframes sd-pet-bob   { 0%, 100% { transform: translateY(0)     } 50% { transform: translateY(-1.1px) } }
+@keyframes sd-pet-doze  { 0%, 100% { transform: translateY(0) rotate(-3deg) } 50% { transform: translateY(0.6px) rotate(-3deg) } }
+@keyframes sd-pet-hop   { 0%, 62%, 100% { transform: translateY(0) } 72% { transform: translateY(-3.4px) } 84% { transform: translateY(-0.6px) } }
+@keyframes sd-pet-groove{ 0%, 100% { transform: translateY(0) rotate(-5deg) } 50% { transform: translateY(-1.8px) rotate(5deg) } }
+@keyframes sd-pet-jolt  { 0%, 100% { transform: translateX(0) } 20% { transform: translateX(-1.6px) } 45% { transform: translateX(1.6px) } 70% { transform: translateX(-0.9px) } }
+@keyframes sd-pet-blink { 0%, 92%, 100% { transform: scaleY(1) } 96% { transform: scaleY(0.1) } }
+
+.sd-pet-idle     { animation: sd-pet-bob 2.6s ease-in-out infinite; }
+.sd-pet-sleepy   { animation: sd-pet-doze 3.8s ease-in-out infinite; }
+.sd-pet-happy    { animation: sd-pet-hop 2.2s cubic-bezier(0.3, 0.8, 0.4, 1) infinite; }
+.sd-pet-dancing  { animation: sd-pet-groove 0.62s ease-in-out infinite; }
+.sd-pet-startled { animation: sd-pet-jolt 0.5s ease-in-out infinite; }
+
+.sd-pet-blink { transform-origin: center; animation: sd-pet-blink 4.4s ease-in-out infinite; }
+.sd-pet-sleepy .sd-pet-blink { animation: none; }
+
+@keyframes sd-pet-enter { from { transform: translateY(9px) scale(0.6); opacity: 0 } to { transform: translateY(0) scale(1); opacity: 1 } }
+@keyframes sd-pet-leave { from { transform: translateY(0) scale(1); opacity: 1 } to { transform: translateY(9px) scale(0.6); opacity: 0 } }
+.sd-pet-in  { animation: sd-pet-enter 0.34s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.sd-pet-out { animation: sd-pet-leave 0.26s cubic-bezier(0.4, 0, 0.7, 1) both; }

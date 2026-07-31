@@ -6,6 +6,8 @@ import { device } from '@device';
 import { useTheme } from '@/stores/themeStore';
 import type { PhoneAlign } from '@/stores/themeStore';
 import { useCallStore } from '@/stores/callStore';
+import { useBatteryStore } from '@/stores/batteryStore';
+import { IslandPet } from './IslandPet';
 import { fetchNui } from '@/core/nui';
 import { useMusic } from '@/apps/music/MusicContext';
 import { coverGradient, youtubeId } from '@/apps/music/data';
@@ -38,6 +40,8 @@ const DI_H = 37;
 const DI_X = (W - DI_W) / 2;
 const DI_Y = SY + 11;
 const DI_R = DI_H / 2;
+const PET_W = 26;
+const PET_H = 20;
 
 const CALL_W = 188;
 const CALL_X = (W - CALL_W) / 2;
@@ -299,7 +303,8 @@ function MusicIsland({ track, playing, expanded, closing, onToggle, onPlayPause,
 
 export function PhoneShell({ children, cameraActive = false, entering = false, leaving = false, landscape = false, peek, onClose, radioIsland, alarmIsland, frameColor = DEFAULT_FRAME_COLOR }: PhoneShellProps) {
     const rail = frameStops(frameColor, FINISH);
-    const { brightness, phoneScale, phoneAlign, ringtoneVol, setRingtoneVol } = useTheme('brightness', 'phoneScale', 'phoneAlign', 'ringtoneVol', 'setRingtoneVol');
+    const { brightness, phoneScale, phoneAlign, ringtoneVol, setRingtoneVol, islandPet } = useTheme('brightness', 'phoneScale', 'phoneAlign', 'ringtoneVol', 'setRingtoneVol', 'islandPet');
+    const batteryLevel = useBatteryStore(s => s.level);
     const { current: nowPlaying, playing: musicPlaying, volume: musicVolume, setVolume: setMusicVolume, requestOpen: openMusic, toggle: toggleMusic, next: nextMusic, prev: prevMusic } = useMusic();
 
     const [musicExpanded, setMusicExpanded] = useState(false);
@@ -580,6 +585,20 @@ export function PhoneShell({ children, cameraActive = false, entering = false, l
                         onDoubleClick={() => void takeScreenshot()}
                         className="absolute z-[300] cursor-pointer bg-transparent"
                         style={{ left: SCREENSHOT_BTN.x - 6, top: SCREENSHOT_BTN.y, width: 16, height: SCREENSHOT_BTN.h }}
+                    />
+                )}
+
+                {device.screen.island && islandPet !== 'none' && (
+                    <IslandPet
+                        id={islandPet}
+                        x={DI_X + DI_W - PET_W - 6}
+                        y={DI_Y - PET_H + 3}
+                        width={PET_W}
+                        height={PET_H}
+                        busy={!!islandTrack || callActive || radioOn || radioStandby || alarmRinging}
+                        battery={batteryLevel}
+                        playing={musicPlaying}
+                        ringing={callActive || alarmRinging}
                     />
                 )}
 
