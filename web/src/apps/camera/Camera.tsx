@@ -18,6 +18,7 @@ import { formatDuration } from '@/lib/time';
 import shutterSfx from '@/assets/camera/shutter.mp3';
 import { useSessionState } from '@/hooks/useSessionState';
 import { CAMERA_FILTERS, filterCss, filterLabel } from './filters';
+import { FilterDefs } from './FilterDefs';
 
 function playShutter() {
     try {
@@ -96,6 +97,8 @@ const clampZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
 const zoomLabel = (z: number) => `${Number.isInteger(z) ? z : z.toFixed(1)}×`;
 const MODE_OPTIONS = ['VIDEO', 'PHOTO', 'LANDSCAPE'] as const;
 
+const PICKER_EXIT_MS = 300;
+
 const CAPTURE_TIMEOUT_MS = 8000;
 const VIDEO_TIMEOUT_MS   = 45000;
 
@@ -129,7 +132,9 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
     const [flash,     setFlash]     = useState(false);
     const [filterId,  setFilterId]  = useSessionState('camera:filter', 'original');
     const [pickerOpen, setPickerOpen] = useState(false);
+    const [pickerLeaving, setPickerLeaving] = useState(false);
     const [swatch,    setSwatch]    = useState<string | null>(null);
+    const pickerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const filterStyle = filterCss(filterId);
     const filterRef = useRef(filterStyle);
     filterRef.current = filterStyle;
@@ -223,6 +228,7 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
             mixerRef.current?.destroy();
             mixerRef.current = null;
             if (captureTimer.current) clearTimeout(captureTimer.current);
+            if (pickerTimer.current) clearTimeout(pickerTimer.current);
         };
     }, []);
 
@@ -363,6 +369,22 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
         setPending(false);
         if (captureTimer.current) { clearTimeout(captureTimer.current); captureTimer.current = null; }
     }, []));
+
+    function togglePicker() {
+        if (pickerTimer.current) { clearTimeout(pickerTimer.current); pickerTimer.current = null; }
+        if (pickerOpen) {
+            setPickerLeaving(true);
+            pickerTimer.current = setTimeout(() => {
+                setPickerOpen(false);
+                setPickerLeaving(false);
+                pickerTimer.current = null;
+            }, PICKER_EXIT_MS);
+            return;
+        }
+        setSwatch(grabSwatch());
+        setPickerLeaving(false);
+        setPickerOpen(true);
+    }
 
     function grabSwatch(): string | null {
         const src = canvasRef.current;
@@ -654,12 +676,7 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
                         type="button"
                         aria-label={t('camera.filters', 'Filters')}
                         aria-pressed={pickerOpen}
-                        onClick={() => {
-                            setPickerOpen(open => {
-                                if (!open) setSwatch(grabSwatch());
-                                return !open;
-                            });
-                        }}
+                        onClick={() => togglePicker()}
                         className={[
                             'flex h-9 w-9 items-center justify-center rounded-full active:bg-white/10',
                             pickerOpen || filterId !== 'original' ? 'text-[#FFD60A]' : 'text-white/90',
@@ -679,6 +696,8 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
                     setZoom(z => clampZoom(z * Math.exp(-e.deltaY * ZOOM_WHEEL_RATE)));
                 }}
             >
+                <FilterDefs />
+
                 <canvas
                     ref={canvasRef}
                     className="absolute"
@@ -753,7 +772,12 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
                 </div>
 
                 {pickerOpen && (
-                    <div className="absolute bottom-[68px] left-0 right-0 z-30">
+                    <div
+                        className={[
+                            'absolute bottom-[68px] left-0 right-0 z-30',
+                            pickerLeaving ? 'animate-slide-out-down' : 'animate-slide-up-fade',
+                        ].join(' ')}
+                    >
                         <div className="ios-scrollbar flex gap-3 overflow-x-auto px-4 pb-1 pt-2">
                             {CAMERA_FILTERS.map(f => {
                                 const active = f.id === filterId;
