@@ -546,7 +546,7 @@ end
 ---@type table<string, boolean> Pets the island offers. An id from an older or hand-edited client
 ---is stored as 'none' rather than refused, so a stale UI cannot write a pet the shell cannot draw.
 local ISLAND_PETS = {
-    none = true, cat = true, dog = true, capybara = true, duck = true, penguin = true, frog = true,
+    none = true, cat = true, dog = true, fox = true, duck = true, penguin = true, frog = true,
 }
 
 ---Saves the character's Dynamic Island pet.

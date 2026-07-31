@@ -1,21 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { IslandPetArt, type IslandPetId, type PetMood } from './islandPets';
+import { IslandPetArt, SPRITE_H, SPRITE_W, type IslandPetId, type PetMood } from './islandPets';
 
-const LEAVE_MS = 260;
-const CHEER_MS = 2200;
+const LEAVE_MS = 240;
+const CHEER_MS = 1800;
 const LOW_BATTERY = 20;
 
-export function IslandPet({ id, x, y, width, height, busy, battery, playing, ringing }: {
-    id:       IslandPetId;
-    x:        number;
-    y:        number;
-    width:    number;
-    height:   number;
-    busy:     boolean;
-    battery:  number;
-    playing:  boolean;
-    ringing:  boolean;
+export function IslandPet({ id, left, top, height, run, busy, battery, playing, ringing }: {
+    id:      IslandPetId;
+    left:    number;
+    top:     number;
+    height:  number;
+    run:     number;
+    busy:    boolean;
+    battery: number;
+    playing: boolean;
+    ringing: boolean;
 }) {
     const [shown, setShown] = useState(!busy);
     const [leaving, setLeaving] = useState(false);
@@ -43,11 +43,14 @@ export function IslandPet({ id, x, y, width, height, busy, battery, playing, rin
     if (id === 'none' || !shown) return null;
 
     const mood: PetMood =
-        ringing                        ? 'startled'
-        : playing                      ? 'dancing'
-        : cheering                     ? 'happy'
-        : battery <= LOW_BATTERY       ? 'sleepy'
+        ringing                  ? 'startled'
+        : playing                ? 'dancing'
+        : cheering               ? 'happy'
+        : battery <= LOW_BATTERY ? 'sleepy'
         : 'idle';
+
+    const roaming = mood === 'idle' || mood === 'happy';
+    const width = height * (SPRITE_W / SPRITE_H);
 
     function poke() {
         if (cheerTimer.current) clearTimeout(cheerTimer.current);
@@ -61,10 +64,15 @@ export function IslandPet({ id, x, y, width, height, busy, battery, playing, rin
             onClick={poke}
             aria-hidden
             tabIndex={-1}
-            className={`absolute z-[201] flex cursor-pointer items-end justify-center bg-transparent ${leaving ? 'sd-pet-out' : 'sd-pet-in'}`}
-            style={{ left: x, top: y, width, height }}
+            className={`absolute z-[301] cursor-pointer bg-transparent p-0 ${leaving ? 'sd-pet-out' : 'sd-pet-in'}`}
+            style={{ left, top, width, height }}
         >
-            <IslandPetArt id={id} mood={mood} size={width} />
+            <span
+                className={roaming ? 'sd-pet-walker' : undefined}
+                style={{ display: 'block', ['--pet-run' as string]: `${run}px` }}
+            >
+                <IslandPetArt id={id} mood={mood} height={height} />
+            </span>
         </button>
     );
 }

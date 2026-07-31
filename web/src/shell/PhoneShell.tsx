@@ -40,8 +40,14 @@ const DI_H = 37;
 const DI_X = (W - DI_W) / 2;
 const DI_Y = SY + 11;
 const DI_R = DI_H / 2;
-const PET_W = 26;
-const PET_H = 20;
+// The pet stands ON the island, inside it. It used to be placed above the island's top edge, which
+// is only 11px below the screen edge, so it spilled onto the bezel. Its feet sit PET_FLOOR up from
+// the island's bottom and it patrols between the left cap and the camera lens on the right.
+const PET_H = 26;
+const PET_W = PET_H * (16 / 13);
+const PET_FLOOR = 4;
+const PET_LEFT = 14;
+const PET_RUN = DI_W - PET_LEFT - PET_W - 30;
 
 const CALL_W = 188;
 const CALL_X = (W - CALL_W) / 2;
@@ -591,10 +597,10 @@ export function PhoneShell({ children, cameraActive = false, entering = false, l
                 {device.screen.island && islandPet !== 'none' && (
                     <IslandPet
                         id={islandPet}
-                        x={DI_X + DI_W - PET_W - 6}
-                        y={DI_Y - PET_H + 3}
-                        width={PET_W}
+                        left={DI_X + PET_LEFT}
+                        top={DI_Y + DI_H - PET_FLOOR - PET_H}
                         height={PET_H}
+                        run={PET_RUN}
                         busy={!!islandTrack || callActive || radioOn || radioStandby || alarmRinging}
                         battery={batteryLevel}
                         playing={musicPlaying}

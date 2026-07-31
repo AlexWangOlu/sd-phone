@@ -84,7 +84,7 @@ export function DisplayBrightnessPage({ onBack }: { onBack: () => void }) {
                                                 >
                                                     {id === 'none'
                                                         ? <X className="h-[19px] w-[19px] text-ios-gray" strokeWidth={2.4} />
-                                                        : <IslandPetArt id={id} mood="idle" size={34} />}
+                                                        : <IslandPetArt id={id} mood="idle" height={30} />}
                                                 </span>
                                                 <span className={[
                                                     'text-[11px]',
