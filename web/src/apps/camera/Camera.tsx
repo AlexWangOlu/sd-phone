@@ -20,7 +20,7 @@ import { useSessionState } from '@/hooks/useSessionState';
 import { CAMERA_FILTERS, filterCss, filterLabel } from './filters';
 import { FilterDefs } from './FilterDefs';
 import { CAMERA_MASKS, drawMask, findMask, maskLabel, type FaceAnchor } from './masks';
-import { screenToCrop, SELFIE_CROP_BIAS_X } from '@/render';
+import { computeFaceAnchor, type FacePush } from './faceAnchor';
 
 function MaskThumb({ id }: { id: string }) {
     const ref = useRef<HTMLCanvasElement>(null);
@@ -35,7 +35,7 @@ function MaskThumb({ id }: { id: string }) {
         ctx.beginPath();
         ctx.ellipse(el.width / 2, el.height * 0.60, el.width * 0.21, el.height * 0.26, 0, 0, Math.PI * 2);
         ctx.fill();
-        drawMask(ctx, mask, { x: el.width / 2, y: el.height * 0.60, scale: el.height * 0.27, roll: 0 });
+        drawMask(ctx, mask, { u: 0.5, v: 0.60, fx: 0.27, fy: 0.27, roll: 0 }, el.width, el.height);
     }, [id]);
     return <canvas ref={ref} width={116} height={116} className="h-full w-full" />;
 }
@@ -159,10 +159,7 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
     const overlayRef = useRef<HTMLCanvasElement>(null);
     const maskRef = useRef(maskId);
     maskRef.current = maskId;
-    const zoomRef = useRef(zoom);
-    zoomRef.current = zoom;
-    const selfieRef = useRef(false);
-    const landscapeRef = useRef(false);
+    const trackingRef = useRef(false);
     const [swatch,    setSwatch]    = useState<string | null>(null);
     const pickerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const filterStyle = filterCss(filterId);
@@ -192,8 +189,6 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
     useStatusBarLight(true);
 
     const landscape = mode === 'LANDSCAPE';
-    selfieRef.current = selfie;
-    landscapeRef.current = landscape;
 
     useEffect(() => {
         if (!photoOnly) return;
@@ -402,40 +397,25 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
         if (captureTimer.current) { clearTimeout(captureTimer.current); captureTimer.current = null; }
     }, []));
 
-    useNuiEvent('sd-phone:camera:face', useCallback((data: {
-        visible: boolean; hx?: number; hy?: number; tx?: number; ty?: number;
-    }) => {
-        const host = overlayRef.current;
-        if (!data.visible || data.hx === undefined || data.tx === undefined || !host) {
-            faceRef.current = null;
-            return;
-        }
-        const bias = selfieRef.current ? SELFIE_CROP_BIAS_X : 0;
-        const sw = window.innerWidth;
-        const sh = window.innerHeight;
-        const orient = landscapeRef.current ? 'landscape' : 'portrait';
-        const head = screenToCrop(data.hx, data.hy!, sw, sh, zoomRef.current, orient, bias);
-        const top  = screenToCrop(data.tx, data.ty!, sw, sh, zoomRef.current, orient, bias);
-
-        const hx = head.u * host.width;
-        const hy = head.v * host.height;
-        const tx = top.u * host.width;
-        const ty = top.v * host.height;
-        const dx = tx - hx;
-        const dy = ty - hy;
-
-        faceRef.current = {
-            x: hx,
-            y: hy,
-            scale: Math.hypot(dx, dy),
-            roll: Math.atan2(dx, -dy),
-        };
+    useNuiEvent('sd-phone:camera:face', useCallback((data: FacePush) => {
+        const crop = renderRef.current?.getCrop();
+        faceRef.current = crop
+            ? computeFaceAnchor(data, crop, window.innerWidth, window.innerHeight)
+            : null;
     }, []));
 
     useEffect(() => {
-        void fetchNui('sd-phone:camera:faceTrack', { on: maskId !== 'none' });
-        return () => { void fetchNui('sd-phone:camera:faceTrack', { on: false }); };
+        const want = maskId !== 'none';
+        if (want === trackingRef.current) return;
+        trackingRef.current = want;
+        void fetchNui('sd-phone:camera:faceTrack', { on: want });
     }, [maskId]);
+
+    useEffect(() => () => {
+        if (!trackingRef.current) return;
+        trackingRef.current = false;
+        void fetchNui('sd-phone:camera:faceTrack', { on: false });
+    }, []);
 
     useEffect(() => {
         if (maskId === 'none') return;
@@ -444,21 +424,22 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
             raf = requestAnimationFrame(paint);
             const host = overlayRef.current;
             if (!host) return;
-            const box = host.getBoundingClientRect();
-            if (host.width !== Math.round(box.width) || host.height !== Math.round(box.height)) {
-                host.width = Math.max(1, Math.round(box.width));
-                host.height = Math.max(1, Math.round(box.height));
+            const w = Math.max(1, Math.round(landscape ? vp.h : vp.w));
+            const h = Math.max(1, Math.round(landscape ? vp.w : vp.h));
+            if (host.width !== w || host.height !== h) {
+                host.width = w;
+                host.height = h;
             }
             const ctx = host.getContext('2d');
             if (!ctx) return;
             ctx.clearRect(0, 0, host.width, host.height);
             const mask = findMask(maskRef.current);
             const anchor = faceRef.current;
-            if (mask && anchor) drawMask(ctx, mask, anchor);
+            if (mask && anchor) drawMask(ctx, mask, anchor, host.width, host.height);
         };
         paint();
         return () => cancelAnimationFrame(raf);
-    }, [maskId]);
+    }, [maskId, landscape, vp.w, vp.h]);
 
     function togglePicker() {
         if (pickerTimer.current) { clearTimeout(pickerTimer.current); pickerTimer.current = null; }
@@ -482,15 +463,8 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
     function stampMask(ctx: CanvasRenderingContext2D, outW: number, outH: number) {
         const mask = findMask(maskRef.current);
         const anchor = faceRef.current;
-        const host = overlayRef.current;
-        if (!mask || !anchor || !host || !host.width || !host.height) return;
-        const k = outW / host.width;
-        drawMask(ctx, mask, {
-            x: anchor.x * k,
-            y: anchor.y * (outH / host.height),
-            scale: anchor.scale * k,
-            roll: anchor.roll,
-        });
+        if (!mask || !anchor) return;
+        drawMask(ctx, mask, anchor, outW, outH);
     }
 
     function grabSwatch(): string | null {
@@ -811,8 +785,24 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
 
                 <canvas
                     ref={overlayRef}
-                    className="pointer-events-none absolute inset-0 z-[14] h-full w-full"
-                    style={{ display: maskId === 'none' ? 'none' : 'block' }}
+                    className="pointer-events-none absolute z-[14]"
+                    style={
+                        landscape && vp.w > 0
+                            ? {
+                                  display: maskId === 'none' ? 'none' : 'block',
+                                  top: '50%',
+                                  left: '50%',
+                                  width: vp.h,
+                                  height: vp.w,
+                                  transform: 'translate(-50%, -50%) rotate(90deg)',
+                              }
+                            : {
+                                  display: maskId === 'none' ? 'none' : 'block',
+                                  inset: 0,
+                                  width: '100%',
+                                  height: '100%',
+                              }
+                    }
                 />
 
                 <canvas

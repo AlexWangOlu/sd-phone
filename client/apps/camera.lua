@@ -152,6 +152,10 @@ local function exitCameraView()
     active   = false
     frontCam = false
 
+    -- The push thread runs on its own clock now, so handing the view back no longer stops it. The
+    -- React side only says "off" on unmount, and the app stays mounted under switcher keep-alive.
+    phonecam.setFaceTrack(false)
+
     if phonecam.active() then
         phonecam.stop()
     else

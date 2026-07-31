@@ -230,13 +230,22 @@ end
 ---@type boolean True while the UI is wearing a face mask and needs the head tracked.
 local faceTrack = false
 
----@type integer Camera frames between head pushes. The overlay is a cosmetic sprite, so a push
----every third frame tracks the head closely enough while costing a third of the NUI traffic.
-local FACE_TRACK_EVERY <const> = 3
+---@type integer Milliseconds between head pushes. On its own clock rather than the scripted cam's
+---frame loop, because that loop only exists on the scripted path: a server with AllowMovement or
+---AllowMovementInCamera off takes the view with the native cell cam, where the loop never runs and
+---the mask would silently never appear.
+local FACE_PUSH_MS <const> = 50
 
----@type number Metres above the head bone, along the HEAD'S OWN up axis, that the second projected
----point sits. Its distance from the head on screen is the mask's scale and its angle is the roll,
----so a tilted head tilts the ears without a single trigonometric term on either side.
+---@type boolean True while the push thread is alive, so toggling a mask twice cannot start two.
+local faceLoopRunning = false
+
+---@type integer SKEL_Neck_1. Paired with the head bone to get the head's up direction in world
+---space, which is what the mask's scale and roll are both measured from.
+local NECK_BONE <const> = 39317
+
+---@type number Metres above the head bone the second projected point sits. Its distance from the
+---head on screen is the mask's scale and its angle is the roll, so a tilted head tilts the ears
+---without a single trigonometric term on either side. Raise it to make every mask bigger.
 local FACE_UP_OFFSET <const> = 0.22
 
 ---Projects the player's head into screen space and hands the UI what it needs to hang a mask on
@@ -250,7 +259,16 @@ local function pushFace()
     if not ped or ped == 0 then return end
 
     local head = GetPedBoneCoords(ped, HEAD_BONE, 0.0, 0.0, 0.0)
-    local top  = GetPedBoneCoords(ped, HEAD_BONE, 0.0, 0.0, FACE_UP_OFFSET)
+    local neck = GetPedBoneCoords(ped, NECK_BONE, 0.0, 0.0, 0.0)
+
+    -- Up is taken from the neck-to-head bone vector rather than a local offset on the head bone.
+    -- GetPedBoneCoords offsets ARE bone-local, but which local axis points out of the top of the
+    -- skull is a rigging detail; two bone POSITIONS are unambiguous, tilt with the head, and give a
+    -- vector that can be measured rather than assumed.
+    local spine = head - neck
+    local len = #(spine)
+    local up = len > 0.01 and (spine / len) or vec3(0.0, 0.0, 1.0)
+    local top = head + up * FACE_UP_OFFSET
 
     local okHead, hx, hy = GetScreenCoordFromWorldCoord(head.x, head.y, head.z)
     local okTop,  tx, ty = GetScreenCoordFromWorldCoord(top.x, top.y, top.z)
@@ -274,7 +292,17 @@ function phonecam.setFaceTrack(on)
     faceTrack = on == true
     if not faceTrack then
         SendNUIMessage({ action = 'sd-phone:camera:face', data = { visible = false } })
+        return
     end
+    if faceLoopRunning then return end
+    faceLoopRunning = true
+    CreateThread(function()
+        while faceTrack do
+            pushFace()
+            Wait(FACE_PUSH_MS)
+        end
+        faceLoopRunning = false
+    end)
 end
 
 ---Takes the view with a scripted camera. Unlike CellCamActivate this leaves the ped free, so the
@@ -298,12 +326,9 @@ function phonecam.start()
     if loopRunning then return end
     loopRunning = true
     CreateThread(function()
-        local tick = 0
         while cam do
             place()
             applyZoom()
-            tick = tick + 1
-            if faceTrack and tick % FACE_TRACK_EVERY == 0 then pushFace() end
             Wait(0)
         end
         loopRunning = false

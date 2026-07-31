@@ -1,10 +1,11 @@
 import { t } from '@/i18n';
 
 export interface FaceAnchor {
-    x:     number;
-    y:     number;
-    scale: number;
-    roll:  number;
+    u:    number;
+    v:    number;
+    fx:   number;
+    fy:   number;
+    roll: number;
 }
 
 export interface CameraMask {
@@ -226,16 +227,20 @@ export function findMask(id: string): CameraMask | null {
     return CAMERA_MASKS.find(m => m.id === id) ?? null;
 }
 
-// One draw for both the live overlay and the saved frame, so a shot can never come back wearing a
-// different mask from the one that was framed.
 export function drawMask(
     ctx: CanvasRenderingContext2D,
     mask: CameraMask,
     anchor: FaceAnchor,
+    w: number,
+    h: number,
 ) {
+    const sx = anchor.fx * w;
+    const sy = anchor.fy * h;
+    if (!Number.isFinite(sx) || !Number.isFinite(sy) || sx < 1 || sy < 1) return;
     ctx.save();
-    ctx.translate(anchor.x, anchor.y);
+    ctx.translate(anchor.u * w, anchor.v * h);
+    ctx.scale(sx, sy);
     ctx.rotate(anchor.roll);
-    mask.draw(ctx, anchor.scale);
+    mask.draw(ctx, 1);
     ctx.restore();
 }

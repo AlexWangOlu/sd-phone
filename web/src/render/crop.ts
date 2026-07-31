@@ -23,26 +23,6 @@ export interface CropRegion {
     height:  number;
 }
 
-// A point the game reported in SCREEN space (0..1 of the whole game window), expressed as a
-// fraction of the viewfinder instead. The viewfinder shows a crop of that screen, so the two
-// spaces differ by exactly the window computeCropRegion picked; without this the mask would sit
-// where the head is on the player's monitor rather than where it is in the shot.
-export function screenToCrop(
-    sx: number,
-    sy: number,
-    screenW: number,
-    screenH: number,
-    zoom: number,
-    orientation: Orientation,
-    biasX = 0,
-): { u: number; v: number } {
-    const crop = computeCropRegion(screenW, screenH, zoom, orientation, biasX);
-    return {
-        u: (sx * screenW - crop.offsetX) / crop.width,
-        v: (sy * screenH - crop.offsetY) / crop.height,
-    };
-}
-
 export function computeCropRegion(
     screenW: number,
     screenH: number,
