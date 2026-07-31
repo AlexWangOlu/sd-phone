@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { LayoutGrid, Play, RotateCw, X, Zap, ZapOff } from 'lucide-react';
+import { LayoutGrid, Play, RotateCw, Sparkles, X, Zap, ZapOff } from 'lucide-react';
 
 import { useNuiEvent } from '@/hooks/useNuiEvent';
 import { fetchNui } from '@/core/nui';
@@ -16,6 +16,8 @@ import { useLaunchIntent } from '@/shell/launchIntent';
 import { t } from '@/i18n';
 import { formatDuration } from '@/lib/time';
 import shutterSfx from '@/assets/camera/shutter.mp3';
+import { useSessionState } from '@/hooks/useSessionState';
+import { CAMERA_FILTERS, filterCss, filterLabel } from './filters';
 
 function playShutter() {
     try {
@@ -125,6 +127,12 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
     const [recording, setRecording] = useState(false);
     const [recSecs,   setRecSecs]   = useState(0);
     const [flash,     setFlash]     = useState(false);
+    const [filterId,  setFilterId]  = useSessionState('camera:filter', 'original');
+    const [pickerOpen, setPickerOpen] = useState(false);
+    const [swatch,    setSwatch]    = useState<string | null>(null);
+    const filterStyle = filterCss(filterId);
+    const filterRef = useRef(filterStyle);
+    filterRef.current = filterStyle;
     const [selfie,    setSelfie]    = useState(false);
     // Mirror the selfie state held in Lua so the hints can describe what pressing each key does now.
     const [angleLocked, setAngleLocked] = useState(false);
@@ -356,6 +364,19 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
         if (captureTimer.current) { clearTimeout(captureTimer.current); captureTimer.current = null; }
     }, []));
 
+    function grabSwatch(): string | null {
+        const src = canvasRef.current;
+        if (!src || !src.width || !src.height) return null;
+        const out = document.createElement('canvas');
+        out.width = 96;
+        out.height = 96;
+        const ctx = out.getContext('2d');
+        if (!ctx) return null;
+        const side = Math.min(src.width, src.height);
+        ctx.drawImage(src, (src.width - side) / 2, (src.height - side) / 2, side, side, 0, 0, 96, 96);
+        return out.toDataURL('image/jpeg', 0.7);
+    }
+
     function grabFrame(): string | null {
         const src = canvasRef.current;
         if (!src || !src.width || !src.height) return null;
@@ -376,6 +397,7 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
         out.height = outH;
         const ctx = out.getContext('2d');
         if (!ctx) return null;
+        if (filterStyle !== 'none') ctx.filter = filterStyle;
         ctx.drawImage(src, 0, 0, outW, outH);
         return out.toDataURL('image/jpeg', 0.9);
     }
@@ -460,7 +482,10 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
         const pump = () => {
             if (!recActiveRef.current) return;
             const live = canvasRef.current;
-            if (live && live.width) rctx.drawImage(live, 0, 0, outW, outH);
+            if (live && live.width) {
+                rctx.filter = filterRef.current === 'none' ? 'none' : filterRef.current;
+                rctx.drawImage(live, 0, 0, outW, outH);
+            }
             recRafRef.current = requestAnimationFrame(pump);
         };
         pump();
@@ -625,6 +650,23 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
                     >
                         <LayoutGrid className="h-[20px] w-[20px]" strokeWidth={2} />
                     </button>
+                    <button
+                        type="button"
+                        aria-label={t('camera.filters', 'Filters')}
+                        aria-pressed={pickerOpen}
+                        onClick={() => {
+                            setPickerOpen(open => {
+                                if (!open) setSwatch(grabSwatch());
+                                return !open;
+                            });
+                        }}
+                        className={[
+                            'flex h-9 w-9 items-center justify-center rounded-full active:bg-white/10',
+                            pickerOpen || filterId !== 'original' ? 'text-[#FFD60A]' : 'text-white/90',
+                        ].join(' ')}
+                    >
+                        <Sparkles className="h-[19px] w-[19px]" strokeWidth={2} />
+                    </button>
                 </div>
             </div>
 
@@ -649,8 +691,9 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
                                   width: vp.h,
                                   height: vp.w,
                                   transform: 'translate(-50%, -50%) rotate(90deg)',
+                                  filter: filterStyle,
                               }
-                            : { display: 'block', inset: 0, width: '100%', height: '100%' }
+                            : { display: 'block', inset: 0, width: '100%', height: '100%', filter: filterStyle }
                     }
                 />
 
@@ -708,6 +751,44 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
                         </span>
                     </div>
                 </div>
+
+                {pickerOpen && (
+                    <div className="absolute bottom-[68px] left-0 right-0 z-30">
+                        <div className="ios-scrollbar flex gap-3 overflow-x-auto px-4 pb-1 pt-2">
+                            {CAMERA_FILTERS.map(f => {
+                                const active = f.id === filterId;
+                                return (
+                                    <button
+                                        key={f.id}
+                                        type="button"
+                                        onClick={() => setFilterId(f.id)}
+                                        aria-pressed={active}
+                                        className="flex shrink-0 flex-col items-center gap-1.5"
+                                    >
+                                        <span
+                                            className={[
+                                                'flex h-[58px] w-[58px] items-center justify-center overflow-hidden rounded-[9px] bg-white/10 transition-all duration-150',
+                                                active ? 'ring-[2.5px] ring-[#FFD60A]' : 'ring-1 ring-white/20',
+                                            ].join(' ')}
+                                        >
+                                            {swatch
+                                                ? <img src={swatch} alt="" className="h-full w-full object-cover" style={{ filter: f.css }} />
+                                                : <span className="h-full w-full" style={{ background: 'linear-gradient(140deg,#6a8ec9,#c9a06a)', filter: f.css }} />}
+                                        </span>
+                                        <span
+                                            className={[
+                                                'max-w-[70px] truncate text-[10.5px] font-medium',
+                                                active ? 'text-[#FFD60A]' : 'text-white/75',
+                                            ].join(' ')}
+                                        >
+                                            {filterLabel(f.id)}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
 
                 <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 rounded-full bg-black/60 px-2 py-1.5 backdrop-blur">
                     {ZOOM_PRESETS.map(z => {
