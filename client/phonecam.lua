@@ -227,6 +227,56 @@ local function place()
     end
 end
 
+---@type boolean True while the UI is wearing a face mask and needs the head tracked.
+local faceTrack = false
+
+---@type integer Camera frames between head pushes. The overlay is a cosmetic sprite, so a push
+---every third frame tracks the head closely enough while costing a third of the NUI traffic.
+local FACE_TRACK_EVERY <const> = 3
+
+---@type number Metres above the head bone, along the HEAD'S OWN up axis, that the second projected
+---point sits. Its distance from the head on screen is the mask's scale and its angle is the roll,
+---so a tilted head tilts the ears without a single trigonometric term on either side.
+local FACE_UP_OFFSET <const> = 0.22
+
+---Projects the player's head into screen space and hands the UI what it needs to hang a mask on
+---it. Two points rather than one: position alone cannot say how big the head is on screen or which
+---way it is leaning, and both change constantly as the player moves.
+---
+---Nothing here detects a face. The camera is rendering a game whose head bone we can simply ask
+---for, so the anchor is exact and costs no model, no weights and no per-frame inference.
+local function pushFace()
+    local ped = PlayerPedId()
+    if not ped or ped == 0 then return end
+
+    local head = GetPedBoneCoords(ped, HEAD_BONE, 0.0, 0.0, 0.0)
+    local top  = GetPedBoneCoords(ped, HEAD_BONE, 0.0, 0.0, FACE_UP_OFFSET)
+
+    local okHead, hx, hy = GetScreenCoordFromWorldCoord(head.x, head.y, head.z)
+    local okTop,  tx, ty = GetScreenCoordFromWorldCoord(top.x, top.y, top.z)
+
+    -- The native reports false once a point leaves the rendering camera, which is the cue to take
+    -- the mask off rather than leave it stuck at the last good position.
+    if not okHead or not okTop then
+        SendNUIMessage({ action = 'sd-phone:camera:face', data = { visible = false } })
+        return
+    end
+
+    SendNUIMessage({
+        action = 'sd-phone:camera:face',
+        data = { visible = true, hx = hx, hy = hy, tx = tx, ty = ty },
+    })
+end
+
+---Starts or stops head tracking. Driven by the UI, so a camera with no mask on pays nothing.
+---@param on boolean
+function phonecam.setFaceTrack(on)
+    faceTrack = on == true
+    if not faceTrack then
+        SendNUIMessage({ action = 'sd-phone:camera:face', data = { visible = false } })
+    end
+end
+
 ---Takes the view with a scripted camera. Unlike CellCamActivate this leaves the ped free, so the
 ---player keeps walking; the gameplay cam still tracks the mouse, so look direction still steers it.
 function phonecam.start()
@@ -248,9 +298,12 @@ function phonecam.start()
     if loopRunning then return end
     loopRunning = true
     CreateThread(function()
+        local tick = 0
         while cam do
             place()
             applyZoom()
+            tick = tick + 1
+            if faceTrack and tick % FACE_TRACK_EVERY == 0 then pushFace() end
             Wait(0)
         end
         loopRunning = false

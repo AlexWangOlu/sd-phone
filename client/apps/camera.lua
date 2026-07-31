@@ -247,6 +247,13 @@ RegisterNUICallback('sd-phone:camera:zoom', function(data, cb)
     cb({ success = true })
 end)
 
+---React -> Lua: a face mask was put on or taken off. Head tracking only runs between these two,
+---so a camera with no mask on projects nothing and sends nothing.
+RegisterNUICallback('sd-phone:camera:faceTrack', function(data, cb)
+    phonecam.setFaceTrack(data and data.on == true)
+    cb({ success = true })
+end)
+
 ---React -> Lua: landscape mode toggled - lays the hand prop on its side to match the wide
 ---viewfinder. Honoured off the viewfinder too, so unmounting can stand the prop back up.
 RegisterNUICallback('sd-phone:camera:landscape', function(data, cb)

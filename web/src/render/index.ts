@@ -2,6 +2,7 @@ import { isFiveM } from '@/core/nui';
 import type { GameRender } from './GameRender';
 
 export { PORTRAIT_CROP } from './crop';
+export { screenToCrop, SELFIE_CROP_BIAS_X } from './crop';
 export type { GameRender } from './GameRender';
 
 let loader: Promise<GameRender | null> | null = null;

@@ -19,6 +19,26 @@ import shutterSfx from '@/assets/camera/shutter.mp3';
 import { useSessionState } from '@/hooks/useSessionState';
 import { CAMERA_FILTERS, filterCss, filterLabel } from './filters';
 import { FilterDefs } from './FilterDefs';
+import { CAMERA_MASKS, drawMask, findMask, maskLabel, type FaceAnchor } from './masks';
+import { screenToCrop, SELFIE_CROP_BIAS_X } from '@/render';
+
+function MaskThumb({ id }: { id: string }) {
+    const ref = useRef<HTMLCanvasElement>(null);
+    useEffect(() => {
+        const el = ref.current;
+        const mask = findMask(id);
+        if (!el || !mask) return;
+        const ctx = el.getContext('2d');
+        if (!ctx) return;
+        ctx.clearRect(0, 0, el.width, el.height);
+        ctx.fillStyle = 'rgba(255,255,255,0.16)';
+        ctx.beginPath();
+        ctx.ellipse(el.width / 2, el.height * 0.60, el.width * 0.21, el.height * 0.26, 0, 0, Math.PI * 2);
+        ctx.fill();
+        drawMask(ctx, mask, { x: el.width / 2, y: el.height * 0.60, scale: el.height * 0.27, roll: 0 });
+    }, [id]);
+    return <canvas ref={ref} width={116} height={116} className="h-full w-full" />;
+}
 
 function playShutter() {
     try {
@@ -133,6 +153,16 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
     const [filterId,  setFilterId]  = useSessionState('camera:filter', 'original');
     const [pickerOpen, setPickerOpen] = useState(false);
     const [pickerLeaving, setPickerLeaving] = useState(false);
+    const [maskId, setMaskId] = useSessionState('camera:mask', 'none');
+    const [tab, setTab] = useSessionState<'filters' | 'masks'>('camera:pickerTab', 'filters');
+    const faceRef = useRef<FaceAnchor | null>(null);
+    const overlayRef = useRef<HTMLCanvasElement>(null);
+    const maskRef = useRef(maskId);
+    maskRef.current = maskId;
+    const zoomRef = useRef(zoom);
+    zoomRef.current = zoom;
+    const selfieRef = useRef(false);
+    const landscapeRef = useRef(false);
     const [swatch,    setSwatch]    = useState<string | null>(null);
     const pickerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const filterStyle = filterCss(filterId);
@@ -162,6 +192,8 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
     useStatusBarLight(true);
 
     const landscape = mode === 'LANDSCAPE';
+    selfieRef.current = selfie;
+    landscapeRef.current = landscape;
 
     useEffect(() => {
         if (!photoOnly) return;
@@ -370,6 +402,64 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
         if (captureTimer.current) { clearTimeout(captureTimer.current); captureTimer.current = null; }
     }, []));
 
+    useNuiEvent('sd-phone:camera:face', useCallback((data: {
+        visible: boolean; hx?: number; hy?: number; tx?: number; ty?: number;
+    }) => {
+        const host = overlayRef.current;
+        if (!data.visible || data.hx === undefined || data.tx === undefined || !host) {
+            faceRef.current = null;
+            return;
+        }
+        const bias = selfieRef.current ? SELFIE_CROP_BIAS_X : 0;
+        const sw = window.innerWidth;
+        const sh = window.innerHeight;
+        const orient = landscapeRef.current ? 'landscape' : 'portrait';
+        const head = screenToCrop(data.hx, data.hy!, sw, sh, zoomRef.current, orient, bias);
+        const top  = screenToCrop(data.tx, data.ty!, sw, sh, zoomRef.current, orient, bias);
+
+        const hx = head.u * host.width;
+        const hy = head.v * host.height;
+        const tx = top.u * host.width;
+        const ty = top.v * host.height;
+        const dx = tx - hx;
+        const dy = ty - hy;
+
+        faceRef.current = {
+            x: hx,
+            y: hy,
+            scale: Math.hypot(dx, dy),
+            roll: Math.atan2(dx, -dy),
+        };
+    }, []));
+
+    useEffect(() => {
+        void fetchNui('sd-phone:camera:faceTrack', { on: maskId !== 'none' });
+        return () => { void fetchNui('sd-phone:camera:faceTrack', { on: false }); };
+    }, [maskId]);
+
+    useEffect(() => {
+        if (maskId === 'none') return;
+        let raf = 0;
+        const paint = () => {
+            raf = requestAnimationFrame(paint);
+            const host = overlayRef.current;
+            if (!host) return;
+            const box = host.getBoundingClientRect();
+            if (host.width !== Math.round(box.width) || host.height !== Math.round(box.height)) {
+                host.width = Math.max(1, Math.round(box.width));
+                host.height = Math.max(1, Math.round(box.height));
+            }
+            const ctx = host.getContext('2d');
+            if (!ctx) return;
+            ctx.clearRect(0, 0, host.width, host.height);
+            const mask = findMask(maskRef.current);
+            const anchor = faceRef.current;
+            if (mask && anchor) drawMask(ctx, mask, anchor);
+        };
+        paint();
+        return () => cancelAnimationFrame(raf);
+    }, [maskId]);
+
     function togglePicker() {
         if (pickerTimer.current) { clearTimeout(pickerTimer.current); pickerTimer.current = null; }
         if (pickerOpen) {
@@ -384,6 +474,23 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
         setSwatch(grabSwatch());
         setPickerLeaving(false);
         setPickerOpen(true);
+    }
+
+    // The mask lives on its own overlay canvas at viewfinder size, so a capture at a different
+    // resolution has to re-draw it rather than copy it, and it is stamped AFTER the filter so the
+    // ears keep their own colours instead of being graded with the scene.
+    function stampMask(ctx: CanvasRenderingContext2D, outW: number, outH: number) {
+        const mask = findMask(maskRef.current);
+        const anchor = faceRef.current;
+        const host = overlayRef.current;
+        if (!mask || !anchor || !host || !host.width || !host.height) return;
+        const k = outW / host.width;
+        drawMask(ctx, mask, {
+            x: anchor.x * k,
+            y: anchor.y * (outH / host.height),
+            scale: anchor.scale * k,
+            roll: anchor.roll,
+        });
     }
 
     function grabSwatch(): string | null {
@@ -421,6 +528,8 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
         if (!ctx) return null;
         if (filterStyle !== 'none') ctx.filter = filterStyle;
         ctx.drawImage(src, 0, 0, outW, outH);
+        ctx.filter = 'none';
+        stampMask(ctx, outW, outH);
         return out.toDataURL('image/jpeg', 0.9);
     }
 
@@ -507,6 +616,8 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
             if (live && live.width) {
                 rctx.filter = filterRef.current === 'none' ? 'none' : filterRef.current;
                 rctx.drawImage(live, 0, 0, outW, outH);
+                rctx.filter = 'none';
+                stampMask(rctx, outW, outH);
             }
             recRafRef.current = requestAnimationFrame(pump);
         };
@@ -699,6 +810,12 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
                 <FilterDefs />
 
                 <canvas
+                    ref={overlayRef}
+                    className="pointer-events-none absolute inset-0 z-[14] h-full w-full"
+                    style={{ display: maskId === 'none' ? 'none' : 'block' }}
+                />
+
+                <canvas
                     ref={canvasRef}
                     className="absolute"
                     style={
@@ -778,7 +895,60 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
                             pickerLeaving ? 'animate-slide-out-down' : 'animate-slide-up-fade',
                         ].join(' ')}
                     >
-                        <div className="ios-scrollbar flex gap-3 overflow-x-auto px-4 pb-1 pt-2">
+                        <div className="mb-2 flex justify-center gap-1 px-4">
+                            {(['filters', 'masks'] as const).map(key => (
+                                <button
+                                    key={key}
+                                    type="button"
+                                    onClick={() => setTab(key)}
+                                    className={[
+                                        'rounded-full px-3.5 py-[5px] text-[12px] font-semibold transition-colors duration-150',
+                                        tab === key ? 'bg-white/20 text-white' : 'text-white/60 hover:text-white/85',
+                                    ].join(' ')}
+                                >
+                                    {key === 'filters'
+                                        ? t('camera.tabFilters', 'Filters')
+                                        : t('camera.tabMasks', 'Masks')}
+                                </button>
+                            ))}
+                        </div>
+
+                        {tab === 'masks' ? (
+                            <div className="ios-scrollbar flex gap-3 overflow-x-auto px-4 pb-1 pt-1">
+                                {[{ id: 'none' }, ...CAMERA_MASKS].map(m => {
+                                    const active = m.id === maskId;
+                                    return (
+                                        <button
+                                            key={m.id}
+                                            type="button"
+                                            onClick={() => setMaskId(m.id)}
+                                            aria-pressed={active}
+                                            className="flex shrink-0 flex-col items-center gap-1.5"
+                                        >
+                                            <span
+                                                className={[
+                                                    'flex h-[58px] w-[58px] items-center justify-center overflow-hidden rounded-[9px] bg-white/10 transition-all duration-150',
+                                                    active ? 'ring-[2.5px] ring-[#FFD60A]' : 'ring-1 ring-white/20',
+                                                ].join(' ')}
+                                            >
+                                                {m.id === 'none'
+                                                    ? <X className="h-[20px] w-[20px] text-white/70" strokeWidth={2.2} />
+                                                    : <MaskThumb id={m.id} />}
+                                            </span>
+                                            <span
+                                                className={[
+                                                    'max-w-[70px] truncate text-[10.5px] font-medium',
+                                                    active ? 'text-[#FFD60A]' : 'text-white/75',
+                                                ].join(' ')}
+                                            >
+                                                {maskLabel(m.id)}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                        <div className="ios-scrollbar flex gap-3 overflow-x-auto px-4 pb-1 pt-1">
                             {CAMERA_FILTERS.map(f => {
                                 const active = f.id === filterId;
                                 return (
@@ -811,6 +981,7 @@ export function Camera({ onClose, onLandscapeChange, onOpenApp, photoOnly = fals
                                 );
                             })}
                         </div>
+                        )}
                     </div>
                 )}
 
