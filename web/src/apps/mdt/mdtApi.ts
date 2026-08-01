@@ -593,7 +593,7 @@ export async function mdtSetWaypoint(coords: Coords): Promise<boolean> {
 
 export async function mdtPersonsSearch(query: string, page = 1): Promise<Page<PersonRow>> {
     if (!isFiveM) {
-        const hits = DEV_PERSONS.filter(p => matches(query, p.name, p.citizenid, p.phone));
+        const hits = DEV_PERSONS.filter(p => !query || query.trim().length < 2 || matches(query, p.name, p.citizenid, p.phone));
         return paginate(hits.map(p => personRow(hydratePerson(p))), page);
     }
     return (await apiData<Page<PersonRow>>('sd-phone:mdt:persons:search', { query, page })) ?? emptyPage<PersonRow>();
@@ -632,7 +632,7 @@ function devPatchPerson(citizenid: string, patch: (p: PersonDetail) => PersonDet
 
 export async function mdtVehiclesSearch(query: string, page = 1): Promise<Page<VehicleRow>> {
     if (!isFiveM) {
-        const hits = DEV_VEHICLES.filter(v => matches(query, v.plate, v.model, v.ownerName));
+        const hits = DEV_VEHICLES.filter(v => !query || query.trim().length < 2 || matches(query, v.plate, v.model, v.ownerName));
         return paginate(hits.map(vehicleRow), page);
     }
     return (await apiData<Page<VehicleRow>>('sd-phone:mdt:vehicles:search', { query, page })) ?? emptyPage<VehicleRow>();
@@ -908,7 +908,7 @@ export async function mdtCloseWarrant(ref: string): Promise<Warrant | null> {
 
 export async function mdtPatientsSearch(query: string, page = 1): Promise<Page<PatientRow>> {
     if (!isFiveM) {
-        const hits = DEV_PERSONS.filter(p => matches(query, p.name, p.citizenid, p.phone));
+        const hits = DEV_PERSONS.filter(p => !query || query.trim().length < 2 || matches(query, p.name, p.citizenid, p.phone));
         return paginate(hits.map(p => devPatientRow(p.citizenid, p.name, p.dob, p.sex, p.phone)), page);
     }
     return (await apiData<Page<PatientRow>>('sd-phone:mdt:patients:search', { query, page })) ?? emptyPage<PatientRow>();
