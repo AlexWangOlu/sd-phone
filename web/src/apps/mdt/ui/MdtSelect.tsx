@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Check, ChevronDown } from 'lucide-react';
 
 import { isFiveM } from '@/core/nui';
+import { useMdtRoot } from '../mdtRoot';
 import { mdtFieldClass, mdtFieldSm, mdtFieldXs } from '../mdtTheme';
 import { useAnchoredMenu } from './useAnchoredMenu';
 
@@ -62,7 +63,7 @@ export function MdtSelect<T extends string = string>({
     const selectedIndex = useMemo(() => options.findIndex(o => o.value === value), [options, value]);
     const selected = selectedIndex >= 0 ? options[selectedIndex] : undefined;
 
-    const host = triggerRef.current?.closest('[data-mdt-root]') ?? null;
+    const host = useMdtRoot();
 
     useEffect(() => {
         if (open) setActive(selectedIndex >= 0 ? selectedIndex : 0);
@@ -101,8 +102,6 @@ export function MdtSelect<T extends string = string>({
 
     function onKeyDown(e: React.KeyboardEvent) {
         if (disabled) return;
-        // Jump stays bound in NUI, so Space activates whatever is focused; taking it here as well
-        // would fire twice. Outside FiveM it is the expected way to open a select.
         if (e.key === ' ' && !isFiveM) {
             e.preventDefault();
             setOpen(o => !o);

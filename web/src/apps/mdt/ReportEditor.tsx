@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { FileText, FolderOpen, Trash2, UserPlus, X } from 'lucide-react';
 import type { PillTone } from '@/ui/Pill';
 
@@ -23,6 +24,7 @@ import type {
 import { mdtDeleteReport, mdtReport, mdtReports, mdtSaveReport } from './mdtApi';
 import { PersonPicker } from './PersonPicker';
 import { useMdtSession, useViewEnter } from './useMdtSession';
+import { useMdtRoot } from './mdtRoot';
 import { mdtPanePad, mdtRef, mdtRowHover, mdtRowMeta, mdtRowTitle, mdtSectionHeader, STATUS_TONE } from './mdtTheme';
 import { MdtButton } from './ui/MdtButton';
 import { MdtCard } from './ui/MdtCard';
@@ -576,10 +578,11 @@ export function ReportLinker({ linked = [], title, onPick, onClose }: {
 
     const { data, loading } = useAsyncData(() => mdtReports({ query: term, page: 1 }), [term]);
     const rows: ReportSummary[] = (data?.rows ?? []).filter(row => !linked.includes(row.ref));
+    const root = useMdtRoot();
 
-    return (
+    const overlay = (
         <div
-            className="absolute inset-0 z-20 flex items-center justify-center px-6"
+            className="absolute inset-0 z-30 flex items-center justify-center px-6"
             style={{ background: 'rgba(0,0,0,0.32)', animation: 'ios-sheet-backdrop-in 0.2s ease-out' }}
             onClick={onClose}
         >
@@ -635,4 +638,6 @@ export function ReportLinker({ linked = [], title, onPick, onClose }: {
             </div>
         </div>
     );
+
+    return root ? createPortal(overlay, root) : overlay;
 }
