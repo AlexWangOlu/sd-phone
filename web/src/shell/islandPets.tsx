@@ -2,13 +2,15 @@ import { t } from '@/i18n';
 
 export type IslandPetId =
     | 'none' | 'cat' | 'dog' | 'fox' | 'bunny' | 'hamster' | 'hedgehog' | 'raccoon'
-    | 'panda' | 'duck' | 'penguin' | 'owl' | 'frog' | 'turtle' | 'axolotl' | 'dragon';
+    | 'panda' | 'duck' | 'penguin' | 'owl' | 'frog' | 'turtle' | 'axolotl' | 'dragon'
+    | 'capybara' | 'sloth' | 'koala' | 'deer' | 'crab';
 
 export type PetMood = 'idle' | 'resting' | 'sleepy' | 'happy' | 'dancing' | 'startled';
 
 export const ISLAND_PETS: readonly IslandPetId[] = [
     'none', 'cat', 'dog', 'fox', 'bunny', 'hamster', 'hedgehog', 'raccoon',
     'panda', 'duck', 'penguin', 'owl', 'frog', 'turtle', 'axolotl', 'dragon',
+    'capybara', 'sloth', 'koala', 'deer', 'crab',
 ] as const;
 
 export const SPRITE_W = 16;
@@ -748,10 +750,251 @@ const DRAGON: PetSprite = {
     ],
 };
 
+const CAPYBARA: PetSprite = {
+    palette: { B: '#9A7048', D: '#66492C', L: '#C9A87C', E: '#241A12', A: '#3A2A1E' },
+    walk: [[
+        '................',
+        '..DD...DD.......',
+        '.DBBD.DBBD......',
+        '.DBBBBBBBD......',
+        'ADBBEBBEBD......',
+        '.DBBBBBBBDDDDD..',
+        '.BBBBBBBBBBBBBD.',
+        '.BBBBBBBBBBBBBD.',
+        '.DBLLLLLLLLLBD..',
+        '..BBBBBBBBBBD...',
+        '..DD.....DD.....',
+        '..DD.....DD.....',
+        '................',
+    ], [
+        '................',
+        '..DD...DD.......',
+        '.DBBD.DBBD......',
+        '.DBBBBBBBD......',
+        'ADBBEBBEBD......',
+        '.DBBBBBBBDDDDD..',
+        '.BBBBBBBBBBBBBD.',
+        '.BBBBBBBBBBBBBD.',
+        '.DBLLLLLLLLLBD..',
+        '..BBBBBBBBBBD...',
+        '..DD.....DD.....',
+        '.DD.......DD....',
+        '................',
+    ]],
+    sit: [
+        '................',
+        '..DD...DD.......',
+        '.DBBD.DBBD......',
+        '.DBBBBBBBD......',
+        'ADBBEBBEBD......',
+        '.DBBBBBBBDDDDD..',
+        '.BBBBBBBBBBBBBD.',
+        '.BBBBBBBBBBBBBD.',
+        '.DBLLLLLLLLLBD..',
+        '..BBBBBBBBBBD...',
+        '..BBBBBBBBBBD...',
+        '..DDDDDDDDDD....',
+        '................',
+    ],
+};
+
+const SLOTH: PetSprite = {
+    palette: { B: '#8C7E6A', D: '#584C3C', L: '#DCCDB2', E: '#241A12', A: '#B9A98C' },
+    walk: [[
+        '................',
+        '................',
+        '..DDDD..........',
+        '.DLLLLD.........',
+        '.LELLEL.DDDD....',
+        '.LLALLLDBBBBBD..',
+        '.DLLLLDBBBBBBBD.',
+        '..DDDDBBBBBBBBD.',
+        '...DBBLLLLLLBD..',
+        '...DBBBBBBBBD...',
+        '...AA....AA.....',
+        '...AA....AA.....',
+        '................',
+    ], [
+        '................',
+        '................',
+        '..DDDD..........',
+        '.DLLLLD.........',
+        '.LELLEL.DDDD....',
+        '.LLALLLDBBBBBD..',
+        '.DLLLLDBBBBBBBD.',
+        '..DDDDBBBBBBBBD.',
+        '...DBBLLLLLLBD..',
+        '...DBBBBBBBBD...',
+        '...AA....AA.....',
+        '..AA......AA....',
+        '................',
+    ]],
+    sit: [
+        '................',
+        '................',
+        '..DDDD..........',
+        '.DLLLLD.........',
+        '.LELLEL.DDDD....',
+        '.LLALLLDBBBBBD..',
+        '.DLLLLDBBBBBBBD.',
+        '..DDDDBBBBBBBBD.',
+        '...DBBLLLLLLBD..',
+        '...DBBBBBBBBD...',
+        '...DBBBBBBBBD...',
+        '....AAAAAAAA....',
+        '................',
+    ],
+};
+
+const KOALA: PetSprite = {
+    palette: { B: '#A6ADB4', D: '#69727A', L: '#E6EAEE', E: '#241A12', A: '#2B2B30' },
+    walk: [[
+        '................',
+        '.DD....DD.......',
+        'DLLD..DLLD......',
+        'DLLD..DLLD......',
+        '.DBBBBBBD.......',
+        '.BEBBBBEBDDDD...',
+        '.BBBABBBBBBBBBD.',
+        '.DBBBBBBBBBBBBD.',
+        '..BLLLLLLLLLBD..',
+        '..BBBBBBBBBBD...',
+        '..DD.....DD.....',
+        '..DD.....DD.....',
+        '................',
+    ], [
+        '................',
+        '.DD....DD.......',
+        'DLLD..DLLD......',
+        'DLLD..DLLD......',
+        '.DBBBBBBD.......',
+        '.BEBBBBEBDDDD...',
+        '.BBBABBBBBBBBBD.',
+        '.DBBBBBBBBBBBBD.',
+        '..BLLLLLLLLLBD..',
+        '..BBBBBBBBBBD...',
+        '..DD.....DD.....',
+        '.DD.......DD....',
+        '................',
+    ]],
+    sit: [
+        '................',
+        '.DD....DD.......',
+        'DLLD..DLLD......',
+        'DLLD..DLLD......',
+        '.DBBBBBBD.......',
+        '.BEBBBBEBDDDD...',
+        '.BBBABBBBBBBBBD.',
+        '.DBBBBBBBBBBBBD.',
+        '..BLLLLLLLLLBD..',
+        '..BBBBBBBBBBD...',
+        '..BBBBBBBBBBD...',
+        '..DDDDDDDDDD....',
+        '................',
+    ],
+};
+
+const DEER: PetSprite = {
+    palette: { B: '#C08F5E', D: '#7C5836', L: '#F5E7D0', E: '#241A12', A: '#8B6B47' },
+    walk: [[
+        '.A....A.........',
+        '.AA..AA.........',
+        '..AAAA..........',
+        '..DBBD..........',
+        '.DBEBBD.........',
+        '.DBBBABD........',
+        '..DBBBBDDDDD....',
+        '...BBBBBBBBBBD..',
+        '...BLBBLBBLBBD..',
+        '...BBBBBBBBBD...',
+        '...DD....DD.....',
+        '...DD....DD.....',
+        '................',
+    ], [
+        '.A....A.........',
+        '.AA..AA.........',
+        '..AAAA..........',
+        '..DBBD..........',
+        '.DBEBBD.........',
+        '.DBBBABD........',
+        '..DBBBBDDDDD....',
+        '...BBBBBBBBBBD..',
+        '...BLBBLBBLBBD..',
+        '...BBBBBBBBBD...',
+        '...DD....DD.....',
+        '..DD......DD....',
+        '................',
+    ]],
+    sit: [
+        '.A....A.........',
+        '.AA..AA.........',
+        '..AAAA..........',
+        '..DBBD..........',
+        '.DBEBBD.........',
+        '.DBBBABD........',
+        '..DBBBBDDDDD....',
+        '...BBBBBBBBBBD..',
+        '...BLBBLBBLBBD..',
+        '...BBBBBBBBBD...',
+        '...BBBBBBBBBD...',
+        '...DDDDDDDDD....',
+        '................',
+    ],
+};
+
+const CRAB: PetSprite = {
+    palette: { B: '#E05A3E', D: '#A3341F', L: '#F7A98E', E: '#241A12', A: '#FFE9D2' },
+    walk: [[
+        '................',
+        '.DD..........DD.',
+        'DBBD........DBBD',
+        'DBBD........DBBD',
+        '.DD...A..A...DD.',
+        '..D..DDDDDD..D..',
+        '..DBBBBBBBBBBD..',
+        '.DBBBBBBBBBBBBD.',
+        '.DBLLLLLLLLLLBD.',
+        '..DBBBBBBBBBBD..',
+        '...D.D....D.D...',
+        '..D...D..D...D..',
+        '................',
+    ], [
+        '................',
+        '.DD..........DD.',
+        'DBBD........DBBD',
+        'DBBD........DBBD',
+        '.DD...A..A...DD.',
+        '..D..DDDDDD..D..',
+        '..DBBBBBBBBBBD..',
+        '.DBBBBBBBBBBBBD.',
+        '.DBLLLLLLLLLLBD.',
+        '..DBBBBBBBBBBD..',
+        '..D..D....D..D..',
+        '.D....D..D....D.',
+        '................',
+    ]],
+    sit: [
+        '................',
+        '.DD..........DD.',
+        'DBBD........DBBD',
+        'DBBD........DBBD',
+        '.DD...A..A...DD.',
+        '..D..DDDDDD..D..',
+        '..DBBBBBBBBBBD..',
+        '.DBBBBBBBBBBBBD.',
+        '.DBLLLLLLLLLLBD.',
+        '..DBBBBBBBBBBD..',
+        '..DBBBBBBBBBBD..',
+        '...DDDDDDDDDD...',
+        '................',
+    ],
+};
+
 const SPRITES: Record<Exclude<IslandPetId, 'none'>, PetSprite> = {
     cat: CAT, dog: DOG, fox: FOX, bunny: BUNNY, hamster: HAMSTER,
     hedgehog: HEDGEHOG, raccoon: RACCOON, panda: PANDA, duck: DUCK, penguin: PENGUIN,
     owl: OWL, frog: FROG, turtle: TURTLE, axolotl: AXOLOTL, dragon: DRAGON,
+    capybara: CAPYBARA, sloth: SLOTH, koala: KOALA, deer: DEER, crab: CRAB,
 };
 
 export function islandPetLabel(id: IslandPetId): string {
@@ -771,6 +1014,11 @@ export function islandPetLabel(id: IslandPetId): string {
         case 'turtle':    return t('shell.petTurtle', 'Turtle');
         case 'axolotl':   return t('shell.petAxolotl', 'Axolotl');
         case 'dragon':    return t('shell.petDragon', 'Dragon');
+        case 'capybara':  return t('shell.petCapybara', 'Capybara');
+        case 'sloth':     return t('shell.petSloth', 'Sloth');
+        case 'koala':     return t('shell.petKoala', 'Koala');
+        case 'deer':      return t('shell.petDeer', 'Deer');
+        case 'crab':      return t('shell.petCrab', 'Crab');
         default:          return t('shell.petNone', 'Off');
     }
 }
