@@ -44,6 +44,9 @@ If sd-phone is useful to you, please ⭐ the repo. Issues and pull requests are 
 
 <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/c1300d66-6530-47d4-ad02-676646b96fc7" />
 
+<img width="1920" height="1280" alt="image" src="https://github.com/user-attachments/assets/cd59b69f-bfa0-4e68-8542-32e482b3aac4" />
+
+
 <img width="1920" height="1080" alt="bb6" src="https://github.com/user-attachments/assets/9234cba8-6293-4a9b-8f5a-372eb97c88af" />
 
 <img width="1920" height="1080" alt="THIS" src="https://github.com/user-attachments/assets/7c9ee63d-a5d6-42ee-8664-a62e06838741" />
