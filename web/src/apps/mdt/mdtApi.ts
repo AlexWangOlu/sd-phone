@@ -750,7 +750,7 @@ function devSaveReport(draft: ReportDraft): ReportDetail {
 
     const existing = draft.ref ? DEV_REPORTS.find(r => r.ref === draft.ref) : undefined;
     const next: ReportDetail = {
-        evidence: [],
+        evidence: draft.evidence ?? [],
         ref: existing?.ref ?? nextRef('R'),
         title: draft.title,
         type: draft.type,
@@ -816,7 +816,7 @@ export async function mdtSaveCase(draft: CaseDraft): Promise<CaseDetail | null> 
         const stamp = Math.floor(Date.now() / 1000);
         const existing = draft.ref ? DEV_CASES.find(c => c.ref === draft.ref) : undefined;
         const next: CaseDetail = {
-            evidence: [],
+            evidence: draft.evidence ?? [],
             ref: existing?.ref ?? nextRef('C'),
             title: draft.title,
             summary: draft.summary,
