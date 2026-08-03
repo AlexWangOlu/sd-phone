@@ -4,10 +4,6 @@ export function cardsOf(w: WidgetPlacement): WidgetCard[] {
     return [{ kind: w.kind, align: w.align, theme: w.theme, picks: w.picks }, ...(w.stack ?? [])];
 }
 
-export function isStacked(w: WidgetPlacement): boolean {
-    return (w.stack?.length ?? 0) > 0;
-}
-
 export function withCards(w: WidgetPlacement, cards: WidgetCard[]): WidgetPlacement {
     const [head, ...rest] = cards;
     return {
