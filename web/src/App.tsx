@@ -10,7 +10,7 @@ import { SignRequestLayer, type SignRequestData } from '@/apps/documents/SignReq
 import { ControlCenter, ControlCenterHotzone } from '@/shell/ControlCenter';
 import { MusicProvider, useMusic } from '@/apps/music/MusicContext';
 import { ryDevDataHidden, ryDevToggleData } from '@/apps/ryde/data';
-import { asAppId, isPreviewApp, preloadAllApps, type AppId } from '@/shell/appRegistry';
+import { asAppId, isPreviewApp, preloadAllApps, preloadApp, type AppId } from '@/shell/appRegistry';
 import { AppSwitcher } from '@/shell/AppSwitcher';
 import { AppDeck, FullscreenStage, type DeckAppCtx } from '@/shell/AppDeck';
 import { Homescreen }  from '@/shell/Homescreen';
@@ -590,6 +590,7 @@ function AppContent() {
     const openAppById = useCallback((id: string | null | undefined, origin: { x: number; y: number }) => {
         const app = asAppId(id);
         if (!app) return;
+        preloadApp(app);
         const def = view?.apps.find(a => a.id === app) ?? customDefs.find(c => c.id === app);
         if (def && !def.base && !installedApps.has(app)) {
             const store = asAppId('appstore');

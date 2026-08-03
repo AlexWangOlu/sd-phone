@@ -142,6 +142,11 @@ export function asAppId(id: string | null | undefined): AppId | null {
     return null;
 }
 
+export function preloadApp(id: AppId): void {
+    if (!(id in APP_REGISTRY)) return;
+    void getAppEntry(id).load();
+}
+
 export function preloadAllApps(): void {
     const queue = APP_IDS.map(id => getAppEntry(id).load);
     const pump = () => {
