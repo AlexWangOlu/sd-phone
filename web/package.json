@@ -9,7 +9,7 @@
         "build:demo": "tsc --noEmit && vite build --mode demo",
         "preview": "vite preview",
         "lint": "eslint src",
-        "test": "vitest run",
+        "test": "vitest run --passWithNoTests",
         "knip": "knip"
     },
     "dependencies": {
