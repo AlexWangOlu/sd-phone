@@ -65,6 +65,7 @@ function buildAppNode(id: AppId, ctx: DeckAppCtx): ReactNode {
             onLandscapeChange: ctx.onLandscapeChange,
         });
     }
+    if (entry?.Resolved) return <entry.Resolved onClose={ctx.onClose} />;
     if (entry?.Component) return <entry.Component onClose={ctx.onClose} />;
     return null;
 }

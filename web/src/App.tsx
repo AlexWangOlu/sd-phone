@@ -10,7 +10,7 @@ import { SignRequestLayer, type SignRequestData } from '@/apps/documents/SignReq
 import { ControlCenter, ControlCenterHotzone } from '@/shell/ControlCenter';
 import { MusicProvider, useMusic } from '@/apps/music/MusicContext';
 import { ryDevDataHidden, ryDevToggleData } from '@/apps/ryde/data';
-import { asAppId, isPreviewApp, preloadAllApps, preloadApp, type AppId } from '@/shell/appRegistry';
+import { asAppId, isAppLoaded, isPreviewApp, preloadAllApps, preloadApp, type AppId } from '@/shell/appRegistry';
 import { AppSwitcher } from '@/shell/AppSwitcher';
 import { AppDeck, FullscreenStage, type DeckAppCtx } from '@/shell/AppDeck';
 import { Homescreen }  from '@/shell/Homescreen';
@@ -502,16 +502,20 @@ function AppContent() {
     // its foreground key (replays the open animation on the retained instance) and,
     // if it is preview-eligible, promotes it into the retained keep-alive deck.
     const foreground = useCallback((id: AppId, origin: { x: number; y: number }, expand = false) => {
-        setIsClosing(false);
-        setLaunchOrigin(origin);
-        setLaunchExpand(expand);
-        setCurrentApp(id);
-        setForegroundKeys(m => ({ ...m, [id]: (m[id] ?? 0) + 1 }));
-        setRecentApps(prev => [id, ...prev.filter(x => x !== id)].slice(0, RECENTS_CAP));
-        if (isPreviewApp(id)) {
-            setRetained(prev => [id, ...prev.filter(x => x !== id)].slice(0, RETAIN_CAP));
-        }
-        useBadgeStore.getState().clear(id);
+        const show = () => {
+            setIsClosing(false);
+            setLaunchOrigin(origin);
+            setLaunchExpand(expand);
+            setCurrentApp(id);
+            setForegroundKeys(m => ({ ...m, [id]: (m[id] ?? 0) + 1 }));
+            setRecentApps(prev => [id, ...prev.filter(x => x !== id)].slice(0, RECENTS_CAP));
+            if (isPreviewApp(id)) {
+                setRetained(prev => [id, ...prev.filter(x => x !== id)].slice(0, RETAIN_CAP));
+            }
+            useBadgeStore.getState().clear(id);
+        };
+        if (isAppLoaded(id)) show();
+        else void preloadApp(id).then(show);
     }, []);
 
     // Reset the live deck: retained instances unmount, so their effects/subscriptions
@@ -590,7 +594,6 @@ function AppContent() {
     const openAppById = useCallback((id: string | null | undefined, origin: { x: number; y: number }) => {
         const app = asAppId(id);
         if (!app) return;
-        preloadApp(app);
         const def = view?.apps.find(a => a.id === app) ?? customDefs.find(c => c.id === app);
         if (def && !def.base && !installedApps.has(app)) {
             const store = asAppId('appstore');

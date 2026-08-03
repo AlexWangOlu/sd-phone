@@ -19,6 +19,7 @@ interface AppRenderCtx {
 interface AppEntry {
     load:       () => Promise<unknown>;
     Component?: LazyExoticComponent<ComponentType<AppComponentProps>>;
+    Resolved?:  ComponentType<AppComponentProps>;
     render?:    (ctx: AppRenderCtx) => ReactNode;
 }
 
@@ -142,17 +143,28 @@ export function asAppId(id: string | null | undefined): AppId | null {
     return null;
 }
 
-export function preloadApp(id: AppId): void {
-    if (!(id in APP_REGISTRY)) return;
-    void getAppEntry(id).load();
+const loadedApps = new Set<string>();
+
+export function isAppLoaded(id: AppId): boolean {
+    return !(id in APP_REGISTRY) || loadedApps.has(id);
+}
+
+export function preloadApp(id: AppId): Promise<void> {
+    if (isAppLoaded(id)) return Promise.resolve();
+    const e = getAppEntry(id);
+    return e.load().then(m => {
+        const mod = m as { default?: ComponentType<AppComponentProps> } | undefined;
+        if (mod?.default) e.Resolved = mod.default;
+        loadedApps.add(id);
+    }, () => { loadedApps.add(id); });
 }
 
 export function preloadAllApps(): void {
-    const queue = APP_IDS.map(id => getAppEntry(id).load);
+    const queue = APP_IDS.slice();
     const pump = () => {
-        const next = queue.shift();
-        if (!next) return;
-        void next().finally(() => {
+        const id = queue.shift();
+        if (!id) return;
+        void preloadApp(id).finally(() => {
             if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(pump, { timeout: 2000 });
             else window.setTimeout(pump, 150);
         });
