@@ -4705,6 +4705,7 @@
     "activity": "Activity",
     "add": "Add",
     "addContact": "Add contact",
+    "addToStack": "Add to stack",
     "alarms": "Alarms",
     "align": {
       "center": "Centre",
@@ -4739,6 +4740,7 @@
     "pickerEmpty": "Pick who appears, in the order you want them. With none chosen the widget shows your starred contacts.",
     "pickerOverflow": "Will not fit at this size",
     "remove": "Remove widget",
+    "removeCard": "Remove from stack",
     "size": {
       "lg": "Large",
       "md": "Medium",
