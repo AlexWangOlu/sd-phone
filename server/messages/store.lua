@@ -68,6 +68,8 @@ function store.ensureSchema()
             INDEX idx_phone_message_reactions_mid (mid)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ]])
+    util.ensureColumns('phone_message_reactions', { created_at = 'created_at BIGINT NOT NULL DEFAULT 0' })
+
     local pk = MySQL.query.await([[
         SELECT COLUMN_NAME AS col FROM information_schema.KEY_COLUMN_USAGE
         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'phone_message_reactions'
@@ -106,9 +108,6 @@ function store.ensureSchema()
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ]])
 
-    -- CREATE TABLE IF NOT EXISTS is a no-op on a table that already exists, so an install
-    -- carrying an older or foreign phone_messages keeps whatever shape it had. Every column the
-    -- queries below read is back-filled here, defaulted so the ALTER succeeds on populated rows.
     util.ensureColumns('phone_messages', {
         mid          = 'mid VARCHAR(16) NULL',
         conversation = "conversation VARCHAR(48) NOT NULL DEFAULT ''",
