@@ -4817,5 +4817,11 @@
     "youLose": "You lose",
     "youWin": "You win!",
     "youWonAmount": "You won ${amount}"
+  },
+  "accounts": {
+    "addAccount": "Add account",
+    "noSavedAccounts": "No other saved accounts. Sign in once and your login is saved here.",
+    "switchAccount": "Switch account",
+    "switchFailed": "Could not switch account"
   }
 }

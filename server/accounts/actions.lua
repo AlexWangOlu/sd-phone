@@ -98,6 +98,18 @@ local function validEmail(raw)
     return e, nil
 end
 
+---@type table Accounts limits (configs/accounts.lua).
+local ACCT_CFG = config.Accounts or {}
+
+---How many accounts one character may create in an app; 0 means unlimited.
+---@param app string account app key
+---@return integer limit
+local function accountLimit(app)
+    local per = type(ACCT_CFG.PerApp) == 'table' and ACCT_CFG.PerApp[app] or nil
+    local n = tonumber(per) or tonumber(ACCT_CFG.MaxPerApp) or 1
+    return n < 0 and 0 or math.floor(n)
+end
+
 ---Validates an optional recovery phone: nil when blank, otherwise 7-15 digits.
 ---@param raw any client-supplied phone number
 ---@return string|nil phone, string|nil err
@@ -140,14 +152,18 @@ function actions.createAccount(app, payload, cid)
 
     if store.getAccount(app, username) then return fail('That username is taken') end
 
-    if email and #store.findAccountsByContact(app, email, nil) > 0 then
-        return fail('That email is already in use')
-    end
-    if phone and #store.findAccountsByContact(app, nil, phone) > 0 then
-        return fail('That phone number is already in use')
+    -- Accounts may share a recovery email and number; what caps a character is how many they
+    -- have created here. Usernames stay unique per app, so the accounts remain distinguishable.
+    if cid then
+        local limit = accountLimit(app)
+        if limit > 0 and store.countAccountsFor(app, cid) >= limit then
+            return fail(limit == 1
+                and 'You already have an account for this app'
+                or ('You can have at most %d accounts for this app'):format(limit))
+        end
     end
 
-    local id = store.insertAccount(app, username, displayName, store.hashPassword(password), email, phone)
+    local id = store.insertAccount(app, username, displayName, store.hashPassword(password), email, phone, cid)
     if not id then return fail('Failed to create the account') end
     return ok({ account = store.getAccountById(id) })
 end
@@ -221,6 +237,60 @@ function actions.logout(source, payload)
     local cid = player.getIdentifier(source)
     if cid then store.clearSession(app, cid) end
     return ok()
+end
+
+---The caller's saved logins for one app, as switch targets: username + display name, and which
+---one is signed in. Passwords never leave the server.
+---@param source number player server id
+---@param payload table|nil client-supplied { app }
+---@return table envelope on success data = { accounts, active }
+function actions.switchable(source, payload)
+    local app = payload and payload.app
+    if not DIRECT_APPS[app] then return fail('Unknown app') end
+    local cid = player.getIdentifier(source); if not cid then return fail('Player not found') end
+
+    local current = store.getSessionAccount(app, cid)
+    local out = {}
+    for _, row in ipairs(store.listVaultEntries(cid)) do
+        if row.app == app then
+            local acc = store.getAccount(app, row.username)
+            if acc then
+                out[#out + 1] = { username = acc.username, name = acc.displayName, email = acc.email }
+            end
+        end
+    end
+    return ok({ accounts = out, active = current and current.username or nil })
+end
+
+---Signs the caller into another of their own saved accounts without retyping the password. The
+---vault is a convenience, not an authority: its stored password is verified against the account,
+---so a stale entry fails rather than granting access.
+---@param source number player server id
+---@param payload table|nil client-supplied { app, username }
+---@return table envelope on success data = { me }
+function actions.switchAccount(source, payload)
+    payload = payload or {}
+    local app = payload.app
+    if not DIRECT_APPS[app] then return fail('Unknown app') end
+    local cid = player.getIdentifier(source); if not cid then return fail('Player not found') end
+    if not util.cooldown(cid, 'accounts:switch', 500) then return fail('Slow down') end
+
+    local username = trim(payload.username):lower()
+    if username == '' then return fail('Pick an account') end
+
+    local saved
+    for _, row in ipairs(store.listVaultEntries(cid)) do
+        if row.app == app and row.username:lower() == username then saved = row break end
+    end
+    if not saved then return fail('No saved password for that account') end
+
+    local acc = store.getAccount(app, saved.username)
+    if not acc or not actions.verifyPassword(acc, saved.password) then
+        return fail('Saved password no longer works. Sign in again')
+    end
+
+    store.setSession(app, cid, acc.id)
+    return ok({ me = publicAccount(acc) })
 end
 
 ---Returns the caller's current session account in public shape; loggedIn = false when there is

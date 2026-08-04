@@ -17,6 +17,7 @@ local config = {
     StatusBar   = require 'configs.statusbar',     -- carrier / signal / battery
     Photos      = require 'configs.photos',        -- camera capture + Fivemanage upload
     Payphone    = require 'configs.payphone',      -- street payphones (ox_target + dial UI)
+    Accounts    = require 'configs.accounts',      -- app-account limits (Photogram/Cherry/Vibez/Ryde)
     Mail        = require 'configs.mail',          -- email accounts + limits
     Messages    = require 'configs.messages',       -- SMS / iMessage threads
     Groups      = require 'configs.groups',        -- player groups / crews

@@ -10,6 +10,7 @@ import { clearSessionState, useSessionState } from '@/hooks/useSessionState';
 import { useNuiEvent } from '@/hooks/useNuiEvent';
 import { useAppAuth } from '@/hooks/useAppAuth';
 import { AppAuth } from '@/shared/AppAuth';
+import { AccountSwitcher } from '@/shared/AccountSwitcher';
 import { MAIL_DOMAIN, accountsConfirmReset, accountsForgetPassword, accountsLogin, accountsLogout, accountsMe, accountsRegister, accountsRequestReset, accountsSavePassword, accountsSuggestCode } from '@/core/accountsApi';
 import { IG, type Comment as IGComment, type Post, type ProfileData, type User } from './data';
 import {
@@ -66,6 +67,7 @@ export function Photogram({ onClose: _onClose }: { onClose: () => void }) {
     const [detail,     setDetail]     = useSessionState<Post | null>('photogram:detail', null);
     const [follows,    setFollows]    = useSessionState<{ handle: string; kind: 'followers' | 'following' } | null>('photogram:follows', null);
     const [storyMenu,  setStoryMenu]  = useState(false);
+    const [switching,  setSwitching]  = useState(false);
     const [liveEnabled, setLiveEnabled] = useState(!isFiveM);
 
     useEffect(() => {
@@ -348,6 +350,13 @@ export function Photogram({ onClose: _onClose }: { onClose: () => void }) {
                     onClose={() => setStoryPick(false)}
                 />
             )}
+            {switching && (
+                <AccountSwitcher
+                    app="photogram"
+                    onClose={() => setSwitching(false)}
+                    onSwitched={() => { clearSessionState('photogram:'); refreshHome(); }}
+                />
+            )}
             {sharePost && <SharePostSheet post={sharePost} onClose={() => setSharePost(null)} />}
             {pendingDelete && (
                 <AlertDialog
@@ -392,6 +401,7 @@ export function Photogram({ onClose: _onClose }: { onClose: () => void }) {
                     onCancel={() => setEditing(false)}
                     onSave={async p => { const updated = await apiUpdateProfile({ name: p.name, bio: p.bio, avatar: p.avatar, private: p.private }); if (updated) setMe(updated); setEditing(false); }}
                     onSignOut={() => { setEditing(false); clearSessionState('photogram:'); void accountsLogout('photogram'); setAuthed(false); }}
+                    onSwitchAccount={() => { setEditing(false); setSwitching(true); }}
                     onDelete={() => { setEditing(false); clearSessionState('photogram:'); void apiDeleteAccount(); void accountsForgetPassword('photogram'); void accountsLogout('photogram'); setAuthed(false); }}
                 />
             )}

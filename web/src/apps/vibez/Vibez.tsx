@@ -12,6 +12,7 @@ import { useNuiEvent } from '@/hooks/useNuiEvent';
 import { useAppAuth } from '@/hooks/useAppAuth';
 import { AlertDialog } from '@/ui/AlertDialog';
 import { AppAuth } from '@/shared/AppAuth';
+import { AccountSwitcher } from '@/shared/AccountSwitcher';
 import { MAIL_DOMAIN, accountsConfirmReset, accountsLogin, accountsLogout, accountsMe, accountsRegister, accountsRequestReset, accountsSavePassword, accountsSuggestCode } from '@/core/accountsApi';
 import { t } from '@/i18n';
 import { ACCENT, GRAD_FROM, GRAD_TO, fmt, type VLive, type VPost, type VProfile } from './data';
@@ -55,6 +56,7 @@ export function Vibez({ onClose: _onClose }: { onClose: () => void }) {
     const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
     const [unread,        setUnread]        = useState(0);
     const [refreshKey,    setRefreshKey]    = useState(0);
+    const [switching,     setSwitching]     = useState(false);
     const [me,            setMe]            = useState<VProfile | null>(null);
 
     const viewedRef = useRef(new Set<string>());
@@ -246,6 +248,7 @@ export function Vibez({ onClose: _onClose }: { onClose: () => void }) {
                     <Profile
                         onOpenPost={openPostList}
                         onSignOut={() => { void accountsLogout('vibez'); setAuthed(false); }}
+                        onSwitchAccount={() => setSwitching(true)}
                         refreshKey={refreshKey}
                     />
                 )}
@@ -288,6 +291,15 @@ export function Vibez({ onClose: _onClose }: { onClose: () => void }) {
                     </NavItem>
                 </div>
             </nav>
+
+            {switching && (
+                <AccountSwitcher
+                    app="vibez"
+                    forceDark
+                    onClose={() => setSwitching(false)}
+                    onSwitched={bumpRefresh}
+                />
+            )}
 
             {profileHandle && (
                 <div className="absolute inset-0 z-20 bg-black">

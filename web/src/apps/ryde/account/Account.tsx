@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Car, ChevronRight, KeyRound, LogOut, Star, Trash2, X } from 'lucide-react';
+import { Car, ChevronRight, KeyRound, LogOut, Star, Trash2, Users, X } from 'lucide-react';
 
 import { AppAuth } from '@/shared/AppAuth';
+import { AccountSwitcher } from '@/shared/AccountSwitcher';
 import { ChangePasswordPage } from '@/shared/ChangePasswordPage';
 import { InitialsAvatar } from '@/shared/ContactAvatar';
 import { AlertDialog } from '@/ui/AlertDialog';
@@ -24,6 +25,7 @@ export function Account({ onClose }: { onClose: () => void }) {
     const [myEmail,     setMyEmail]     = useState<string | null>(null);
     const [savedLogin,  setSavedLogin]  = useState<{ username: string; password: string } | null>(null);
     const [confirmSignOut, setConfirmSignOut] = useState(false);
+    const [switching,      setSwitching]      = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [pwOpen, setPwOpen] = useState(false);
 
@@ -142,6 +144,17 @@ export function Account({ onClose }: { onClose: () => void }) {
                         <div className="pointer-events-none absolute bottom-0 right-0 bg-ios-gray4 dark:bg-control" style={{ left: '70px', height: '0.5px' }} />
                     </button>
                     <button
+                        onClick={() => setSwitching(true)}
+                        className="relative flex w-full items-center gap-3.5 px-4 py-2.5 text-left active:bg-black/5 dark:active:bg-white/5"
+                    >
+                        <div className="flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded-[9px] shadow-sm" style={{ background: '#0A84FF' }}>
+                            <Users className="h-[22px] w-[22px] text-white" strokeWidth={2.2} />
+                        </div>
+                        <span className="flex-1 text-[18px] font-medium text-black dark:text-white">{t('accounts.switchAccount', 'Switch account')}</span>
+                        <ChevronRight className="h-[19px] w-[19px] shrink-0 text-ios-gray3" strokeWidth={2.5} />
+                        <div className="pointer-events-none absolute bottom-0 right-0 bg-ios-gray4 dark:bg-control" style={{ left: '70px', height: '0.5px' }} />
+                    </button>
+                    <button
                         onClick={() => setConfirmSignOut(true)}
                         className="relative flex w-full items-center gap-3.5 px-4 py-2.5 text-left active:bg-black/5 dark:active:bg-white/5"
                     >
@@ -162,6 +175,14 @@ export function Account({ onClose }: { onClose: () => void }) {
                     </button>
                 </Section>
             </div>
+
+            {switching && (
+                <AccountSwitcher
+                    app="ryde"
+                    onClose={() => setSwitching(false)}
+                    onSwitched={() => { void accountsMe('ryde').then(s => setAuth(s.loggedIn, s.me)); }}
+                />
+            )}
 
             {confirmSignOut && (
                 <AlertDialog

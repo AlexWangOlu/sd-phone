@@ -10,6 +10,7 @@ import { useNuiEvent } from '@/hooks/useNuiEvent';
 import { useDeckActive } from '@/shell/deckActive';
 import { useAppAuth } from '@/hooks/useAppAuth';
 import { AppAuth } from '@/shared/AppAuth';
+import { AccountSwitcher } from '@/shared/AccountSwitcher';
 import { AlertDialog } from '@/ui/AlertDialog';
 import { MAIL_DOMAIN, accountsConfirmReset, accountsForgetPassword, accountsLogin, accountsLogout, accountsMe, accountsRegister, accountsRequestReset, accountsSavePassword, accountsSuggestCode } from '@/core/accountsApi';
 import { appendThreadMessage, patchThreadMessage, toggleReactionLocal } from '@/shared/chat/messagesApi';
@@ -42,6 +43,7 @@ export function Cherry({ onClose: _onClose }: { onClose: () => void }) {
     const [canReset, setCanReset] = useState(true);
     const [matches, setMatches] = useState<Match[]>([]);
     const [sendError, setSendError] = useState<string | null>(null);
+    const [switching, setSwitching] = useState(false);
     const [lockedIds, setLockedIds] = useState<string[]>([]);
     const [incomingMatch, setIncomingMatch] = useState<Match | null>(null);
 
@@ -332,6 +334,7 @@ export function Cherry({ onClose: _onClose }: { onClose: () => void }) {
                                 profile={profile}
                                 onChange={setProfile}
                                 onSignOut={() => { void accountsLogout('cherry'); setAuthed(false); }}
+                                onSwitchAccount={() => setSwitching(true)}
                                 onDeleteAccount={() => {
                                     void (async () => {
                                         await cherryDeleteAccount();
@@ -381,6 +384,14 @@ export function Cherry({ onClose: _onClose }: { onClose: () => void }) {
                     hideCancel
                     onCancel={() => setSendError(null)}
                     onConfirm={() => setSendError(null)}
+                />
+            )}
+
+            {switching && (
+                <AccountSwitcher
+                    app="cherry"
+                    onClose={() => setSwitching(false)}
+                    onSwitched={() => { void refreshDeck(); }}
                 />
             )}
         </div>

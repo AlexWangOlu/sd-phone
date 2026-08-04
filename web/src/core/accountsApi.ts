@@ -121,6 +121,30 @@ export async function accountsSavedLogin(app: string): Promise<{ username: strin
     return e ? { username: e.username, password: e.password } : null;
 }
 
+export interface SwitchableAccount {
+    username: string;
+    name?:    string;
+    email?:   string;
+}
+
+export async function accountsSwitchable(app: string): Promise<{ accounts: SwitchableAccount[]; active: string | null }> {
+    if (!isFiveM) {
+        const mine = DEV_VAULT.filter(e => e.app === app);
+        return {
+            accounts: mine.map(e => ({ username: e.username, email: e.email ?? undefined })),
+            active: mine[0]?.username ?? null,
+        };
+    }
+    const d = await apiData<{ accounts: SwitchableAccount[]; active: string | null }>('sd-phone:accounts:switchable', { app });
+    return { accounts: d?.accounts ?? [], active: d?.active ?? null };
+}
+
+export async function accountsSwitch(app: string, username: string): Promise<ApiResult> {
+    if (!isFiveM) return { ok: true };
+    const res = await fetchNui<{ success?: boolean; message?: string }>('sd-phone:accounts:switch', { app, username });
+    return { ok: res?.success === true, message: res?.message };
+}
+
 export async function accountsChangePassword(app: string, identity: string, currentPassword: string, newPassword: string): Promise<ApiResult> {
     if (!isFiveM) {
         const entry = DEV_VAULT.find(e => e.app === app && (e.username === identity || e.email === identity));
