@@ -1,5 +1,5 @@
-import { lazy } from 'react';
-import type { ComponentType, LazyExoticComponent, ReactNode } from 'react';
+import { lazy, useState } from 'react';
+import type { ComponentProps, ComponentType, LazyExoticComponent, ReactNode } from 'react';
 
 import { device } from '@device';
 import type { AppDef } from '@/core/types';
@@ -29,6 +29,19 @@ function entry(load: () => Promise<{ default: ComponentType<AppComponentProps>; 
 
 const AppStoreLazy = lazy(() => import('@/apps/appstore/AppStore').then(m => ({ default: m.AppStore })));
 const CameraLazy   = lazy(() => import('@/apps/camera/Camera').then(m => ({ default: m.Camera })));
+
+let appStoreReady: typeof AppStoreLazy | ComponentType<ComponentProps<typeof AppStoreLazy>> = AppStoreLazy;
+let cameraReady:   typeof CameraLazy   | ComponentType<ComponentProps<typeof CameraLazy>>   = CameraLazy;
+
+function AppStoreMount(props: ComponentProps<typeof AppStoreLazy>) {
+    const [C] = useState(() => appStoreReady);
+    return <C {...props} />;
+}
+
+function CameraMount(props: ComponentProps<typeof CameraLazy>) {
+    const [C] = useState(() => cameraReady);
+    return <C {...props} />;
+}
 
 const APP_REGISTRY = {
     photos:      entry(() => import('@/apps/photos/Photos').then(m => ({ default: m.Photos }))),
@@ -80,9 +93,9 @@ const APP_REGISTRY = {
     emsmdt:      entry(() => import('@/apps/mdt/Mdt').then(m => ({ default: m.EmsMdt }))),
     dojmdt:      entry(() => import('@/apps/mdt/Mdt').then(m => ({ default: m.DojMdt }))),
     appstore: {
-        load: () => import('@/apps/appstore/AppStore'),
+        load: () => import('@/apps/appstore/AppStore').then(m => { appStoreReady = m.AppStore; return m; }),
         render: (ctx) => (
-            <AppStoreLazy
+            <AppStoreMount
                 onClose={ctx.onClose}
                 apps={ctx.allApps}
                 installed={ctx.installedApps}
@@ -92,8 +105,8 @@ const APP_REGISTRY = {
         ),
     },
     camera: {
-        load: () => import('@/apps/camera/Camera'),
-        render: (ctx) => <CameraLazy onClose={ctx.onClose} onLandscapeChange={ctx.onLandscapeChange} onOpenApp={ctx.onOpenApp} />,
+        load: () => import('@/apps/camera/Camera').then(m => { cameraReady = m.Camera; return m; }),
+        render: (ctx) => <CameraMount onClose={ctx.onClose} onLandscapeChange={ctx.onLandscapeChange} onOpenApp={ctx.onOpenApp} />,
     },
 } satisfies Record<string, AppEntry>;
 
