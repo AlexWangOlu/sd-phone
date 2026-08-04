@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Car, ChevronRight, KeyRound, LogOut, Star, Trash2, Users, X } from 'lucide-react';
 
 import { AppAuth } from '@/shared/AppAuth';
@@ -11,7 +11,8 @@ import { t } from '@/i18n';
 import {
     MAIL_DOMAIN, accountsConfirmReset, accountsForgetPassword, accountsLogin, accountsLogout,
     accountsMe, accountsMyEmail, accountsMyNumber, accountsRegister, accountsRequestReset,
-    accountsSavePassword, accountsSavedLogin, accountsSuggestCode,
+    accountsSavePassword, accountsSavedLogin, accountsSignOut, accountsSuggestCode, accountsSwitch,
+    accountsSwitchable, type SwitchableAccount,
 } from '@/core/accountsApi';
 import { driverStats, useRyde } from '../store';
 import { money } from '../data';
@@ -22,18 +23,25 @@ export function Account({ onClose }: { onClose: () => void }) {
 
     const { authChecked, authed, me, setAuth } = g;
     const [myNumber,    setMyNumber]    = useState<string | null>(null);
-    const [myEmail,     setMyEmail]     = useState<string | null>(null);
+    const [myEmails,    setMyEmails]    = useState<string[]>([]);
+    const [savedAccounts, setSavedAccounts] = useState<SwitchableAccount[]>([]);
     const [savedLogin,  setSavedLogin]  = useState<{ username: string; password: string } | null>(null);
     const [confirmSignOut, setConfirmSignOut] = useState(false);
     const [switching,      setSwitching]      = useState(false);
+    const [adding,         setAdding]         = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [pwOpen, setPwOpen] = useState(false);
 
+    const refreshAccounts = useCallback(() => {
+        void accountsSavedLogin('ryde').then(setSavedLogin);
+        void accountsSwitchable('ryde').then(d => setSavedAccounts(d.accounts.filter(a => a.username !== d.active)));
+    }, []);
+
     useEffect(() => {
         void accountsMyNumber().then(setMyNumber);
-        void accountsMyEmail().then(setMyEmail);
-        void accountsSavedLogin('ryde').then(setSavedLogin);
-    }, []);
+        void accountsMyEmail().then(setMyEmails);
+        refreshAccounts();
+    }, [refreshAccounts, authed]);
 
     const done = g.rides.filter(r => r.role === 'rider' && r.status === 'completed');
     const spent = Math.round(done.reduce((s, r) => s + r.fare, 0) * 100) / 100;
@@ -43,16 +51,17 @@ export function Account({ onClose }: { onClose: () => void }) {
         return <div className="absolute inset-0 bg-ios-gray6 dark:bg-base" />;
     }
 
-    if (!authed) {
-        return (
+    const authScreen = (
             <AppAuth
                 appName="Ryde"
                 tagline={t('ryde.tagline', 'Your ride, your schedule.')}
                 icon="ryde"
                 theme={{ accent: '#111111', welcomeBg: '#ffffff', welcomeText: 'dark' }}
                 myNumber={myNumber}
-                myEmail={myEmail}
-                savedLogin={savedLogin}
+                savedLogin={adding ? null : savedLogin}
+                myEmails={myEmails}
+                savedAccounts={savedAccounts}
+                onPickAccount={u => accountsSwitch('ryde', u)}
                 fields={[
                     { key: 'username', label: t('ryde.fieldUsername', 'Username') },
                     { key: 'name',     label: t('ryde.fieldName', 'Name') },
@@ -66,21 +75,28 @@ export function Account({ onClose }: { onClose: () => void }) {
                         : await accountsLogin('ryde', vals);
                     return { ok: r.ok, message: r.message };
                 }}
-                onAuthed={() => { void accountsMe('ryde').then(s => setAuth(true, s.me)); }}
-                onDismiss={onClose}
+                onAuthed={() => { setAdding(false); void accountsMe('ryde').then(s => setAuth(true, s.me)); }}
+                onDismiss={adding ? () => setAdding(false) : onClose}
+                modal={adding}
                 onRequestReset={(id) => accountsRequestReset('ryde', id)}
                 onConfirmReset={(id, code, pw) => accountsConfirmReset('ryde', id, code, pw)}
                 onSuggestCode={(id) => accountsSuggestCode('ryde', id)}
                 onSaveCredentials={(vals) => accountsSavePassword('ryde', vals)}
             />
-        );
-    }
+    );
+
+    if (!authed) return authScreen;
 
     async function signOut() {
-        await accountsLogout('ryde');
+        const res = await accountsSignOut('ryde');
         setConfirmSignOut(false);
-        setAuth(false, null);
-        void accountsSavedLogin('ryde').then(setSavedLogin);
+        if (res.switchedTo) {
+            const s = await accountsMe('ryde');
+            setAuth(s.loggedIn, s.me);
+        } else {
+            setAuth(false, null);
+        }
+        refreshAccounts();
     }
 
     async function deleteAccount() {
@@ -180,7 +196,8 @@ export function Account({ onClose }: { onClose: () => void }) {
                 <AccountSwitcher
                     app="ryde"
                     onClose={() => setSwitching(false)}
-                    onSwitched={() => { void accountsMe('ryde').then(s => setAuth(s.loggedIn, s.me)); }}
+                    onSwitched={() => { void accountsMe('ryde').then(s => setAuth(s.loggedIn, s.me)); refreshAccounts(); }}
+                    onAdd={() => setAdding(true)}
                 />
             )}
 
@@ -216,6 +233,8 @@ export function Account({ onClose }: { onClose: () => void }) {
                     onClose={() => setPwOpen(false)}
                 />
             )}
+
+            {adding && <div className="absolute inset-0 z-[70]">{authScreen}</div>}
         </div>
     );
 }

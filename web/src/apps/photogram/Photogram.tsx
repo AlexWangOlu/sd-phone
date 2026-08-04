@@ -11,7 +11,7 @@ import { useNuiEvent } from '@/hooks/useNuiEvent';
 import { useAppAuth } from '@/hooks/useAppAuth';
 import { AppAuth } from '@/shared/AppAuth';
 import { AccountSwitcher } from '@/shared/AccountSwitcher';
-import { MAIL_DOMAIN, accountsConfirmReset, accountsForgetPassword, accountsLogin, accountsLogout, accountsMe, accountsRegister, accountsRequestReset, accountsSavePassword, accountsSuggestCode } from '@/core/accountsApi';
+import { MAIL_DOMAIN, accountsConfirmReset, accountsForgetPassword, accountsLogin, accountsLogout, accountsMe, accountsRegister, accountsRequestReset, accountsSavePassword, accountsSignOut, accountsSuggestCode, accountsSwitch } from '@/core/accountsApi';
 import { IG, type Comment as IGComment, type Post, type ProfileData, type User } from './data';
 import {
     apiActivity, apiAddComment, apiAddStory, apiComments, apiCounts, apiCreate, apiDeleteAccount, apiDeletePost, apiDismissNotification, apiExplore, apiFeed,
@@ -40,7 +40,7 @@ import { LiveViewer } from './live/LiveViewer';
 import { AlertDialog } from '@/ui/AlertDialog';
 
 export function Photogram({ onClose: _onClose }: { onClose: () => void }) {
-    const { authed, setAuthed, authChecked, justAuthed, setJustAuthed, myNumber, myEmail, savedLogin } = useAppAuth('photogram',
+    const { authed, setAuthed, authChecked, justAuthed, setJustAuthed, myNumber, myEmails, savedLogin, savedAccounts, refreshAccounts } = useAppAuth('photogram',
         () => accountsMe('photogram').then(s => s.loggedIn));
 
     useStatusBarLight(authed ? false : null);
@@ -68,6 +68,7 @@ export function Photogram({ onClose: _onClose }: { onClose: () => void }) {
     const [follows,    setFollows]    = useSessionState<{ handle: string; kind: 'followers' | 'following' } | null>('photogram:follows', null);
     const [storyMenu,  setStoryMenu]  = useState(false);
     const [switching,  setSwitching]  = useState(false);
+    const [adding,     setAdding]     = useState(false);
     const [liveEnabled, setLiveEnabled] = useState(!isFiveM);
 
     useEffect(() => {
@@ -257,16 +258,19 @@ export function Photogram({ onClose: _onClose }: { onClose: () => void }) {
 
     if (!authChecked) return <div className="absolute inset-0 z-10 bg-[#f2f2f2]" />;
 
-    if (!authed) {
-        return (
+    const authScreen = (
             <AppAuth
                 appName="Photogram"
                 tagline={t('photogram.tagline', 'Sign up to see photos from your friends.')}
                 icon="photogram"
                 theme={{ accent: IG.blue, welcomeBg: '#f2f2f2', welcomeText: 'dark' }}
                 myNumber={myNumber}
-                myEmail={myEmail}
-                savedLogin={savedLogin}
+                myEmails={myEmails}
+                savedAccounts={savedAccounts}
+                onPickAccount={u => accountsSwitch('photogram', u)}
+                savedLogin={adding ? null : savedLogin}
+                onDismiss={adding ? () => setAdding(false) : undefined}
+                modal={adding}
                 fields={[
                     { key: 'username', label: t('photogram.username', 'Username') },
                     { key: 'name',     label: t('photogram.name', 'Name') },
@@ -275,14 +279,19 @@ export function Photogram({ onClose: _onClose }: { onClose: () => void }) {
                     { key: 'phone',    label: t('photogram.phone', 'Phone'),    type: 'tel',   createOnly: true },
                 ]}
                 onSubmit={(mode, vals) => (mode === 'create' ? accountsRegister('photogram', vals) : accountsLogin('photogram', vals))}
-                onAuthed={() => { setAuthed(true); setJustAuthed(true); }}
+                onAuthed={() => {
+                    setAuthed(true);
+                    setJustAuthed(true);
+                    if (adding) { setAdding(false); clearSessionState('photogram:'); refreshAccounts(); refreshMe(); void refreshHome(); refreshCounts(); }
+                }}
                 onRequestReset={(id) => accountsRequestReset('photogram', id)}
                 onConfirmReset={(id, code, pw) => accountsConfirmReset('photogram', id, code, pw)}
                 onSuggestCode={(id) => accountsSuggestCode('photogram', id)}
                 onSaveCredentials={(vals) => accountsSavePassword('photogram', vals)}
             />
-        );
-    }
+    );
+
+    if (!authed) return authScreen;
 
     return (
         <div className={`absolute inset-0 flex flex-col bg-[#f2f2f2] font-sf ${justAuthed ? 'animate-swipe-in-left' : ''}`}>
@@ -354,7 +363,8 @@ export function Photogram({ onClose: _onClose }: { onClose: () => void }) {
                 <AccountSwitcher
                     app="photogram"
                     onClose={() => setSwitching(false)}
-                    onSwitched={() => { clearSessionState('photogram:'); refreshHome(); }}
+                    onSwitched={() => { clearSessionState('photogram:'); refreshAccounts(); refreshMe(); void refreshHome(); refreshCounts(); }}
+                    onAdd={() => setAdding(true)}
                 />
             )}
             {sharePost && <SharePostSheet post={sharePost} onClose={() => setSharePost(null)} />}
@@ -400,11 +410,21 @@ export function Photogram({ onClose: _onClose }: { onClose: () => void }) {
                     profile={{ name: me.name, bio: me.bio, avatar: me.avatar, private: me.isPrivate } as ProfileData}
                     onCancel={() => setEditing(false)}
                     onSave={async p => { const updated = await apiUpdateProfile({ name: p.name, bio: p.bio, avatar: p.avatar, private: p.private }); if (updated) setMe(updated); setEditing(false); }}
-                    onSignOut={() => { setEditing(false); clearSessionState('photogram:'); void accountsLogout('photogram'); setAuthed(false); }}
+                    onSignOut={() => {
+                        setEditing(false);
+                        clearSessionState('photogram:');
+                        void accountsSignOut('photogram').then(r => {
+                            refreshAccounts();
+                            if (r.switchedTo) { refreshMe(); void refreshHome(); refreshCounts(); }
+                            else setAuthed(false);
+                        });
+                    }}
                     onSwitchAccount={() => { setEditing(false); setSwitching(true); }}
                     onDelete={() => { setEditing(false); clearSessionState('photogram:'); void apiDeleteAccount(); void accountsForgetPassword('photogram'); void accountsLogout('photogram'); setAuthed(false); }}
                 />
             )}
+
+            {adding && <div className="absolute inset-0 z-[70]">{authScreen}</div>}
         </div>
     );
 }
