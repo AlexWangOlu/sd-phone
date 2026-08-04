@@ -109,16 +109,28 @@ local function validPhone(raw)
 end
 
 ---Creates an account for an already-whitelisted app: validates username/password, optional
----recovery contacts (at least one required, each unique per app), and display name.
+---recovery contacts (at least one required, each unique per app), and display name. Pass the
+---caller's citizenid so a recovery number they do not own is refused; every client-reachable
+---path has one, and the guard lives here rather than in a caller so no route can skip it.
 ---@param app string account app key (already validated)
 ---@param payload table|nil client-supplied { username, password, name?, email?, phone? }
+---@param cid string|nil caller citizenid; when given, the recovery phone must be theirs
 ---@return table envelope on success data = { account }
-function actions.createAccount(app, payload)
+function actions.createAccount(app, payload, cid)
     payload = payload or {}
     local username, ue = validUsername(app, payload.username); if not username then return fail(ue) end
     local password, pe = validPassword(payload.password); if not password then return fail(pe) end
     local email, ee = validEmail(payload.email); if ee then return fail(ee) end
     local phone, he = validPhone(payload.phone); if he then return fail(he) end
+
+    -- Recovery codes go to this number, so one the caller does not own is useless to them and
+    -- lets a character sidestep the per-app contact-uniqueness cap below.
+    if phone and cid then
+        local mine = digits(settings.getPhoneNumber(cid))
+        if mine ~= '' and phone ~= mine then
+            return fail('Use your own phone number so you can recover the account')
+        end
+    end
     if not email and not phone then
         return fail('Add an email or phone number so you can recover the account')
     end
@@ -165,18 +177,7 @@ function actions.register(source, payload)
         return fail('Too many sign-up attempts. Try again shortly')
     end
 
-    -- Recovery codes are delivered to this number, so a number the caller does not own is
-    -- useless to them. It is also what let one character mint unlimited handles: the per-app
-    -- contact-uniqueness check below only bites once the number has to be their own.
-    local phone = digits(payload.phone)
-    if phone ~= '' then
-        local mine = digits(settings.getPhoneNumber(cid))
-        if mine ~= '' and phone ~= mine then
-            return fail('Use your own phone number so you can recover the account')
-        end
-    end
-
-    local res = actions.createAccount(app, payload)
+    local res = actions.createAccount(app, payload, cid)
     if not res.success then return res end
     store.setSession(app, cid, res.data.account.id)
     return ok({ me = publicAccount(res.data.account) })

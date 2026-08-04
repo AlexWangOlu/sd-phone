@@ -345,7 +345,7 @@ function actions.signUp(source, payload)
     acctActions.createAccount('mail', {
         username = email, password = password, name = displayName,
         email = email, phone = phone ~= '' and phone or nil,
-    })
+    }, me.cid)
 
     local acc = store.getAccount(email)
     if not acc then return fail('Account vanished after creation') end

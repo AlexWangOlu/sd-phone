@@ -256,7 +256,7 @@ function actions.register(source, payload)
     local acctRes = acctActions.createAccount('birdy', {
         username = handle, password = password, name = name,
         email = payload.email, phone = payload.phone,
-    })
+    }, cid)
     if not acctRes.success then return acctRes end
 
     if not store.insertAccount(cid, handle, name, store.hashPassword(password), bio, birdyCfg.DefaultVerified == true, os.date('%B %Y')) then
