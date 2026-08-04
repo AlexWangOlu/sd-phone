@@ -235,13 +235,36 @@ local function mileageFor(plate)
 end
 
 -- Garage waypoint resolution: systems with a runtime export (qbx_garages, qb-garages,
--- jg-advancedgarages, cd_garage, op_garages) are read directly; the rest fall back to the manual
--- coordinate map in configs.garages -> Locations.
+-- jg-advancedgarages, cd_garage, op_garages) are read directly, qs-advancedgarages from its config
+-- file; the rest fall back to the manual coordinate map in configs.garages -> Locations.
 
 ---@type table|nil Last loaded garage collection (nil is a valid cached answer).
 local gcolCache
 ---@type integer os.time the collection was loaded (0 = never).
 local gcolAt = 0
+---@type table|nil Parsed qs-advancedgarages garage table, held until that resource restarts.
+local qsCache
+---@type boolean Whether the qs-advancedgarages config has been parsed since the last restart.
+local qsParsed = false
+
+---qs-advancedgarages' garage table, parsed once from the `config/config.lua` it ships
+---unencrypted and evaluated in a sandbox.
+---@return table|nil garages keyed by garage name, nil when unreadable
+local function qsGarages()
+    if qsParsed then return qsCache end
+    qsParsed = true
+
+    local raw = LoadResourceFile('qs-advancedgarages', 'config/config.lua')
+    if type(raw) ~= 'string' then return nil end
+
+    local env = setmetatable({ Config = {}, Locales = {} }, { __index = _G })
+    local chunk = load(raw, '@qs-advancedgarages/config/config.lua', 't', env)
+    if not chunk then return nil end
+
+    local ok = pcall(chunk)
+    qsCache = ok and type(env.Config) == 'table' and env.Config.Garages or nil
+    return qsCache
+end
 
 ---Pull the active system's full garage collection. Nil for op_garages (per-garage export lookups)
 ---and for unsupported systems. Memoised on the same short TTL as the plate set: it crosses a
@@ -256,7 +279,7 @@ local function loadGarageCollection()
         if ACTIVE == 'qb-garages'         then return exports['qb-garages']:getAllGarages() end
         if ACTIVE == 'jg-advancedgarages' then return exports['jg-advancedgarages']:getAllGarages() end
         if ACTIVE == 'cd_garage'          then return exports['cd_garage']:GetConfig() end
-        if ACTIVE == 'qs-advancedgarages' then return exports['qs-advancedgarages']:GetAllGarages(true) end
+        if ACTIVE == 'qs-advancedgarages' then return qsGarages() end
         return nil
     end)
     gcolCache, gcolAt = ok and data or nil, now
@@ -267,7 +290,10 @@ end
 -- than hand out references into the old instance.
 if ACTIVE then
     local function dropCollection(name)
-        if name == ACTIVE then gcolCache, gcolAt = nil, 0 end
+        if name == ACTIVE then
+            gcolCache, gcolAt = nil, 0
+            qsCache, qsParsed = nil, false
+        end
     end
     AddEventHandler('onResourceStart', dropCollection)
     AddEventHandler('onResourceStop', dropCollection)
