@@ -22,7 +22,10 @@ local BASE = framework.name == 'esx'
 
 -- Profile fields: garage/state columns are tried in order, first present wins; `stored`/`impound`
 -- are the state values meaning parked / impounded; `impoundCol` names a separate truthy flag;
--- storedFallback=false opts out of statusOf's generic 1-means-stored fallback. Storage per system:
+-- storedFallback=false opts out of statusOf's generic 1-means-stored fallback. `outState` is the
+-- state value a valet writes to mean "out"; `outGarage` is set only for systems that mark a car out
+-- in the GARAGE column instead - the rest keep the garage name there to know where it returns to.
+-- Storage per system:
 --   qb-garages / qbx_garages / jg-advancedgarages : player_vehicles
 --       garage=`garage`, state=`state` (0 out / 1 stored / 2 impound),
 --       fuel=`fuel` (0-100), engine/body=`engine`/`body` (0-1000), props=`mods`
@@ -44,16 +47,17 @@ local DEFAULT_PROFILE = {
     stored     = { [1] = true },
     impound    = { [2] = true },
     impoundCol = 'impound',
+    outState   = 0,
 }
 ---@type table<string, table> Exact column profiles, keyed by garage resource name.
 local PROFILES = {
-    ['qs-advancedgarages'] = { garage = { 'garage' },             state = { 'stored', 'state' }, impoundCol = 'impound_data' },
+    ['qs-advancedgarages'] = { garage = { 'garage' },             state = { 'stored', 'state' }, impoundCol = 'impound_data', outGarage = 'OUT' },
     ['qb-garages']         = { garage = { 'garage' },             state = { 'state' } },
     ['qbx_garages']        = { garage = { 'garage' },             state = { 'state' } },
     ['jg-advancedgarages'] = { garage = { 'garage_id', 'garage' },state = { 'in_garage' }, impoundCol = 'impound' },
     ['lunar_garage']       = { garage = { 'garage', 'parking' },  state = { 'state', 'stored' } },
     ['nc_garage']          = { garage = { 'garage', 'parking' },  state = { 'state', 'stored' } },
-    ['op_garages']         = { garage = { 'vehicleGarage', 'garage', 'parking' }, state = { 'state', 'stored' }, stored = { [0] = true }, storedFallback = false, impoundCol = 'isTowedOut' },
+    ['op_garages']         = { garage = { 'vehicleGarage', 'garage', 'parking' }, state = { 'state', 'stored' }, stored = { [0] = true }, storedFallback = false, impoundCol = 'isTowedOut', outState = 1 },
     ['okokGarage']         = { garage = { 'parking', 'garage' },  state = { 'state', 'stored' } },
     ['codem-garage']       = { garage = { 'parking', 'garage' },  state = { 'state', 'stored' } },
     ['cd_garage']          = { garage = { 'garage_id', 'garage' },state = { 'in_garage', 'state' } },
@@ -103,6 +107,17 @@ local function decodeProps(row)
         end
     end
     return nil
+end
+
+---The vehicle's model: the `vehicle` column when it holds a plain name, else the saved-properties
+---model key, else the row's stored hash.
+---@param row table vehicle DB row
+---@param props table|nil decoded vehicle-properties JSON
+---@return string|number|nil model spawn name or hash
+local function modelOf(row, props)
+    local raw = row.vehicle
+    if type(raw) == 'string' and raw:sub(1, 1) ~= '{' then return raw end
+    return (props and (props.model or props.modelName)) or row.hash or nil
 end
 
 ---Clamp a condition value to a rounded 0-100 integer percentage. Values above 100 are assumed to
@@ -199,6 +214,19 @@ local function spawnedPlates()
     end
     platesCache, platesAt = set, now
     return set
+end
+
+---Display status for a row: statusOf's stored/out, refined to impound when the row is
+---impound-flagged or its plate is nowhere in the world.
+---@param row table vehicle DB row
+---@param spawned table<string, boolean> plate set from spawnedPlates()
+---@return string status 'stored' | 'out' | 'impound'
+local function displayStatus(row, spawned)
+    local status, impound = statusOf(row)
+    if status ~= 'out' then return status end
+    local p = normPlate(row.plate)
+    if impound or not (p and spawned[p]) then return 'impound' end
+    return 'out'
 end
 
 ---True when jg-vehiclemileage is running. Checked at call time.
@@ -465,21 +493,14 @@ function garages.list(source)
     for i = 1, #rows do
         local row   = rows[i]
         local props = decodeProps(row)
-        local status, impound = statusOf(row)
-        if status == 'out' then
-            local p = normPlate(row.plate)
-            if impound or not (p and spawned[p]) then status = 'impound' end
-        end
+        local status = displayStatus(row, spawned)
 
         local garageName = pick(row, PROFILE.garage)
         if type(garageName) ~= 'string' or garageName == '' or garageName:upper() == 'OUT' then
             garageName = nil
         end
 
-        local rawModel = row.vehicle
-        if type(rawModel) ~= 'string' or rawModel:sub(1, 1) == '{' then
-            rawModel = (props and (props.model or props.modelName)) or row.hash or nil
-        end
+        local rawModel = modelOf(row, props)
 
         local plate = trim(row.plate) or ''
         local veh = {
@@ -512,6 +533,100 @@ function garages.list(source)
     end
 
     return out
+end
+
+---Name of the first of the candidate columns actually present on a row, for building an UPDATE.
+---@param row table DB row
+---@param names string[] candidate column names in preference order
+---@return string|nil name
+local function pickName(row, names)
+    for i = 1, #names do
+        if row[names[i]] ~= nil then return names[i] end
+    end
+    return nil
+end
+
+---One of the caller's own vehicles by plate, with the same status the app list shows. Ownership is
+---resolved from the caller's identifier, never from anything the client sent.
+---@param source number caller server id
+---@param plate string
+---@return table|nil vehicle { row, status, model, props, plate }
+function garages.vehicleFor(source, plate)
+    if not G.Enabled then return nil end
+
+    local id   = player.getIdentifier(source)
+    local want = normPlate(plate)
+    if not id or not want or want == '' then return nil end
+
+    local ok, rows = pcall(function()
+        return MySQL.query.await(('SELECT * FROM `%s` WHERE `%s` = ?'):format(BASE.table, BASE.idCol), { id })
+    end)
+    if not ok or type(rows) ~= 'table' then return nil end
+
+    local spawned = spawnedPlates()
+    for i = 1, #rows do
+        local row = rows[i]
+        if normPlate(row.plate) == want then
+            local props = decodeProps(row)
+            return {
+                row    = row,
+                status = displayStatus(row, spawned),
+                model  = modelOf(row, props),
+                props  = props,
+                plate  = trim(row.plate) or '',
+            }
+        end
+    end
+    return nil
+end
+
+-- The one write in this bridge. Everything else reads. Only ever called once the valet's vehicle
+-- entity already exists, so a failed delivery can never leave a car marked out of its garage.
+---Mark one of the caller's vehicles as out of its garage. Flips the profile's state column to its
+---`outState`, and the garage column too on the systems that mark out there (`outGarage`), so the
+---rest keep the garage name that tells them where the car returns to.
+---@param source number caller server id
+---@param plate string
+---@param netId number|nil network id of the spawned entity, for systems that track it
+---@return boolean committed
+function garages.takeOut(source, plate, netId)
+    local veh = garages.vehicleFor(source, plate)
+    if not veh or veh.status ~= 'stored' then return false end
+
+    local row       = veh.row
+    local stateCol  = pickName(row, PROFILE.state)
+    local garageCol = PROFILE.outGarage and pickName(row, PROFILE.garage) or nil
+    if not stateCol and not garageCol then return false end
+
+    local sets, args = {}, {}
+    if stateCol then
+        sets[#sets + 1] = ('`%s` = ?'):format(stateCol)
+        args[#args + 1] = PROFILE.outState
+    end
+    if garageCol then
+        sets[#sets + 1] = ('`%s` = ?'):format(garageCol)
+        args[#args + 1] = PROFILE.outGarage
+    end
+    args[#args + 1] = row.plate
+
+    local ok, affected = pcall(function()
+        return MySQL.update.await(
+            ('UPDATE `%s` SET %s WHERE `plate` = ?'):format(BASE.table, table.concat(sets, ', ')), args)
+    end)
+    if not ok or (tonumber(affected) or 0) < 1 then return false end
+
+    -- Systems that keep their own record of what's out need telling; the DB alone won't reach them.
+    if netId then
+        pcall(function()
+            if ACTIVE == 'jg-advancedgarages' then
+                TriggerEvent('jg-advancedgarages:server:register-vehicle-outside', veh.plate, netId)
+            elseif ACTIVE == 'qs-advancedgarages' then
+                exports['qs-advancedgarages']:setVehicleToPersistent(netId)
+            end
+        end)
+    end
+
+    return true
 end
 
 return garages

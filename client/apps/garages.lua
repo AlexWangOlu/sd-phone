@@ -65,8 +65,20 @@ local function enrich(v)
     return v
 end
 
+---@type table|nil Cached valet availability + price, resolved from the server on first use.
+local valetInfo
+
+---Valet availability for the app, asked of the server once per session.
+---@return table info { enabled, price, account }
+local function getValetInfo()
+    if valetInfo then return valetInfo end
+    local ok, info = pcall(function() return lib.callback.await('sd-phone:server:garages:valetInfo', false) end)
+    valetInfo = (ok and type(info) == 'table') and info or { enabled = false, price = 0 }
+    return valetInfo
+end
+
 ---React -> Lua: the player's vehicle list. Forwards to the server callback, enriches each row
----(pcall'd per row), and attaches the image toggle flags.
+---(pcall'd per row), and attaches the image toggle flags plus valet availability.
 RegisterNUICallback('sd-phone:garages:list', function(_payload, cb)
     local result = lib.callback.await('sd-phone:server:garages:list', false)
     if not result then result = { success = false, message = 'No response from server', data = {} } end
@@ -76,6 +88,7 @@ RegisterNUICallback('sd-phone:garages:list', function(_payload, cb)
         end
     end
     result.images = { allowToggle = ALLOW_TOGGLE, default = SHOW_IMAGES_DEF }
+    result.valet  = getValetInfo()
     cb(result)
 end)
 
@@ -160,4 +173,184 @@ RegisterNUICallback('sd-phone:garages:mileage', function(payload, cb)
     local unit = unitShort()
     local val  = unit == 'mi' and km * 0.621371 or km
     cb({ success = true, mileage = math.floor(val), unit = unit })
+end)
+
+-- Valet delivery. The server owns every decision that matters (ownership, funds, cooldown, where
+-- the car may be delivered); this side only finds a road spot, then plays out the arrival.
+---@type table Valet settings from configs.garages.
+local VALET        = type(GARAGES_CFG.Valet) == 'table' and GARAGES_CFG.Valet or {}
+---@type number Seconds after taking damage that valet stays blocked (0 disables).
+local COMBAT_BLOCK = math.max(0, tonumber(VALET.CombatBlock) or 0)
+---@type number Metres out a driven delivery starts from.
+local DRIVE_FROM   = math.max(5, tonumber(VALET.DriveFrom) or 75)
+---@type string Valet driver model.
+local VALET_PED    = type(VALET.Ped) == 'string' and VALET.Ped or 'S_M_Y_XMech_01'
+
+---@type table<string, string> Server refusal code -> message shown to the player.
+local VALET_ERRORS = {
+    disabled      = 'Valet is unavailable.',
+    notFound      = 'Vehicle not found.',
+    impounded     = 'Impounded vehicles must be collected from the impound.',
+    notStored     = 'That vehicle is not in a garage.',
+    notRoad       = 'This vehicle cannot be delivered by road.',
+    cooldown      = 'You have already called a valet recently.',
+    inVehicle     = 'You cannot call a valet while driving.',
+    combat        = 'Too dangerous to call a valet right now.',
+    blockedArea   = 'A valet cannot deliver here.',
+    funds         = 'You cannot afford the valet fee.',
+    noSpace       = 'No safe place nearby to drop the vehicle off.',
+    takeOutFailed = 'The garage would not release the vehicle.',
+}
+
+---@type integer GetGameTimer of the player's last health drop (0 = never).
+local lastHurt = 0
+
+if VALET.Enabled == true and COMBAT_BLOCK > 0 then
+    CreateThread(function()
+        local last = GetEntityHealth(PlayerPedId())
+        while true do
+            Wait(1000)
+            local hp = GetEntityHealth(PlayerPedId())
+            if hp < last then lastHurt = GetGameTimer() end
+            last = hp
+        end
+    end)
+end
+
+---@return boolean hurt whether the player took damage inside the configured window
+local function recentDamage()
+    if COMBAT_BLOCK <= 0 or lastHurt == 0 then return false end
+    return (GetGameTimer() - lastHurt) < (COMBAT_BLOCK * 1000)
+end
+
+---Nearest road node at least minDist away, walking outwards through the closest nodes.
+---@param minDist number metres
+---@return vector3|nil coords
+---@return number|nil heading
+local function findSpawn(minDist)
+    local at = GetEntityCoords(PlayerPedId())
+    for nth = 1, 30 do
+        local ok, pos, head = GetNthClosestVehicleNodeWithHeading(at.x, at.y, at.z, nth, 0, 0, 0)
+        if ok and pos and #(at - pos) >= minDist then return pos, head or 0.0 end
+    end
+    return nil
+end
+
+---Wait for a server-spawned vehicle to stream in locally.
+---@param netId number
+---@return number|nil veh entity handle
+local function awaitEntity(netId)
+    for _ = 1, 100 do
+        if NetworkDoesNetworkIdExist(netId) then
+            local veh = NetToVeh(netId)
+            if veh and veh ~= 0 and DoesEntityExist(veh) then return veh end
+        end
+        Wait(50)
+    end
+    return nil
+end
+
+---Drive the delivered car to the player with a valet at the wheel, blipped on the way. The ped
+---gets out and wanders off on arrival. Runs in its own thread; gives up after 90s.
+---@param veh number vehicle entity
+local function driveToPlayer(veh)
+    CreateThread(function()
+        local model = joaat(VALET_PED)
+        RequestModel(model)
+        for _ = 1, 40 do
+            if HasModelLoaded(model) then break end
+            Wait(50)
+        end
+        if not HasModelLoaded(model) or not DoesEntityExist(veh) then return end
+
+        local ped = CreatePedInsideVehicle(veh, 4, model, -1, true, false)
+        SetModelAsNoLongerNeeded(model)
+        if not DoesEntityExist(ped) then return end
+
+        SetEntityAsMissionEntity(ped, true, true)
+        SetBlockingOfNonTemporaryEvents(ped, true)
+        SetPedKeepTask(ped, true)
+        SetPedAlertness(ped, 0)
+
+        local at = GetEntityCoords(PlayerPedId())
+        TaskVehicleDriveToCoord(ped, veh, at.x, at.y, at.z, 25.0, 0, GetEntityModel(veh), 786603, 3.0, 1)
+
+        local blip = AddBlipForEntity(veh)
+        SetBlipSprite(blip, 225)
+        SetBlipColour(blip, 5)
+        BeginTextCommandSetBlipName('STRING')
+        AddTextComponentSubstringPlayerName('Valet')
+        EndTextCommandSetBlipName(blip)
+
+        local until_ = GetGameTimer() + 90000
+        while DoesEntityExist(ped) and DoesEntityExist(veh) and GetGameTimer() < until_ do
+            if #(GetEntityCoords(ped) - GetEntityCoords(PlayerPedId())) <= 12.0 then break end
+            Wait(1000)
+        end
+
+        if DoesBlipExist(blip) then RemoveBlip(blip) end
+        if DoesEntityExist(ped) then
+            TaskLeaveVehicle(ped, veh, 0)
+            Wait(3000)
+            TaskWanderStandard(ped, 10.0, 10)
+            SetPedAsNoLongerNeeded(ped)
+        end
+    end)
+end
+
+---React -> Lua: request a valet delivery for one of the player's stored vehicles. Picks the drop
+---spot, hands the request to the server, then applies the saved properties, grants keys and either
+---drives the car in or leaves it waiting.
+RegisterNUICallback('sd-phone:garages:valet', function(payload, cb)
+    local plate = type(payload) == 'table' and payload.plate or nil
+    if type(plate) ~= 'string' or plate == '' then
+        return cb({ success = false, message = VALET_ERRORS.notFound })
+    end
+
+    local info = getValetInfo()
+    if not info.enabled then return cb({ success = false, message = VALET_ERRORS.disabled }) end
+
+    local drive = VALET.Drive ~= false
+    local pos, heading = findSpawn(drive and DRIVE_FROM or 3.0)
+    if not pos then return cb({ success = false, message = VALET_ERRORS.noSpace }) end
+
+    local res = lib.callback.await('sd-phone:server:garages:valet', false, {
+        plate        = plate,
+        class        = type(payload) == 'table' and payload.class or nil,
+        spawn        = { x = pos.x, y = pos.y, z = pos.z, h = heading },
+        recentDamage = recentDamage(),
+    })
+
+    if type(res) ~= 'table' or not res.success then
+        local reason  = type(res) == 'table' and res.reason or nil
+        local message = VALET_ERRORS[reason or ''] or VALET_ERRORS.disabled
+        if reason == 'blockedArea' and type(res.detail) == 'string' then
+            message = ('A valet cannot deliver to %s.'):format(res.detail)
+        end
+        notify.show({ description = message, type = 'error' })
+        return cb({ success = false, message = message })
+    end
+
+    local veh = awaitEntity(res.netId)
+    if not veh then
+        notify.show({ description = VALET_ERRORS.noSpace, type = 'error' })
+        return cb({ success = false, message = VALET_ERRORS.noSpace })
+    end
+
+    if type(res.props) == 'table' then pcall(lib.setVehicleProperties, veh, res.props) end
+    SetVehicleNumberPlateText(veh, res.plate)
+    SetVehicleNeedsToBeHotwired(veh, false)
+    SetVehicleEngineOn(veh, true, true, false)
+    SetVehicleDirtLevel(veh, 0.0)
+    vehiclekeys.giveKeys(res.plate, veh)
+
+    if res.drive then
+        driveToPlayer(veh)
+        notify.show({ description = 'Your valet is on the way.', type = 'success' })
+    else
+        SetVehicleDoorsLocked(veh, 1)
+        notify.show({ description = 'Your vehicle is waiting nearby.', type = 'success' })
+    end
+
+    cb({ success = true, drive = res.drive == true })
 end)

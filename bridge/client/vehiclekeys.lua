@@ -112,4 +112,31 @@ function M.setLocked(plate, locked)
     return locked
 end
 
+---Grant the player keys to a vehicle on whichever key resource is running, so a valet delivery
+---hands over a car they can actually drive. No-op when no system is running.
+---@param plate string
+---@param veh number vehicle entity
+function M.giveKeys(plate, veh)
+    local sys = M.active()
+    if not sys or type(plate) ~= 'string' or plate == '' or not DoesEntityExist(veh) then return end
+
+    pcall(function()
+        if sys == 'qbx_vehiclekeys' or sys == 'qb-vehiclekeys' then
+            TriggerEvent('vehiclekeys:client:SetOwner', plate)
+        elseif sys == 'qs-vehiclekeys' then
+            exports['qs-vehiclekeys']:GiveKeys(plate, GetEntityArchetypeName(veh))
+        elseif sys == 'Renewed-Vehiclekeys' then
+            exports['Renewed-Vehiclekeys']:addKey(plate)
+        elseif sys == 'dusa_vehiclekeys' then
+            exports['dusa_vehiclekeys']:AddKey(plate)
+        elseif sys == 'wasabi_carlock' then
+            exports['wasabi_carlock']:GiveKey(plate)
+        elseif sys == 'vehicles_keys' then
+            TriggerServerEvent('vehicles_keys:selfGiveVehicleKeys', plate)
+        elseif sys == 'mk_vehiclekeys' then
+            exports['mk_vehiclekeys']:AddKey(veh)
+        end
+    end)
+end
+
 return M

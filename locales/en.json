@@ -1140,6 +1140,15 @@
     "tapToUnlock": "Tap to unlock",
     "title": "Garages",
     "unlocked": "Unlocked",
+    "valetConfirmAction": "Request",
+    "valetConfirmFree": "Have your {model} delivered to you?",
+    "valetConfirmPaid": "Have your {model} delivered to you for ${price}?",
+    "valetFailed": "The valet could not deliver your vehicle.",
+    "valetPreview": "Valet only works in game.",
+    "valetRequest": "Request valet",
+    "valetRequestPaid": "Request valet · ${price}",
+    "valetRequesting": "Requesting valet...",
+    "valetTitle": "Request valet",
     "vehicleNearby": "Vehicle must be nearby"
   },
   "groups": {
