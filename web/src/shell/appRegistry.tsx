@@ -23,7 +23,7 @@ interface AppEntry {
     render?:    (ctx: AppRenderCtx) => ReactNode;
 }
 
-function entry(load: () => Promise<{ default: ComponentType<AppComponentProps> }>): AppEntry {
+function entry(load: () => Promise<{ default: ComponentType<AppComponentProps>; warm?: () => void }>): AppEntry {
     return { Component: lazy(load), load };
 }
 
@@ -32,7 +32,7 @@ const CameraLazy   = lazy(() => import('@/apps/camera/Camera').then(m => ({ defa
 
 const APP_REGISTRY = {
     photos:      entry(() => import('@/apps/photos/Photos').then(m => ({ default: m.Photos }))),
-    bank:        entry(() => import('@/apps/banking/Banking').then(m => ({ default: m.Banking }))),
+    bank:        entry(() => import('@/apps/banking/Banking').then(m => ({ default: m.Banking, warm: m.warmBanking }))),
     settings:    entry(() => import('@/apps/settings/Settings').then(m => ({ default: m.Settings }))),
     clock:       entry(() => import('@/apps/clock/Clock').then(m => ({ default: m.Clock }))),
     messages:    entry(() => import('@/apps/messages/Messages').then(m => ({ default: m.Messages }))),
@@ -153,21 +153,37 @@ export function preloadApp(id: AppId): Promise<void> {
     if (isAppLoaded(id)) return Promise.resolve();
     const e = getAppEntry(id);
     return e.load().then(m => {
-        const mod = m as { default?: ComponentType<AppComponentProps> } | undefined;
+        const mod = m as { default?: ComponentType<AppComponentProps>; warm?: () => void } | undefined;
         if (mod?.default) e.Resolved = mod.default;
         loadedApps.add(id);
+        if (typeof mod?.warm === 'function') mod.warm();
     }, () => { loadedApps.add(id); });
+}
+
+let preloadPaused = false;
+let preloadBusy   = false;
+let preloadResume: (() => void) | null = null;
+
+export function setPreloadPaused(paused: boolean): void {
+    if (preloadPaused === paused) return;
+    preloadPaused = paused;
+    if (!paused) preloadResume?.();
 }
 
 export function preloadAllApps(): void {
     const queue = APP_IDS.slice();
-    const pump = () => {
-        const id = queue.shift();
-        if (!id) return;
-        void preloadApp(id).finally(() => {
-            if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(pump, { timeout: 2000 });
-            else window.setTimeout(pump, 150);
-        });
+    const schedule = () => {
+        if (preloadPaused || preloadBusy) return;
+        if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(() => pump(), { timeout: 200 });
+        else window.setTimeout(pump, 100);
     };
-    pump();
+    const pump = () => {
+        if (preloadPaused || preloadBusy) return;
+        const id = queue.shift();
+        if (!id) { preloadResume = null; return; }
+        preloadBusy = true;
+        void preloadApp(id).finally(() => { preloadBusy = false; schedule(); });
+    };
+    preloadResume = schedule;
+    schedule();
 }

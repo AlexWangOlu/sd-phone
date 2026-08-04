@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState  } from 'react';
 
 import { device } from '@device';
 import { AdminPanel } from '@/admin/AdminPanel';
@@ -10,7 +10,7 @@ import { SignRequestLayer, type SignRequestData } from '@/apps/documents/SignReq
 import { ControlCenter, ControlCenterHotzone } from '@/shell/ControlCenter';
 import { MusicProvider, useMusic } from '@/apps/music/MusicContext';
 import { ryDevDataHidden, ryDevToggleData } from '@/apps/ryde/data';
-import { asAppId, isAppLoaded, isPreviewApp, preloadAllApps, preloadApp, type AppId } from '@/shell/appRegistry';
+import { asAppId, isPreviewApp, preloadAllApps, preloadApp, setPreloadPaused, type AppId } from '@/shell/appRegistry';
 import { AppSwitcher } from '@/shell/AppSwitcher';
 import { AppDeck, FullscreenStage, type DeckAppCtx } from '@/shell/AppDeck';
 import { Homescreen }  from '@/shell/Homescreen';
@@ -502,20 +502,17 @@ function AppContent() {
     // its foreground key (replays the open animation on the retained instance) and,
     // if it is preview-eligible, promotes it into the retained keep-alive deck.
     const foreground = useCallback((id: AppId, origin: { x: number; y: number }, expand = false) => {
-        const show = () => {
-            setIsClosing(false);
-            setLaunchOrigin(origin);
-            setLaunchExpand(expand);
-            setCurrentApp(id);
-            setForegroundKeys(m => ({ ...m, [id]: (m[id] ?? 0) + 1 }));
-            setRecentApps(prev => [id, ...prev.filter(x => x !== id)].slice(0, RECENTS_CAP));
-            if (isPreviewApp(id)) {
-                setRetained(prev => [id, ...prev.filter(x => x !== id)].slice(0, RETAIN_CAP));
-            }
-            useBadgeStore.getState().clear(id);
-        };
-        if (isAppLoaded(id)) show();
-        else void preloadApp(id).then(show);
+        void preloadApp(id);
+        setIsClosing(false);
+        setLaunchOrigin(origin);
+        setLaunchExpand(expand);
+        setCurrentApp(id);
+        setForegroundKeys(m => ({ ...m, [id]: (m[id] ?? 0) + 1 }));
+        setRecentApps(prev => [id, ...prev.filter(x => x !== id)].slice(0, RECENTS_CAP));
+        if (isPreviewApp(id)) {
+            setRetained(prev => [id, ...prev.filter(x => x !== id)].slice(0, RETAIN_CAP));
+        }
+        useBadgeStore.getState().clear(id);
     }, []);
 
     // Reset the live deck: retained instances unmount, so their effects/subscriptions
@@ -1121,6 +1118,12 @@ function AppContent() {
         const t = window.setTimeout(preloadAllApps, 1500);
         return () => window.clearTimeout(t);
     }, [view]);
+
+    useEffect(() => {
+        setPreloadPaused(true);
+        const t = window.setTimeout(() => setPreloadPaused(false), 600);
+        return () => window.clearTimeout(t);
+    }, [currentApp]);
 
     useEffect(() => {
         if (isFiveM) return;
