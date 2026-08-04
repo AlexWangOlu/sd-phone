@@ -12,6 +12,7 @@ import { MusicProvider, useMusic } from '@/apps/music/MusicContext';
 import { ryDevDataHidden, ryDevToggleData } from '@/apps/ryde/data';
 import { asAppId, isPreviewApp, preloadAllApps, preloadApp, setPreloadPaused, type AppId } from '@/shell/appRegistry';
 import { AppSwitcher } from '@/shell/AppSwitcher';
+import { HOME_HOLD_MS, HOME_HOLD_SLOP, holdAction, swipeAction, tapAction, type HomeAction } from '@/shell/homeGesture';
 import { AppDeck, FullscreenStage, type DeckAppCtx } from '@/shell/AppDeck';
 import { Homescreen }  from '@/shell/Homescreen';
 import { useBadgeStore } from '@/stores/badgeStore';
@@ -1480,6 +1481,7 @@ function AppContent() {
                                 : undefined
                         }
                         closing={isClosing}
+                        passive={!locked && !showSetup}
                     />
                 )}
 
@@ -1561,36 +1563,57 @@ interface SwipeHomeZoneProps {
 }
 
 function SwipeHomeZone({ hasOpenApp, onGoHome, onShowSwitcher }: SwipeHomeZoneProps) {
-    const startY = useRef(0);
-    const startT = useRef(0);
-    const fired  = useRef(false);
+    const startY    = useRef(0);
+    const fired     = useRef(false);
+    const holdTimer = useRef<number | null>(null);
+
+    const clearHold = useCallback(() => {
+        if (holdTimer.current) {
+            window.clearTimeout(holdTimer.current);
+            holdTimer.current = null;
+        }
+    }, []);
+    useEffect(() => clearHold, [clearHold]);
+
+    const run = useCallback((action: HomeAction) => {
+        if (action === 'switcher' && onShowSwitcher) onShowSwitcher();
+        else if (action !== 'none') onGoHome();
+    }, [onGoHome, onShowSwitcher]);
 
     return (
         <div
-            className="absolute inset-x-0 bottom-0 z-50"
+            className="peer absolute inset-x-0 bottom-0 z-50"
             style={{ height: 44, touchAction: 'none' }}
             onPointerDown={e => {
                 startY.current = e.clientY;
-                startT.current = Date.now();
                 fired.current  = false;
                 (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-            }}
-            onPointerMove={e => {
-                if (fired.current) return;
-                const dy = startY.current - e.clientY;
-                if (dy < 55) return;
-
-                fired.current = true;
-                const elapsed = Date.now() - startT.current;
-
-                if (hasOpenApp && elapsed < 200) {
-                    onGoHome();
-                } else if (onShowSwitcher) {
-                    onShowSwitcher();
-                } else {
-                    onGoHome();
+                clearHold();
+                if (holdAction(hasOpenApp, !!onShowSwitcher) === 'switcher') {
+                    holdTimer.current = window.setTimeout(() => {
+                        holdTimer.current = null;
+                        fired.current     = true;
+                        run('switcher');
+                    }, HOME_HOLD_MS);
                 }
             }}
+            onPointerMove={e => {
+                const dy = startY.current - e.clientY;
+                if (Math.abs(dy) > HOME_HOLD_SLOP) clearHold();
+                if (fired.current) return;
+
+                const action = swipeAction(dy, hasOpenApp, !!onShowSwitcher);
+                if (action === 'none') return;
+                fired.current = true;
+                run(action);
+            }}
+            onPointerUp={() => {
+                clearHold();
+                if (fired.current) return;
+                fired.current = true;
+                run(tapAction(hasOpenApp));
+            }}
+            onPointerCancel={() => { clearHold(); fired.current = true; }}
         />
     );
 }
