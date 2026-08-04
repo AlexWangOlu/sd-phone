@@ -16,6 +16,8 @@ import { HOME_HOLD_MS, HOME_HOLD_SLOP, holdAction, swipeAction, tapAction, type 
 import { AppDeck, FullscreenStage, type DeckAppCtx } from '@/shell/AppDeck';
 import { Homescreen }  from '@/shell/Homescreen';
 import { useBadgeStore } from '@/stores/badgeStore';
+import { DEFAULT_PREF, prefFor, useNotifPrefsStore } from '@/stores/notifPrefsStore';
+import { useInstalledAppsStore } from '@/stores/installedAppsStore';
 import { useBatteryStore } from '@/stores/batteryStore';
 import { useWidgetData } from '@/stores/widgetDataStore';
 import { useSessionStore } from '@/stores/sessionStore';
@@ -174,6 +176,7 @@ function AppContent() {
     const { theme, darkTheme, wallpaperLock, wallpaperHome, setTheme, setWallpaper, statusLightOverride, statusBarAutoLight, hideHomeIndicator, airplaneMode, hour24, setHour24, setSecurity } = useTheme('theme', 'darkTheme', 'wallpaperLock', 'wallpaperHome', 'setTheme', 'setWallpaper', 'statusLightOverride', 'statusBarAutoLight', 'hideHomeIndicator', 'airplaneMode', 'hour24', 'setHour24', 'setSecurity');
     const locale = useLocaleStore(s => s.locale);
     useEffect(() => { useLocaleStore.getState().hydrate(); }, []);
+    useEffect(() => { void useNotifPrefsStore.getState().hydrate(); }, []);
 
     const customApps = useCustomApps();
     const customDefs = useMemo(() => customApps.map(customToAppDef), [customApps]);
@@ -226,6 +229,17 @@ function AppContent() {
     const [appsReady,       setAppsReady]       = useState(!isFiveM);
     const [frameColor,      setFrameColor]      = useState<string>(DEFAULT_FRAME_COLOR);
     const downloadingIds = useDownloadingIds();
+
+    // Settings reads the installed set through a store rather than a prop: apps mount through a
+    // shared context that only carries onClose, so threading one down would mean special-casing.
+    useEffect(() => {
+        const all = [...(view?.apps ?? []), ...customDefs.filter(c => !(view?.apps ?? []).some(a => a.id === c.id))];
+        useInstalledAppsStore.getState().setApps(
+            all.filter(a => !device.excludedApps.includes(a.id)
+                && (a.base || installedApps.has(a.id) || downloadingIds.includes(a.id))),
+        );
+    }, [view, customDefs, installedApps, downloadingIds]);
+
     const downloadQueue = useRef<string[]>([]);
     const downloadTimer = useRef<number | undefined>(undefined);
 
@@ -311,6 +325,8 @@ function AppContent() {
         useThemeStore.getState().resetProfileVisuals();
         useThemeStore.getState().hydrate();
         useLocaleStore.getState().hydrate();
+        useNotifPrefsStore.getState().reset();
+        void useNotifPrefsStore.getState().hydrate();
         resetContacts();
         setNotifs([]);
         setLockNotifs([]);
@@ -371,6 +387,7 @@ function AppContent() {
     useNuiEvent('sd-phone:client:characterLoaded', useCallback(() => {
         useThemeStore.getState().hydrate();
         useLocaleStore.getState().hydrate();
+        void useNotifPrefsStore.getState().hydrate();
     }, []));
 
     useNuiEvent('sd-phone:open', useCallback((data) => {
@@ -853,6 +870,8 @@ function AppContent() {
     useNuiEvent('sd-phone:notification', useCallback((data) => {
         const target = data.appId ?? data.app;
         if (data.quietInApp && target && target === currentAppRef.current) return;
+        const pref = target ? prefFor(target) : DEFAULT_PREF;
+        if (!pref.enabled) return;
         const item: NotificationItem = {
             ...data,
             id: data.id ?? `n-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -867,8 +886,13 @@ function AppContent() {
             if (peekTimer.current) window.clearTimeout(peekTimer.current);
             peekTimer.current = window.setTimeout(() => { if (!callOngoingRef.current) setPeek('out'); }, 4200);
         }
-        const tones = useThemeStore.getState();
-        playOnce(resolveTone('notification', tones.notificationTone, tones.customNotificationTones).url, tones.ringtoneVol / 100);
+        if (pref.sounds) {
+            const tones = useThemeStore.getState();
+            playOnce(
+                resolveTone('notification', pref.tone ?? tones.notificationTone, tones.customNotificationTones).url,
+                tones.ringtoneVol / 100,
+            );
+        }
         // A pocket buzz belongs to the OTHER phone: transient banner + tone above, and the
         // item parks on THAT phone's banked lockscreen stack for its next open - never this
         // phone's live stack or badges.
