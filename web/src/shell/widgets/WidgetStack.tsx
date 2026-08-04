@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode, WheelEvent as ReactWheelEvent } from 'react';
+import type { CSSProperties, ReactNode, WheelEvent as ReactWheelEvent } from 'react';
 
 import type { WidgetCard } from '@/apps/appstore/appsApi';
-
-const SWIPE_PX = 18;
 
 // One notch per card. A trackpad emits a burst of small deltas for a single flick, so without a
 // gate a stack of three would run to the end on one gesture. Matches AppSwitcher's wheel step.
@@ -19,15 +17,11 @@ export function WidgetStack({ cards, active, onActive, height, editing, render }
     editing:  boolean;
     render:   (card: WidgetCard, index: number) => ReactNode;
 }) {
-    const start = useRef<{ y: number; at: number } | null>(null);
     const lastWheel = useRef(0);
-    const [drag, setDrag] = useState(0);
     const [leaving, setLeaving] = useState<{ at: number; dir: number } | null>(null);
     const shown = useRef(active);
     const count = cards.length;
     const index = Math.min(Math.max(active, 0), count - 1);
-
-    useEffect(() => { setDrag(0); }, [index]);
 
     useEffect(() => {
         const from = shown.current;
@@ -55,43 +49,13 @@ export function WidgetStack({ cards, active, onActive, height, editing, render }
         step(e.deltaY > 0 ? 1 : -1);
     }
 
-    function onDown(e: ReactPointerEvent) {
-        if (editing) return;
-        start.current = { y: e.clientY, at: Date.now() };
-    }
-
-    function onMove(e: ReactPointerEvent) {
-        const s = start.current;
-        if (!s) return;
-        const dy = e.clientY - s.y;
-        const room = (dy < 0 && index === count - 1) || (dy > 0 && index === 0);
-        setDrag(room ? dy * 0.25 : dy);
-    }
-
-    function onUp() {
-        const s = start.current;
-        start.current = null;
-        if (!s) return;
-        if (Math.abs(drag) >= SWIPE_PX) step(drag < 0 ? 1 : -1);
-        setDrag(0);
-    }
-
     return (
         <div
             className="relative overflow-hidden"
-            style={{ height, touchAction: 'none' }}
+            style={{ height }}
             onWheel={onWheel}
-            onPointerDown={onDown}
-            onPointerMove={onMove}
-            onPointerUp={onUp}
-            onPointerCancel={onUp}
         >
-            <div
-                style={{
-                    transform: `translateY(${drag}px)`,
-                    transition: start.current ? 'none' : 'transform 0.26s cubic-bezier(0.32,0.72,0,1)',
-                }}
-            >
+            <div>
                 {leaving && cards[leaving.at] && (
                     <div
                         aria-hidden
