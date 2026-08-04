@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import type { ReactNode } from 'react';
 
 import { t } from '@/i18n';
+import { fetchNui, isFiveM } from '@/core/nui';
 import { useStatusBarLight } from '@/shell/useStatusBarLight';
 import { useDeckActive } from '@/shell/deckActive';
 import { useRefreshOnReconnect } from '@/hooks/useRefreshOnReconnect';
@@ -65,6 +66,14 @@ export function Photogram({ onClose: _onClose }: { onClose: () => void }) {
     const [detail,     setDetail]     = useSessionState<Post | null>('photogram:detail', null);
     const [follows,    setFollows]    = useSessionState<{ handle: string; kind: 'followers' | 'following' } | null>('photogram:follows', null);
     const [storyMenu,  setStoryMenu]  = useState(false);
+    const [liveEnabled, setLiveEnabled] = useState(!isFiveM);
+
+    useEffect(() => {
+        if (!isFiveM) return;
+        void fetchNui<{ enabled?: boolean }>('sd-phone:photogram:liveEnabled')
+            .then(r => setLiveEnabled(r?.enabled === true))
+            .catch(() => setLiveEnabled(false));
+    }, []);
     const [storyPick,  setStoryPick]  = useState(false);
     const [sharePost,  setSharePost]  = useState<Post | null>(null);
     const [pendingDelete, setPendingDelete] = useState<Post | null>(null);
@@ -326,7 +335,9 @@ export function Photogram({ onClose: _onClose }: { onClose: () => void }) {
                 <ActionSheet
                     actions={[
                         { label: t('photogram.createStoryAction', 'Create story'), onClick: () => setStoryPick(true) },
-                        { label: t('photogram.goLiveAction', 'Go live'),           onClick: () => setLiveConfirm(true) },
+                        ...(liveEnabled
+                            ? [{ label: t('photogram.goLiveAction', 'Go live'), onClick: () => setLiveConfirm(true) }]
+                            : []),
                     ]}
                     onClose={() => setStoryMenu(false)}
                 />
