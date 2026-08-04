@@ -175,8 +175,6 @@ RegisterNUICallback('sd-phone:garages:mileage', function(payload, cb)
     cb({ success = true, mileage = math.floor(val), unit = unit })
 end)
 
--- Valet delivery. The server owns every decision that matters (ownership, funds, cooldown, where
--- the car may be delivered); this side only finds a road spot, then plays out the arrival.
 ---@type table Valet settings from configs.garages.
 local VALET        = type(GARAGES_CFG.Valet) == 'table' and GARAGES_CFG.Valet or {}
 ---@type number Seconds after taking damage that valet stays blocked (0 disables).
@@ -198,7 +196,9 @@ local VALET_ERRORS = {
     combat        = 'Too dangerous to call a valet right now.',
     blockedArea   = 'A valet cannot deliver here.',
     funds         = 'You cannot afford the valet fee.',
-    noSpace       = 'No safe place nearby to drop the vehicle off.',
+    noSpace       = 'No road nearby. Move somewhere a vehicle can reach you.',
+    spawnFailed   = 'The vehicle could not be placed. Try again.',
+    streamFailed  = 'The vehicle did not arrive. Try again.',
     takeOutFailed = 'The garage would not release the vehicle.',
 }
 
@@ -223,17 +223,105 @@ local function recentDamage()
     return (GetGameTimer() - lastHurt) < (COMBAT_BLOCK * 1000)
 end
 
----Nearest road node at least minDist away, walking outwards through the closest nodes.
----@param minDist number metres
+---@type number[] Bearings probed around the player when looking for a spot to deliver from.
+local PROBE_ANGLES = { 0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330 }
+---@type integer Nodes taken per probe, so one carriageway of a divided road isn't the only option.
+local PROBE_DEPTH = 3
+---@type integer Milliseconds spent looking for a drop spot before giving up.
+local SPAWN_SEARCH_MS = 5000
+---@type number Metres below which a driven delivery isn't worth staging, so the car is left parked.
+local DRIVE_MIN = 20.0
+---@type number Height difference that marks a node as being on another road level entirely.
+local LEVEL_TOLERANCE = 8.0
+---@type number Degrees a node's road may face away from the player before a drive is a detour.
+local FACING_TOLERANCE = 75.0
+---@type number Score penalty per degree the road faces away from the player.
+local MISALIGN_COST = 1.5
+---@type number Score penalty for a node on a different road level (a freeway over or under).
+local LEVEL_COST = 500.0
+
+---Heading, in the game's convention (0 = north, rising anticlockwise), pointing from one point at
+---another.
+---@param from vector3
+---@param to vector3
+---@return number heading degrees
+local function bearingTo(from, to)
+    return math.deg(math.atan(-(to.x - from.x), to.y - from.y)) % 360
+end
+
+---Smallest angle between two headings.
+---@param a number degrees
+---@param b number degrees
+---@return number delta 0-180
+local function headingDelta(a, b)
+    return math.abs(((a - b + 180) % 360) - 180)
+end
+
+---A road node to deliver from, picked by probing a ring at minDist and scoring each candidate on
+---distance from that ring, how far its road faces away from the player, and its road level.
+---@param minDist number metres the delivery would like to start from
 ---@return vector3|nil coords
----@return number|nil heading
+---@return number heading
+---@return number dist metres from the player (0 when nothing was found)
+---@return boolean facing whether the chosen road actually points at the player
 local function findSpawn(minDist)
     local at = GetEntityCoords(PlayerPedId())
-    for nth = 1, 30 do
-        local ok, pos, head = GetNthClosestVehicleNodeWithHeading(at.x, at.y, at.z, nth, 0, 0, 0)
-        if ok and pos and #(at - pos) >= minDist then return pos, head or 0.0 end
+
+    local bestPos, bestHead, bestDist, bestMiss, bestScore
+
+    ---Weigh one candidate node against the best so far.
+    ---@param pos vector3
+    ---@param head number the road's heading at that node
+    local function consider(pos, head)
+        local d       = #(at - pos)
+        local miss    = headingDelta(head, bearingTo(pos, at))
+        local score   = math.abs(d - minDist) + miss * MISALIGN_COST
+        if math.abs(pos.z - at.z) > LEVEL_TOLERANCE then score = score + LEVEL_COST end
+        if not bestScore or score < bestScore then
+            bestPos, bestHead, bestDist, bestMiss, bestScore = pos, head, d, miss, score
+        end
     end
-    return nil
+
+    for i = 1, #PROBE_ANGLES do
+        local rad = math.rad(PROBE_ANGLES[i])
+        local px, py = at.x + math.cos(rad) * minDist, at.y + math.sin(rad) * minDist
+        for nth = 1, PROBE_DEPTH do
+            local ok, pos, head = GetNthClosestVehicleNodeWithHeading(px, py, at.z, nth, 0, 0, 0)
+            if not ok or not pos then break end
+            consider(pos, head or 0.0)
+        end
+    end
+
+    if not bestPos then
+        local ok, pos, head = GetNthClosestVehicleNodeWithHeading(at.x, at.y, at.z, 1, 0, 0, 0)
+        if ok and pos then consider(pos, head or 0.0) end
+    end
+    if not bestPos then return nil, 0.0, 0.0, false end
+
+    return bestPos, bestHead, bestDist, bestMiss <= FACING_TOLERANCE
+end
+
+---Retry findSpawn for up to SPAWN_SEARCH_MS, returning early on a facing spot at drive distance
+---and settling for the best seen otherwise. Nil only when no road was reachable at all.
+---@param minDist number metres
+---@return vector3|nil coords
+---@return number heading
+---@return number dist metres from the player
+---@return boolean facing whether the chosen road points at the player
+local function awaitSpawn(minDist)
+    local pos, head, dist, facing = findSpawn(minDist)
+    if pos and facing and dist >= DRIVE_MIN then return pos, head, dist, facing end
+
+    local deadline = GetGameTimer() + SPAWN_SEARCH_MS
+    while GetGameTimer() < deadline do
+        Wait(250)
+        local p, h, d, f = findSpawn(minDist)
+        if p and ((f and not facing) or (f == facing and d > dist)) then
+            pos, head, dist, facing = p, h, d, f
+        end
+        if pos and facing and dist >= DRIVE_MIN then break end
+    end
+    return pos, head, dist, facing
 end
 
 ---Wait for a server-spawned vehicle to stream in locally.
@@ -250,8 +338,19 @@ local function awaitEntity(netId)
     return nil
 end
 
----Drive the delivered car to the player with a valet at the wheel, blipped on the way. The ped
----gets out and wanders off on arrival. Runs in its own thread; gives up after 90s.
+---@type integer Milliseconds a valet gets to complete a delivery.
+local DRIVE_TIMEOUT_MS = 120000
+---@type integer Milliseconds without progress before the valet is treated as stuck.
+local DRIVE_STALL_MS = 25000
+---@type number Metres from the player that counts as delivered.
+local ARRIVE_DIST = 12.0
+---@type number Metres the player must move before the valet is re-pointed at them.
+local RETASK_DIST = 25.0
+---@type number Metres of closing needed to count as progress rather than a stall.
+local PROGRESS_STEP = 5.0
+
+---Drive the delivered car to the player with a valet at the wheel, blipped and re-pointed as they
+---move. The ped leaves on arrival; a stall or timeout keeps the blip on the abandoned car.
 ---@param veh number vehicle entity
 local function driveToPlayer(veh)
     CreateThread(function()
@@ -272,8 +371,14 @@ local function driveToPlayer(veh)
         SetPedKeepTask(ped, true)
         SetPedAlertness(ped, 0)
 
-        local at = GetEntityCoords(PlayerPedId())
-        TaskVehicleDriveToCoord(ped, veh, at.x, at.y, at.z, 25.0, 0, GetEntityModel(veh), 786603, 3.0, 1)
+        ---Point the valet at a spot, at the speed and drive style used throughout.
+        ---@param to vector3
+        local function driveTo(to)
+            TaskVehicleDriveToCoord(ped, veh, to.x, to.y, to.z, 25.0, 0, GetEntityModel(veh), 786603, 3.0, 1)
+        end
+
+        local target = GetEntityCoords(PlayerPedId())
+        driveTo(target)
 
         local blip = AddBlipForEntity(veh)
         SetBlipSprite(blip, 225)
@@ -282,37 +387,69 @@ local function driveToPlayer(veh)
         AddTextComponentSubstringPlayerName('Valet')
         EndTextCommandSetBlipName(blip)
 
-        local until_ = GetGameTimer() + 90000
-        while DoesEntityExist(ped) and DoesEntityExist(veh) and GetGameTimer() < until_ do
-            if #(GetEntityCoords(ped) - GetEntityCoords(PlayerPedId())) <= 12.0 then break end
+        local deadline  = GetGameTimer() + DRIVE_TIMEOUT_MS
+        local closest   = math.huge
+        local progressed = GetGameTimer()
+        local arrived   = false
+
+        while DoesEntityExist(ped) and DoesEntityExist(veh) and GetGameTimer() < deadline do
+            local player = GetEntityCoords(PlayerPedId())
+            local gap    = #(GetEntityCoords(veh) - player)
+            if gap <= ARRIVE_DIST then arrived = true break end
+
+            if gap < closest - PROGRESS_STEP then
+                closest, progressed = gap, GetGameTimer()
+            elseif (GetGameTimer() - progressed) > DRIVE_STALL_MS then
+                break
+            end
+
+            if #(player - target) > RETASK_DIST then
+                target = player
+                driveTo(target)
+            end
+
             Wait(1000)
         end
 
-        if DoesBlipExist(blip) then RemoveBlip(blip) end
         if DoesEntityExist(ped) then
             TaskLeaveVehicle(ped, veh, 0)
             Wait(3000)
             TaskWanderStandard(ped, 10.0, 10)
             SetPedAsNoLongerNeeded(ped)
         end
+
+        if arrived then
+            if DoesBlipExist(blip) then RemoveBlip(blip) end
+        else
+            notify.show({
+                description = 'Your valet got stuck. Your vehicle is marked on your map.',
+                type = 'error',
+            })
+        end
     end)
 end
 
 ---React -> Lua: request a valet delivery for one of the player's stored vehicles. Picks the drop
----spot, hands the request to the server, then applies the saved properties, grants keys and either
----drives the car in or leaves it waiting.
+---spot, then applies the saved properties, grants keys and drives the car in or leaves it waiting.
 RegisterNUICallback('sd-phone:garages:valet', function(payload, cb)
     local plate = type(payload) == 'table' and payload.plate or nil
     if type(plate) ~= 'string' or plate == '' then
-        return cb({ success = false, message = VALET_ERRORS.notFound })
+        notify.show({ description = VALET_ERRORS.notFound, type = 'error' })
+        return cb({ success = false })
     end
 
     local info = getValetInfo()
-    if not info.enabled then return cb({ success = false, message = VALET_ERRORS.disabled }) end
+    if not info.enabled then
+        notify.show({ description = VALET_ERRORS.disabled, type = 'error' })
+        return cb({ success = false })
+    end
 
     local drive = VALET.Drive ~= false
-    local pos, heading = findSpawn(drive and DRIVE_FROM or 3.0)
-    if not pos then return cb({ success = false, message = VALET_ERRORS.noSpace }) end
+    local pos, heading, dist, facing = awaitSpawn(drive and DRIVE_FROM or 3.0)
+    if not pos then
+        notify.show({ description = VALET_ERRORS.noSpace, type = 'error' })
+        return cb({ success = false })
+    end
 
     local res = lib.callback.await('sd-phone:server:garages:valet', false, {
         plate        = plate,
@@ -328,13 +465,13 @@ RegisterNUICallback('sd-phone:garages:valet', function(payload, cb)
             message = ('A valet cannot deliver to %s.'):format(res.detail)
         end
         notify.show({ description = message, type = 'error' })
-        return cb({ success = false, message = message })
+        return cb({ success = false })
     end
 
     local veh = awaitEntity(res.netId)
     if not veh then
-        notify.show({ description = VALET_ERRORS.noSpace, type = 'error' })
-        return cb({ success = false, message = VALET_ERRORS.noSpace })
+        notify.show({ description = VALET_ERRORS.streamFailed, type = 'error' })
+        return cb({ success = false })
     end
 
     if type(res.props) == 'table' then pcall(lib.setVehicleProperties, veh, res.props) end
@@ -344,7 +481,8 @@ RegisterNUICallback('sd-phone:garages:valet', function(payload, cb)
     SetVehicleDirtLevel(veh, 0.0)
     vehiclekeys.giveKeys(res.plate, veh)
 
-    if res.drive then
+    local driving = res.drive and dist >= DRIVE_MIN and facing
+    if driving then
         driveToPlayer(veh)
         notify.show({ description = 'Your valet is on the way.', type = 'success' })
     else
@@ -352,5 +490,5 @@ RegisterNUICallback('sd-phone:garages:valet', function(payload, cb)
         notify.show({ description = 'Your vehicle is waiting nearby.', type = 'success' })
     end
 
-    cb({ success = true, drive = res.drive == true })
+    cb({ success = true, drive = driving })
 end)

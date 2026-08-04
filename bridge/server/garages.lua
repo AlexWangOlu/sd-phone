@@ -23,9 +23,8 @@ local BASE = framework.name == 'esx'
 -- Profile fields: garage/state columns are tried in order, first present wins; `stored`/`impound`
 -- are the state values meaning parked / impounded; `impoundCol` names a separate truthy flag;
 -- storedFallback=false opts out of statusOf's generic 1-means-stored fallback. `outState` is the
--- state value a valet writes to mean "out"; `outGarage` is set only for systems that mark a car out
--- in the GARAGE column instead - the rest keep the garage name there to know where it returns to.
--- Storage per system:
+-- state value written to mean "out"; `outGarage` is set only on systems that mark out in the
+-- GARAGE column. Storage per system:
 --   qb-garages / qbx_garages / jg-advancedgarages : player_vehicles
 --       garage=`garage`, state=`state` (0 out / 1 stored / 2 impound),
 --       fuel=`fuel` (0-100), engine/body=`engine`/`body` (0-1000), props=`mods`
@@ -546,8 +545,8 @@ local function pickName(row, names)
     return nil
 end
 
----One of the caller's own vehicles by plate, with the same status the app list shows. Ownership is
----resolved from the caller's identifier, never from anything the client sent.
+---One of the caller's own vehicles by plate, with the same status the app list shows. Ownership
+---resolves from the caller's identifier.
 ---@param source number caller server id
 ---@param plate string
 ---@return table|nil vehicle { row, status, model, props, plate }
@@ -580,11 +579,8 @@ function garages.vehicleFor(source, plate)
     return nil
 end
 
--- The one write in this bridge. Everything else reads. Only ever called once the valet's vehicle
--- entity already exists, so a failed delivery can never leave a car marked out of its garage.
----Mark one of the caller's vehicles as out of its garage. Flips the profile's state column to its
----`outState`, and the garage column too on the systems that mark out there (`outGarage`), so the
----rest keep the garage name that tells them where the car returns to.
+---Mark one of the caller's vehicles as out of its garage: the profile's state column to its
+---`outState`, plus the garage column on systems carrying `outGarage`. The one write in this bridge.
 ---@param source number caller server id
 ---@param plate string
 ---@param netId number|nil network id of the spawned entity, for systems that track it
@@ -615,7 +611,6 @@ function garages.takeOut(source, plate, netId)
     end)
     if not ok or (tonumber(affected) or 0) < 1 then return false end
 
-    -- Systems that keep their own record of what's out need telling; the DB alone won't reach them.
     if netId then
         pcall(function()
             if ACTIVE == 'jg-advancedgarages' then

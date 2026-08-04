@@ -112,8 +112,7 @@ function M.setLocked(plate, locked)
     return locked
 end
 
----Grant the player keys to a vehicle on whichever key resource is running, so a valet delivery
----hands over a car they can actually drive. No-op when no system is running.
+---Grant the player keys to a vehicle on whichever key resource is running. No-op when none is.
 ---@param plate string
 ---@param veh number vehicle entity
 function M.giveKeys(plate, veh)

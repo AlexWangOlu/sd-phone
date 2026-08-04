@@ -258,30 +258,15 @@ function VehicleDetail({ v, showImages, valet, onBack, onDelivered, animateIn = 
     const canValet = valet.enabled && v.status === 'stored';
     const [confirming, setConfirming] = useState(false);
     const [valetBusy, setValetBusy] = useState(false);
-    const [valetError, setValetError] = useState<string | null>(null);
-    const errTimer = useRef<number | null>(null);
-    useEffect(() => () => { if (errTimer.current) window.clearTimeout(errTimer.current); }, []);
-
-    function showValetError(message: string) {
-        setValetError(message);
-        if (errTimer.current) window.clearTimeout(errTimer.current);
-        errTimer.current = window.setTimeout(() => setValetError(null), 4000);
-    }
 
     async function requestValet() {
-        if (valetBusy) return;
-        if (!isFiveM) {
-            showValetError(t('garages.valetPreview', 'Valet only works in game.'));
-            return;
-        }
+        if (valetBusy || !isFiveM) return;
         setValetBusy(true);
         const r = await fetchNui<Envelope<void>>('sd-phone:garages:valet', { plate: v.plate, class: v.class });
         setValetBusy(false);
         if (r?.success) {
             onDelivered();
             goBack();
-        } else {
-            showValetError(r?.message ?? t('garages.valetFailed', 'The valet could not deliver your vehicle.'));
         }
     }
 
@@ -330,24 +315,19 @@ function VehicleDetail({ v, showImages, valet, onBack, onDelivered, animateIn = 
                 </div>
 
                 {canValet && (
-                    <>
-                        <button
-                            type="button"
-                            onClick={() => setConfirming(true)}
-                            disabled={valetBusy}
-                            className="mt-5 flex h-[48px] w-full items-center justify-center gap-2 rounded-[14px] bg-ios-blue text-[17px] font-semibold text-white transition-opacity active:opacity-70 disabled:opacity-50"
-                        >
-                            <ConciergeBell className="h-[19px] w-[19px]" strokeWidth={2.3} />
-                            {valetBusy
-                                ? t('garages.valetRequesting', 'Requesting valet...')
-                                : valet.price > 0
-                                    ? t('garages.valetRequestPaid', 'Request valet · ${price}', { price: valet.price.toLocaleString() })
-                                    : t('garages.valetRequest', 'Request valet')}
-                        </button>
-                        {valetError && (
-                            <p className="mt-2 text-center text-[13px] font-medium text-ios-red">{valetError}</p>
-                        )}
-                    </>
+                    <button
+                        type="button"
+                        onClick={() => setConfirming(true)}
+                        disabled={valetBusy}
+                        className="mt-5 flex h-[48px] w-full items-center justify-center gap-2 rounded-[14px] bg-ios-blue text-[17px] font-semibold text-white transition-opacity active:opacity-70 disabled:opacity-50"
+                    >
+                        <ConciergeBell className="h-[19px] w-[19px]" strokeWidth={2.3} />
+                        {valetBusy
+                            ? t('garages.valetRequesting', 'Requesting valet...')
+                            : valet.price > 0
+                                ? t('garages.valetRequestPaid', 'Request valet · ${price}', { price: valet.price.toLocaleString() })
+                                : t('garages.valetRequest', 'Request valet')}
+                    </button>
                 )}
 
                 <SectionLabel>{t('garages.condition', 'Condition')}</SectionLabel>

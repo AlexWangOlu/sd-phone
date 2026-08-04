@@ -73,8 +73,8 @@ local function blockedZone(src)
     return nil
 end
 
----Refusal reason for a valet request, or nil when it may proceed. Everything here is checked
----against server state except `recentDamage`, which only the requesting client can know.
+---Refusal reason for a valet request, or nil when it may proceed. All server-checked except
+---`recentDamage`, which is client-reported.
 ---@param src number
 ---@param cid string|nil caller citizenid
 ---@param veh table|nil vehicleFor result
@@ -117,7 +117,6 @@ local function spawnVehicle(model, at)
     local ok, entity = pcall(CreateVehicle, hash, at.x + 0.0, at.y + 0.0, at.z + 0.0, at.h + 0.0, true, true)
     if not ok or not entity or entity == 0 then return nil end
 
-    -- CreateVehicle returns before the entity is guaranteed to be registered.
     for _ = 1, 40 do
         if DoesEntityExist(entity) then return entity end
         Wait(25)
@@ -128,8 +127,8 @@ local function spawnVehicle(model, at)
     return nil
 end
 
----Deliver one of the caller's stored vehicles. Validates, charges, spawns, and only then marks the
----car out of its garage, so any failure short of that leaves it stored and refunds the fee.
+---Deliver one of the caller's stored vehicles: validate, charge, spawn, then mark it out of its
+---garage. Any failure before that last step refunds the fee and leaves the car stored.
 lib.callback.register('sd-phone:server:garages:valet', function(src, payload)
     if not ENABLED then return { success = false, reason = 'disabled' } end
     if type(payload) ~= 'table' or type(payload.plate) ~= 'string' then
@@ -162,15 +161,14 @@ lib.callback.register('sd-phone:server:garages:valet', function(src, payload)
     end
 
     local entity = spawnVehicle(veh.model, spawn)
-    if not entity then return refund('noSpace') end
+    if not entity then return refund('spawnFailed') end
 
     local netId = NetworkGetNetworkIdFromEntity(entity)
     if not netId or netId == 0 then
         pcall(DeleteEntity, entity)
-        return refund('noSpace')
+        return refund('spawnFailed')
     end
 
-    -- Committed only now that the car demonstrably exists in the world.
     if not garages.takeOut(src, veh.plate, netId) then
         pcall(DeleteEntity, entity)
         return refund('takeOutFailed')
