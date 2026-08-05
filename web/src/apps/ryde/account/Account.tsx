@@ -11,10 +11,11 @@ import { t } from '@/i18n';
 import {
     MAIL_DOMAIN, accountsConfirmReset, accountsLogin, accountsLogout,
     accountsMe, accountsMyEmail, accountsMyNumber, accountsRegister, accountsRequestReset,
-    accountsSavePassword, accountsSavedLogin, accountsSuggestCode, accountsSwitch,
-    accountsSwitchable, type SwitchableAccount,
+    accountsSavePassword, accountsSavedLogin, accountsSignInOptions, accountsSuggestCode, accountsSwitch,
+    type SwitchableAccount,
 } from '@/core/accountsApi';
 import { signOutAllForApp } from '@/shared/signOutAll';
+import { logOutOrSwitch, switchTargetLabel } from '@/shared/logOutOrSwitch';
 import { driverStats, useRyde } from '../store';
 import { money } from '../data';
 import { rydeDeleteAccount } from '../rydeApi';
@@ -36,7 +37,7 @@ export function Account({ onClose }: { onClose: () => void }) {
 
     const refreshAccounts = useCallback(() => {
         void accountsSavedLogin('ryde').then(setSavedLogin);
-        void accountsSwitchable('ryde').then(d => setSavedAccounts(d.accounts.filter(a => a.username !== d.active)));
+        void accountsSignInOptions('ryde').then(setSavedAccounts);
     }, []);
 
     // Ryde keeps rides and the driver profile locally and only syncs them on mount, so without
@@ -103,8 +104,9 @@ export function Account({ onClose }: { onClose: () => void }) {
     if (!authed) return authScreen;
 
     async function signOut() {
-        await accountsLogout('ryde');
+        const switched = await logOutOrSwitch('ryde');
         setConfirmSignOut(false);
+        if (switched) { afterAccountChange(); return; }
         g.wipeAccount();
         setAuth(false, null);
         refreshAccounts();
@@ -232,7 +234,9 @@ export function Account({ onClose }: { onClose: () => void }) {
             {confirmSignOut && (
                 <AlertDialog
                     title={t('ryde.signOutTitle', 'Sign out of Ryde?')}
-                    message={t('ryde.signOutMessage', "You'll need to log in again to view your account.")}
+                    message={switchTargetLabel(savedAccounts[0])
+                        ? t('accounts.signOutSwitchMessage', "You'll be switched to {name}.", { name: switchTargetLabel(savedAccounts[0]) as string })
+                        : t('ryde.signOutMessage', "You'll need to log in again to view your account.")}
                     confirmLabel={t('ryde.signOutConfirm', 'Sign Out')}
                     destructive
                     onCancel={() => setConfirmSignOut(false)}
