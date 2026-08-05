@@ -39,6 +39,17 @@ export async function accountsLogout(app: string): Promise<void> {
     await fetchNui('sd-phone:accounts:logout', { app });
 }
 
+export const ACCOUNT_APPS = ['photogram', 'cherry', 'vibez', 'ryde', 'birdy', 'mail'] as const;
+
+export async function accountsSignOutAll(app?: string): Promise<{ signedOut: number }> {
+    if (!isFiveM) {
+        for (const key of app ? [app] : ACCOUNT_APPS) devSessions[key] = null;
+        return { signedOut: 0 };
+    }
+    const d = await apiData<{ signedOut?: number }>('sd-phone:accounts:signOutAll', app ? { app } : {});
+    return { signedOut: d?.signedOut ?? 0 };
+}
+
 export type ResetChannel = 'email' | 'sms';
 
 export async function accountsRequestReset(app: string, identity: string): Promise<ApiResult & { channel?: ResetChannel }> {
@@ -114,6 +125,24 @@ export async function accountsSavedLogin(app: string): Promise<{ username: strin
     return e ? { username: e.username, password: e.password } : null;
 }
 
+export interface AccountCapacity {
+    limit:     number;
+    count:     number;
+    canCreate: boolean;
+    message?:  string;
+}
+
+export async function accountsCapacity(app: string): Promise<AccountCapacity | null> {
+    if (!isFiveM) return { limit: 3, count: 0, canCreate: true };
+    const d = await apiData<AccountCapacity>('sd-phone:accounts:capacity', { app });
+    return d ?? null;
+}
+
+export async function accountsSavedLogins(app: string): Promise<{ username: string; password: string }[]> {
+    const entries = await accountsListPasswords();
+    return entries.filter(x => x.app === app).map(e => ({ username: e.username, password: e.password }));
+}
+
 export interface SwitchableAccount {
     username: string;
     name?:    string;
@@ -160,14 +189,3 @@ export async function accountsMyEmail(): Promise<string[]> {
     return (await apiData<{ emails?: string[] }>('sd-phone:accounts:myEmail'))?.emails ?? [];
 }
 
-/** Leaves the current account, landing on another saved one when there is a usable one. */
-export async function accountsSignOut(app: string): Promise<{ switchedTo: string | null }> {
-    if (!isFiveM) {
-        const active = devSessions[app]?.username ?? null;
-        const next = DEV_VAULT.find(e => e.app === app && e.username !== active);
-        devSessions[app] = next ? { username: next.username, name: next.username } : null;
-        return { switchedTo: next?.username ?? null };
-    }
-    const d = await apiData<{ switchedTo?: string | null }>('sd-phone:accounts:signOut', { app });
-    return { switchedTo: d?.switchedTo ?? null };
-}
