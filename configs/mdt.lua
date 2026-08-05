@@ -11,7 +11,7 @@ return {
     -- itself (set `mdt` to `enabled = true` in configs/apps.lua as well for that).
     -- The app catalog cannot decide this on its own: a companion device carries its
     -- own catalog and this server never reads it.
-    Enabled = true,
+    Enabled = false,
 
     -- Departments whose members reach the MDT. A player's ACTIVE framework job
     -- must appear here or every callback refuses, including the reads.
