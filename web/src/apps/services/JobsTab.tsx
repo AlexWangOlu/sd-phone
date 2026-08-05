@@ -96,7 +96,7 @@ export function JobsTab({ onJobChanged }: { onJobChanged?: () => void }) {
                         ) : (
                             <>
                                 {max > 0 && <Capacity count={jobs.length} max={max} />}
-                                <div className="relative overflow-hidden rounded-[12px] bg-[#e5e5e5] dark:bg-surface">
+                                <div className="relative overflow-hidden rounded-[12px] bg-surface">
                                     {jobs.map(j => (
                                         <div
                                             key={j.job}

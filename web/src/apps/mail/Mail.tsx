@@ -348,7 +348,7 @@ export function Mail({ onClose }: { onClose: () => void }) {
     if (locked || (authChecked && accounts.length === 0)) return authScreen;
 
     return (
-        <div className={`absolute inset-0 z-10 overflow-hidden bg-[#d4d4d4] dark:bg-base ${justAuthed ? 'animate-swipe-in-left' : ''}`}>
+        <div className={`absolute inset-0 z-10 overflow-hidden bg-base ${justAuthed ? 'animate-swipe-in-left' : ''}`}>
             <MailboxList
                 accounts={accounts}
                 activeAccount={activeAccount}

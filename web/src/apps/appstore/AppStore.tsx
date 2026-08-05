@@ -133,7 +133,7 @@ export function AppStore({ onClose: _onClose, apps, installed, onInstall, onOpen
                         {!query && filter === 'notInstalled' ? t('appstore.allAppsInstalled', 'All apps installed') : t('appstore.noAppsFound', 'No apps found')}
                     </p>
                 ) : (
-                    <div className="overflow-hidden rounded-[10px] bg-[#e5e5e5] dark:bg-surface">
+                    <div className="overflow-hidden rounded-[10px] bg-surface">
                         {list.map((a, i) => {
                             const isInstalled = !!a.base || installed.has(a.id);
                             const dl = downloading[a.id];

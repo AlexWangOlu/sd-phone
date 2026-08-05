@@ -465,7 +465,7 @@ export function Maps({ onClose }: { onClose: () => void }) {
                                 {companyQuery ? t('maps.noCompaniesMatch', 'No companies match your search.') : t('maps.noCompanies', 'No companies.')}
                             </p>
                         ) : (
-                            <div className="overflow-hidden rounded-[12px] bg-[#e5e5e5] dark:bg-surface">
+                            <div className="overflow-hidden rounded-[12px] bg-surface">
                                 {companyMatches.map((c, i) => (
                                     <div
                                         key={c.id}
@@ -509,7 +509,7 @@ export function Maps({ onClose }: { onClose: () => void }) {
                             {query ? t('maps.noPinsMatch', 'No pins match your search.') : t('maps.noPinsYet', 'No pins yet — tap ＋ then tap the map to drop one.')}
                         </p>
                     ) : (
-                        <div className="overflow-hidden rounded-[12px] bg-[#e5e5e5] dark:bg-surface">
+                        <div className="overflow-hidden rounded-[12px] bg-surface">
                             {shown.map((m, i) => {
                                 const Icon = iconFor(m.icon);
                                 return (

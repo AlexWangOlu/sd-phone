@@ -12,7 +12,7 @@ export function ThemeCodeSheet({ code, onClose }: { code: string; onClose: () =>
             onClose={onClose}
             fit="content"
             title={t('settings.iconThemeCode', 'Theme Code')}
-            className="bg-[#d4d4d4] dark:bg-base"
+            className="bg-base"
         >
             {() => (
                 <div className="px-4 pb-2 pt-1">

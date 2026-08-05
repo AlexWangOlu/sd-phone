@@ -47,7 +47,7 @@ export function DisplayBrightnessPage({ onBack }: { onBack: () => void }) {
 
     return (
         <div
-            className="absolute inset-0 z-20 flex flex-col bg-[#d4d4d4] dark:bg-base text-black dark:text-white"
+            className="absolute inset-0 z-20 flex flex-col bg-base text-black dark:text-white"
             style={pageStyle}
         >
             <div className="h-11 shrink-0" aria-hidden />
@@ -66,7 +66,7 @@ export function DisplayBrightnessPage({ onBack }: { onBack: () => void }) {
                         <p className="mb-2 text-[12px] uppercase tracking-widest text-ios-gray">
                             {t('settings.appearance', 'Appearance')}
                         </p>
-                        <div className="overflow-hidden rounded-[12px] bg-[#e5e5e5] dark:bg-surface">
+                        <div className="overflow-hidden rounded-[12px] bg-surface">
                             <div className="flex justify-center gap-6 px-4 pb-4 pt-5">
                                 <ThumbButton
                                     label={t('settings.light', 'Light')}
@@ -102,7 +102,7 @@ export function DisplayBrightnessPage({ onBack }: { onBack: () => void }) {
                     </section>
 
                     <section>
-                        <div className={`overflow-hidden rounded-[12px] bg-[#e5e5e5] dark:bg-surface ${isDark ? '' : 'opacity-45'}`}>
+                        <div className={`overflow-hidden rounded-[12px] bg-surface ${isDark ? '' : 'opacity-45'}`}>
                             <button
                                 type="button"
                                 disabled={!isDark}
@@ -127,7 +127,7 @@ export function DisplayBrightnessPage({ onBack }: { onBack: () => void }) {
                         <p className="mb-2 text-[12px] uppercase tracking-widest text-ios-gray">
                             {t('settings.brightness', 'Brightness')}
                         </p>
-                        <div className="flex items-center gap-3 rounded-[12px] bg-[#e5e5e5] dark:bg-surface px-4 py-3">
+                        <div className="flex items-center gap-3 rounded-[12px] bg-surface px-4 py-3">
                             <Moon className="h-[17px] w-[17px] shrink-0 text-ios-gray" fill="currentColor" stroke="none" />
                             <input
                                 type="range"
@@ -145,7 +145,7 @@ export function DisplayBrightnessPage({ onBack }: { onBack: () => void }) {
                         <p className="mb-2 text-[12px] uppercase tracking-widest text-ios-gray">
                             {t('settings.phoneScale', 'Phone Scale')}
                         </p>
-                        <div className="flex items-center gap-3 rounded-[12px] bg-[#e5e5e5] dark:bg-surface px-4 py-3">
+                        <div className="flex items-center gap-3 rounded-[12px] bg-surface px-4 py-3">
                             <Minus className="h-[18px] w-[18px] shrink-0 text-ios-gray" strokeWidth={2.5} />
                             <input
                                 type="range"
@@ -163,7 +163,7 @@ export function DisplayBrightnessPage({ onBack }: { onBack: () => void }) {
                         <p className="mb-2 text-[12px] uppercase tracking-widest text-ios-gray">
                             {t('settings.chatTextSize', 'Chat Text Size')}
                         </p>
-                        <div className="overflow-hidden rounded-[12px] bg-[#e5e5e5] dark:bg-surface">
+                        <div className="overflow-hidden rounded-[12px] bg-surface">
                             <div className="flex flex-col gap-2 px-4 pb-4 pt-4">
                                 <div
                                     className="max-w-[78%] self-start rounded-2xl rounded-bl-md px-[14px] py-[8px] leading-[1.3]"
@@ -203,7 +203,7 @@ export function DisplayBrightnessPage({ onBack }: { onBack: () => void }) {
                         <p className="mb-2 text-[12px] uppercase tracking-widest text-ios-gray">
                             {t('settings.phonePosition', 'Phone Position')}
                         </p>
-                        <div className="flex flex-col items-center gap-3 rounded-[12px] bg-[#e5e5e5] dark:bg-surface px-4 py-4">
+                        <div className="flex flex-col items-center gap-3 rounded-[12px] bg-surface px-4 py-4">
                             <PositionPicker value={phoneAlign} onChange={setPhoneAlign} isDark={isDark} />
                             <span className="text-[13px] text-ios-gray">
                                 {ALIGN_LABEL[phoneAlign]}
@@ -345,7 +345,7 @@ function ThumbButton({
                 'flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 transition-colors',
                 selected
                     ? 'border-ios-blue bg-ios-blue'
-                    : 'border-[#C6C6C8] dark:border-control bg-transparent',
+                    : 'border-control bg-transparent',
             ].join(' ')}>
                 {selected && <Check className="h-[11px] w-[11px] text-white" strokeWidth={3} />}
             </div>

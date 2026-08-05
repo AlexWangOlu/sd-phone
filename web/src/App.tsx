@@ -1590,7 +1590,7 @@ function AppContent() {
                 )}
 
                 {finishingSetup && (
-                    <div className="animate-finish-veil pointer-events-none absolute inset-0 z-[250] bg-white dark:bg-base" />
+                    <div className="animate-finish-veil pointer-events-none absolute inset-0 z-[250] bg-base" />
                 )}
             </PhoneShell>
         </div>

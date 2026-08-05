@@ -157,7 +157,7 @@ export function Stocks({ onClose }: { onClose: () => void }) {
                             {query.trim() ? t('stocks.noResults', 'No results for “{query}”', { query }) : t('stocks.noAssets', 'No assets')}
                         </p>
                     ) : (
-                        <div className="mt-1.5 overflow-hidden rounded-[12px] bg-[#e5e5e5] dark:bg-surface">
+                        <div className="mt-1.5 overflow-hidden rounded-[12px] bg-surface">
                             {list.map((a, i) => (
                                 <StockRow key={a.symbol} asset={a} divider={i < list.length - 1} onOpen={() => setOpenSymbol(a.symbol)} />
                             ))}

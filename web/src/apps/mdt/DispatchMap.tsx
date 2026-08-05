@@ -325,7 +325,7 @@ export function DispatchMap({
                 type="button"
                 onClick={() => mapRef.current?.fitWorld(points, 0.22)}
                 aria-label={t('mdt.mapFit', 'Frame everything')}
-                className="absolute left-3 top-3 z-40 flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[#efefef] text-ios-gray shadow-[0_1px_4px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.06] transition-colors duration-150 hover:bg-[#f6f6f6] hover:text-black active:bg-[#e2e2e4] dark:bg-elevated dark:ring-white/[0.08] dark:hover:text-white"
+                className="absolute left-3 top-3 z-40 flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[#efefef] text-ios-gray shadow-[0_1px_4px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.06] transition-colors duration-150 hover:bg-[#f6f6f6] hover:text-black active:bg-elevated dark:ring-white/[0.08] dark:hover:text-white"
             >
                 <Crosshair className="h-[17px] w-[17px]" strokeWidth={2.2} />
             </button>

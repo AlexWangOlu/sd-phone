@@ -30,7 +30,7 @@ export function AttachmentStrip({ attachments, max, onRemove }: {
     const others  = indexed.filter(({ a }) => a.kind !== 'photo');
 
     return (
-        <div className="mt-2 shrink-0 overflow-hidden rounded-[12px] bg-[#e5e5e5] dark:bg-surface">
+        <div className="mt-2 shrink-0 overflow-hidden rounded-[12px] bg-surface">
             <div className="flex items-center gap-1.5 px-4 pb-1 pt-3">
                 <Paperclip className="h-[15px] w-[15px] text-ios-gray" strokeWidth={2.2} />
                 <span className="text-[14px] font-semibold uppercase tracking-wide text-ios-gray">
@@ -202,7 +202,7 @@ export function MemoPickerSheet({ excludeUrls, max, onPickMany, onClose }: {
                     {t('mail.noMemos', 'No recordings to attach. Record one in Voice Memos first.')}
                 </p>
             ) : (
-                <div className="overflow-hidden rounded-[10px] bg-[#e5e5e5] dark:bg-surface">
+                <div className="overflow-hidden rounded-[10px] bg-surface">
                     {candidates.map((m, i) => (
                         <div key={m.id}>
                             <button
@@ -268,7 +268,7 @@ export function NotePickerSheet({ max, onPickMany, onClose }: {
                     {t('mail.noNotes', 'No notes to attach. Write one in Notes first.')}
                 </p>
             ) : (
-                <div className="overflow-hidden rounded-[10px] bg-[#e5e5e5] dark:bg-surface">
+                <div className="overflow-hidden rounded-[10px] bg-surface">
                     {notes.map((n, i) => (
                         <div key={n.id}>
                             <button
@@ -329,7 +329,7 @@ export function DocPickerSheet({ excludeIds, max, onPickMany, onClose }: {
                     {t('mail.noDocuments', 'No documents to attach. Create one in Files first.')}
                 </p>
             ) : (
-                <div className="overflow-hidden rounded-[10px] bg-[#e5e5e5] dark:bg-surface">
+                <div className="overflow-hidden rounded-[10px] bg-surface">
                     {candidates.map((d, i) => (
                         <div key={d.id}>
                             <button

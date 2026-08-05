@@ -36,7 +36,7 @@ export function Leaderboard() {
             </div>
 
             <div className="no-scrollbar flex-1 overflow-y-auto px-4 py-3">
-                <div className="overflow-hidden rounded-[14px] bg-[#e5e5e5] dark:bg-surface">
+                <div className="overflow-hidden rounded-[14px] bg-surface">
                     {rows.map((r, i) => {
                         const rank = i + 1;
                         const isMe = i === myIndex;

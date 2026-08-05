@@ -484,11 +484,11 @@ export function Music({ onClose: _onClose }: { onClose: () => void }) {
     return (
         <div className="absolute inset-0 z-10 flex flex-col bg-[#d4d4d4] font-sf text-black dark:bg-base dark:text-white">
             <div className="relative min-h-0 flex-1">
-                <div key={viewKey} className="absolute inset-0 flex flex-col bg-[#d4d4d4] dark:bg-base" style={{ animation: navAnim.current }}>
+                <div key={viewKey} className="absolute inset-0 flex flex-col bg-base" style={{ animation: navAnim.current }}>
                     {activeView}
                 </div>
                 {exiting && (
-                    <div className="absolute inset-0 z-20 flex flex-col bg-[#d4d4d4] dark:bg-base" style={{ animation: POP_OUT }}>
+                    <div className="absolute inset-0 z-20 flex flex-col bg-base" style={{ animation: POP_OUT }}>
                         {renderDetail(exiting)}
                     </div>
                 )}

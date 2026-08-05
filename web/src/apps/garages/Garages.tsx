@@ -131,7 +131,7 @@ function VehicleThumb({ v, show, size, radius, iconSize, iconStroke = 2 }: {
     const showImg = show && !!v.image && !failed;
     return (
         <div
-            className={`flex shrink-0 items-center justify-center overflow-hidden ${showImg ? 'bg-[#dcdcdc] dark:bg-elevated' : ''}`}
+            className={`flex shrink-0 items-center justify-center overflow-hidden ${showImg ? 'bg-elevated' : ''}`}
             style={{ width: size, height: size, borderRadius: radius, background: showImg ? undefined : v.accent }}
         >
             {showImg ? (

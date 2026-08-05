@@ -26,7 +26,7 @@ export function SavedEmailsSheet({ emails, onPick, onClose }: {
     useLayoutEffect(updateMoreBelow, [emails.length]);
 
     return (
-        <Sheet onClose={onClose} fit="content" title={t('mail.savedEmails', 'Saved Emails')} className="bg-[#ececec] dark:bg-surface">
+        <Sheet onClose={onClose} fit="content" title={t('mail.savedEmails', 'Saved Emails')} className="bg-surface">
             {({ close }) => (
                 <div className="px-4 pb-2">
                     {emails.length === 0 ? (
@@ -83,7 +83,7 @@ export function SavedEmailsPage({ emails, onAdd, onRemove, onBack }: {
 
     return (
         <div
-            className="absolute inset-0 z-20 flex flex-col bg-[#d4d4d4] dark:bg-base text-black dark:text-white"
+            className="absolute inset-0 z-20 flex flex-col bg-base text-black dark:text-white"
             style={pageStyle}
         >
             <div className="h-[54px] shrink-0" aria-hidden />
@@ -119,7 +119,7 @@ export function SavedEmailsPage({ emails, onAdd, onRemove, onBack }: {
                         subtitle={t('mail.noSavedEmailsSubtitle', 'Addresses you save show up here and autofill when you compose.')}
                     />
                 ) : (
-                    <div className="overflow-hidden rounded-[10px] bg-[#e5e5e5] dark:bg-surface">
+                    <div className="overflow-hidden rounded-[10px] bg-surface">
                         {emails.map((email, i) => (
                             <div key={email}>
                                 <div className="flex items-center gap-4 px-4 py-[15px]">

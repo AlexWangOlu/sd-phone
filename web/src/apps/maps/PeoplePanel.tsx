@@ -215,7 +215,7 @@ export function PeoplePanel({ friends, selectedId, showAvatars, onFocus, onToggl
                         {t('maps.noFriends', 'No friends yet — add one from Contacts or by number above.')}
                     </p>
                 ) : (
-                    <div className="overflow-hidden rounded-[12px] bg-[#e5e5e5] dark:bg-surface">
+                    <div className="overflow-hidden rounded-[12px] bg-surface">
                         {friends.map((f, i) => {
                             const live = f.theyShare && f.x != null;
                             return (
@@ -339,7 +339,7 @@ export function ContactsPanel({ existing, onPick, onCancel }: {
                         {query ? t('maps.noContactsMatch', 'No contacts match.') : t('maps.noContactsWithNumber', 'No contacts with a number.')}
                     </p>
                 ) : (
-                    <div className="overflow-hidden rounded-[12px] bg-[#e5e5e5] dark:bg-surface">
+                    <div className="overflow-hidden rounded-[12px] bg-surface">
                         {shown.map((c, i) => {
                             const added = existing.has(digits(c.phone));
                             return (

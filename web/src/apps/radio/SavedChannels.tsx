@@ -65,7 +65,7 @@ export function SavedChannels({ saved, currentFreq, canSave, activeFreq, onTune,
                         <p className="text-[16px] leading-snug text-ios-gray">{t('radio.noSavedChannels', 'No saved channels yet. Tap + to add one.')}</p>
                     </div>
                 ) : (
-                    <div className="overflow-hidden rounded-[16px] bg-[#e5e5e5] dark:bg-surface">
+                    <div className="overflow-hidden rounded-[16px] bg-surface">
                         {saved.map((s, i) => (
                             <div key={s.id}>
                                 <div className="flex items-stretch">

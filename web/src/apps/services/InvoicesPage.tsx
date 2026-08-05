@@ -80,7 +80,7 @@ export function InvoicesPage({ onClose }: { onClose: () => void }) {
                         subtitle={t('services.noInvoicesSub', 'Invoices your business sends will show up here.')}
                     />
                 ) : (
-                    <div className="overflow-hidden rounded-[16px] bg-[#e5e5e5] dark:bg-surface">
+                    <div className="overflow-hidden rounded-[16px] bg-surface">
                         {invoices.map((inv, i) => {
                             const card = contactByNumber.get(digits(inv.toNumber));
                             return (

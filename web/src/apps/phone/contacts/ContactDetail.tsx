@@ -84,7 +84,7 @@ export function ContactDetail({ contact, onBack, backLabel = t('phone.contacts',
 
     return (
         <div
-            className="absolute inset-0 flex flex-col bg-[#d4d4d4] dark:bg-base"
+            className="absolute inset-0 flex flex-col bg-base"
             style={{
                 transform:  shown ? 'translateX(0)' : 'translateX(100%)',
                 transition: 'transform 0.32s cubic-bezier(0.32,0.72,0,1)',
@@ -136,14 +136,14 @@ export function ContactDetail({ contact, onBack, backLabel = t('phone.contacts',
                 </div>
 
                 {(current.email || current.address) && (
-                    <div className="mb-4 overflow-hidden rounded-[10px] bg-[#e5e5e5] dark:bg-surface">
+                    <div className="mb-4 overflow-hidden rounded-[10px] bg-surface">
                         {current.email && <InfoField label={t('phone.email','email')} value={current.email} divider={!!current.address} />}
                         {current.address && <InfoField label={t('phone.address','address')} value={current.address} divider={false} />}
                     </div>
                 )}
 
                 {!minimal && (
-                    <div className="overflow-hidden rounded-[10px] bg-[#e5e5e5] dark:bg-surface">
+                    <div className="overflow-hidden rounded-[10px] bg-surface">
                         <ActionRow label={t('phone.sendMyLocation','Send My Location')} onClick={() => setConfirmLocation(true)} />
                         <Divider />
                         <ActionRow

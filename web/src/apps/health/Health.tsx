@@ -52,7 +52,7 @@ export function Health({ onClose }: HealthProps) {
     const distance = distanceM / M_PER_MILE;
 
     return (
-        <div className="absolute inset-0 z-10 flex flex-col bg-[#d4d4d4] dark:bg-base text-black dark:text-white">
+        <div className="absolute inset-0 z-10 flex flex-col bg-base text-black dark:text-white">
             <div className="shrink-0" style={{ height: SB_H }} />
 
             <div className="shrink-0 px-5 pb-2 pt-1">

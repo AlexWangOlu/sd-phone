@@ -89,7 +89,7 @@ export function ConversationList({ conversations, onOpen, onCompose, onMarkRead,
     }
 
     return (
-        <div className="flex flex-1 flex-col bg-[#d4d4d4] dark:bg-base overflow-hidden">
+        <div className="flex flex-1 flex-col bg-base overflow-hidden">
             <div className="h-[54px] shrink-0" aria-hidden />
 
             <div className="flex items-center justify-between px-5 pb-0.5">
@@ -113,7 +113,7 @@ export function ConversationList({ conversations, onOpen, onCompose, onMarkRead,
                         ? <EmptyState icon={SearchX} title={t('messages.noResults', 'No Results')} subtitle={t('messages.noResultsSubtitle', 'No conversations match your search.')} />
                         : <EmptyState icon={MessageCircle} title={t('messages.noConversations', 'No Conversations')} subtitle={t('messages.noConversationsSubtitle', 'Tap the compose button to start a new message.')} />
                 ) : (
-                    <div className="overflow-hidden rounded-[10px] bg-[#e5e5e5] dark:bg-surface">
+                    <div className="overflow-hidden rounded-[10px] bg-surface">
                         {filtered.map((c, i) => (
                             // Same containment as the contact rows: a ConvRow is ~20 nodes and a
                             // migrated mailbox has 550 of them, all restyled on every deck

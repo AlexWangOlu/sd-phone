@@ -132,7 +132,7 @@ export function BusinessDetail({ businessId, initial, onBack, onMutated }: {
                         {t('review.noReviewsBeFirst', 'No reviews yet. Be the first!')}
                     </p>
                 ) : (
-                    <div className="mx-4 overflow-hidden rounded-xl bg-white dark:bg-surface">
+                    <div className="mx-4 overflow-hidden rounded-xl bg-surface">
                         {reviews.map((r, i) => (
                             <div key={r.id} className={`px-4 py-3 ${i > 0 ? 'border-t border-black/[0.06] dark:border-white/[0.08]' : ''}`}>
                                 <div className="flex items-center justify-between">

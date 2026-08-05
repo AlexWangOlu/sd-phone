@@ -118,7 +118,7 @@ export function MailboxList({
     const composeDisabled = !activeAccount;
 
     return (
-        <div className="absolute inset-0 flex flex-col bg-[#d4d4d4] dark:bg-base text-black dark:text-white">
+        <div className="absolute inset-0 flex flex-col bg-base text-black dark:text-white">
             <div className="h-[58px] shrink-0" aria-hidden />
 
             <div className="flex items-center justify-between px-5 pb-0.5">
@@ -165,7 +165,7 @@ export function MailboxList({
                 onPointerCancel={onHandlePointerUp}
             >
                 {activeAccount && (
-                    <div className="overflow-hidden rounded-[10px] bg-[#e5e5e5] dark:bg-surface">
+                    <div className="overflow-hidden rounded-[10px] bg-surface">
                         {folderOrder.map((id, i) => {
                             const Icon  = FOLDER_ICONS[id];
                             const count = unreadCount(messages, id, activeAccount.id);
@@ -242,7 +242,7 @@ export function MailboxList({
                 <div className="mt-6 px-4 pb-1.5 text-[13px] font-medium uppercase tracking-wide text-ios-gray">
                     {t('mail.accounts', 'Accounts')}
                 </div>
-                <div className="overflow-hidden rounded-[10px] bg-[#e5e5e5] dark:bg-surface">
+                <div className="overflow-hidden rounded-[10px] bg-surface">
                     {accounts.map((a, i) => (
                         <div key={a.id}>
                             <div className="relative flex w-full items-center gap-4 px-4 py-[13px]">

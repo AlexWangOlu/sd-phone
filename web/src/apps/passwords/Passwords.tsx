@@ -65,7 +65,7 @@ export function Passwords({ onClose }: { onClose: () => void }) {
                         <EmptyState icon={KeyRound} title={t('passwords.emptyTitle', 'No Saved Passwords')}
                             subtitle={t('passwords.emptySubtitle', 'When you create an account in an app, you can choose to save its login details here.')} />
                     ) : (
-                        <div className="mt-4 overflow-hidden rounded-[10px] bg-[#e5e5e5] dark:bg-surface">
+                        <div className="mt-4 overflow-hidden rounded-[10px] bg-surface">
                             {shown.map((e, i) => (
                                 <button
                                     key={e.id}
@@ -128,7 +128,7 @@ function Detail({ entry, onBack, onDelete }: { entry: VaultEntry; onBack: () => 
                 <div className="mt-3.5 text-center text-[24px] font-bold">{labelFor(entry.app)}</div>
                 <div className="mt-1 text-center text-[19px] font-medium text-ios-gray">{entry.username}</div>
 
-                <div className="mt-5 overflow-hidden rounded-[10px] bg-[#e5e5e5] dark:bg-surface">
+                <div className="mt-5 overflow-hidden rounded-[10px] bg-surface">
                     {entry.app !== 'mail' && <Row label={t('passwords.usernameLabel', 'Username')} value={entry.username} />}
                     <div className="flex items-center border-b-[0.5px] border-black/10 px-4 py-3.5 dark:border-white/10">
                         <div className="min-w-0 flex-1">

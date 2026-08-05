@@ -33,7 +33,7 @@ export function ContactPickerSheet({ onPick, onClose }: {
     }
 
     return (
-        <Sheet onClose={settle} top={50} className="font-sf bg-[#d4d4d4] dark:bg-base">
+        <Sheet onClose={settle} top={50} className="font-sf bg-base">
             {({ close }) => {
                 const choose = (c: Contact) => { picked.current = c; close(); };
                 return (

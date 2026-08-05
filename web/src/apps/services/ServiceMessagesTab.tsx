@@ -79,7 +79,7 @@ export function ServiceMessagesTab({ inbox, loaded, onInboxChange, onMarkRead }:
                     {!loaded ? null : threads.length === 0 ? (
                         <EmptyState icon={MessageSquare} title={t('services.noMessages', 'No Messages')} subtitle={t('services.noMessagesSubtitle', 'Messages with companies will appear here.')} />
                     ) : (
-                        <div className="overflow-hidden rounded-[12px] bg-[#e5e5e5] dark:bg-surface">
+                        <div className="overflow-hidden rounded-[12px] bg-surface">
                             {threads.map((t, i) => (
                                 <div key={t.key}>
                                     <ThreadRow thread={t} scope={scope} onOpen={() => setOpenKey(t.key)} />

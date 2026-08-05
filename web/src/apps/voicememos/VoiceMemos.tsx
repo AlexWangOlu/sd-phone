@@ -245,7 +245,7 @@ function MemoRow({ memo, expanded, onToggle, onRename, onShare, onDelete }: {
     }, [expanded]);
 
     return (
-        <div className="mb-2.5 overflow-hidden rounded-[16px] bg-[#e5e5e5] dark:bg-surface">
+        <div className="mb-2.5 overflow-hidden rounded-[16px] bg-surface">
             <button type="button" onClick={onToggle} className="flex w-full items-center gap-3.5 px-5 py-4 text-left active:bg-black/[0.03] dark:active:bg-white/[0.03]">
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">

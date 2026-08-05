@@ -88,7 +88,7 @@ export function GlyphPickerSheet({ draft, appId, accent, ownIcon, current, onSel
             fit="full"
             top={30}
             title={t('settings.iconOverrideSymbol', 'Symbol')}
-            className="bg-[#d4d4d4] dark:bg-base"
+            className="bg-base"
         >
             {({ close }) => (
                 <>

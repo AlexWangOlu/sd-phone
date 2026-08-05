@@ -80,7 +80,7 @@ export function WriteReview({ business, onCancel, onSubmit }: {
             </div>
 
             {picking && (
-                <div className="absolute inset-0 z-50 flex flex-col bg-[#f2f2f7] dark:bg-base">
+                <div className="absolute inset-0 z-50 flex flex-col bg-base">
                     <div className="h-[54px] shrink-0" aria-hidden />
                     <div className="flex h-11 shrink-0 items-center justify-between px-4">
                         <button type="button" onClick={() => setPicking(false)} className="text-[16px] text-ios-blue">{t('review.cancel', 'Cancel')}</button>

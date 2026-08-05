@@ -20,7 +20,7 @@ function when(ms: number): string {
 
 export function Driver() {
     const g = useRyde();
-    if (!g.authChecked) return <div className="absolute inset-0 bg-[#d4d4d4] dark:bg-base" />;
+    if (!g.authChecked) return <div className="absolute inset-0 bg-base" />;
     if (!g.authed) return <SignedOut />;
     if (!g.driver.enabled) return <Signup />;
     return <Dashboard />;

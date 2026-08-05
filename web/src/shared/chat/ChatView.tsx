@@ -276,7 +276,7 @@ export function ChatView({ conv, totalUnread, contacts, myNumber, onBack, onSend
 
     return (
         <div
-            className="absolute inset-0 z-20 flex flex-col bg-[#e5e5e5] dark:bg-base text-black dark:text-white overflow-hidden"
+            className="absolute inset-0 z-20 flex flex-col bg-base text-black dark:text-white overflow-hidden"
             style={{
                 animation: closing
                     ? 'ios-pop 0.32s cubic-bezier(0.32,0.72,0,1) forwards'
@@ -702,7 +702,7 @@ export function ChatView({ conv, totalUnread, contacts, myNumber, onBack, onSend
             {/* Standard sheet presentation (media-picker sizing); embedded AddContact lets the
                 sheet own the slide animation. */}
             {addingContact && onSaveContact && (
-                <Sheet onClose={() => setAddingContact(false)} grabber={false} className="font-sf bg-[#d4d4d4] dark:bg-base">
+                <Sheet onClose={() => setAddingContact(false)} grabber={false} className="font-sf bg-base">
                     {({ close }) => (
                         <AddContact
                             embedded

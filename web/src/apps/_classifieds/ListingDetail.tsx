@@ -95,7 +95,7 @@ export function ListingDetail({ item, backLabel, itemNoun = t('classifieds.post'
 
             <Scroller className="min-h-0 flex-1 pb-8">
                 <div
-                    className="relative aspect-square w-full touch-none select-none overflow-hidden bg-[#e5e5e5] dark:bg-surface"
+                    className="relative aspect-square w-full touch-none select-none overflow-hidden bg-surface"
                     onPointerDown={onPointerDown}
                     onPointerMove={onPointerMove}
                     onPointerUp={endDrag}

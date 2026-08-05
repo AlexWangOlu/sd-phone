@@ -59,7 +59,7 @@ export function ShareSheet({ onClose, onShare, children, top = '55%' }: {
     }
 
     return (
-        <Sheet onClose={onClose} top={top} durationMs={240} className="font-sf bg-[#d4d4d4] dark:bg-base">
+        <Sheet onClose={onClose} top={top} durationMs={240} className="font-sf bg-base">
             {() => (
                 <>
                 <div className="px-4 pt-5">
