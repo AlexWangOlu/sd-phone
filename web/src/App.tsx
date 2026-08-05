@@ -1243,7 +1243,7 @@ function AppContent() {
             const scroller = verticalScrollerFor(e.target instanceof Element ? e.target : null, document.body);
             if (!scroller) return;
             e.preventDefault();
-            scroller.scrollTop += delta;
+            scroller.scrollBy({ top: delta, behavior: 'smooth' });
         }
         window.addEventListener('wheel', shiftScroll, { capture: true, passive: false });
         return () => window.removeEventListener('wheel', shiftScroll, true);
