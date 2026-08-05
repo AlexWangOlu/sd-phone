@@ -1,9 +1,10 @@
-import { Check, ChevronRight, MessageCircle, Phone, Star } from 'lucide-react';
+import { ChevronRight, MessageCircle, Phone, Star } from 'lucide-react';
 
 import { t } from '@/i18n';
 import { useIosPush } from '@/hooks/useIosPush';
 import { useTheme } from '@/stores/themeStore';
 import type { DarkTheme } from '@/stores/themeStore';
+import { ListGroup, ListRow } from '@/ui/ListGroup';
 import { NavBar } from '@/ui/NavBar';
 import { Toggle } from '@/ui/Toggle';
 
@@ -46,18 +47,19 @@ export function DarkAppearancePage({ onBack }: { onBack: () => void }) {
                 <div className="mt-6 flex flex-col gap-7 px-4 pb-12">
 
                     <section>
-                        <div className="flex justify-between gap-3 rounded-[12px] bg-[#e5e5e5] dark:bg-surface px-4 py-5">
-                            {PALETTES.map(p => (
-                                <PaletteButton
+                        <ListGroup>
+                            {PALETTES.map((p, i) => (
+                                <ListRow
                                     key={p.id}
                                     label={p.label}
-                                    swatch={p.swatch}
+                                    sub={DESC[p.id]}
+                                    left={<PaletteChip swatch={p.swatch} />}
                                     selected={darkTheme === p.id}
-                                    onSelect={() => setDarkTheme(p.id)}
+                                    divider={i < PALETTES.length - 1}
+                                    onPress={() => setDarkTheme(p.id)}
                                 />
                             ))}
-                        </div>
-                        <p className="mt-2 px-1 text-[13px] leading-snug text-ios-gray">{DESC[darkTheme]}</p>
+                        </ListGroup>
                     </section>
 
                     <section>
@@ -140,38 +142,14 @@ function TabIcon({ icon, label, active }: { icon: React.ReactNode; label: string
     );
 }
 
-function PaletteButton({ label, swatch, selected, onSelect }: {
-    label: string;
-    swatch: { base: string; surface: string; control: string };
-    selected: boolean;
-    onSelect: () => void;
-}) {
+function PaletteChip({ swatch }: { swatch: { base: string; surface: string; control: string } }) {
     return (
-        <button type="button" onClick={onSelect} className="flex flex-1 flex-col items-center gap-2 active:opacity-70">
-            <div
-                className="relative w-full overflow-hidden rounded-[13px]"
-                style={{
-                    aspectRatio: '9 / 15',
-                    background: swatch.base,
-                    boxShadow: selected ? '0 0 0 2.5px #0a84ff' : `inset 0 0 0 1px ${swatch.control}`,
-                }}
-            >
-                <div className="absolute left-1/2 top-2 h-[5px] w-[24px] -translate-x-1/2 rounded-full bg-black" />
-                <div className="absolute inset-x-2 top-6 rounded-[7px]" style={{ background: swatch.surface }}>
-                    <div className="flex flex-col gap-[5px] p-[7px]">
-                        <div className="h-[5px] w-[70%] rounded-full" style={{ background: swatch.control }} />
-                        <div className="h-[5px] w-[45%] rounded-full" style={{ background: swatch.control }} />
-                    </div>
-                </div>
-                <div className="absolute inset-x-2 bottom-2 h-[18px] rounded-[7px]" style={{ background: swatch.surface }} />
-            </div>
-            <span className="text-[14px] font-normal text-black dark:text-white">{label}</span>
-            <div className={[
-                'flex h-[21px] w-[21px] items-center justify-center rounded-full border-2 transition-colors',
-                selected ? 'border-ios-blue bg-ios-blue' : 'border-[#C6C6C8] dark:border-[#636366] bg-transparent',
-            ].join(' ')}>
-                {selected && <Check className="h-[11px] w-[11px] text-white" strokeWidth={3} />}
-            </div>
-        </button>
+        <span
+            className="relative block h-[34px] w-[34px] shrink-0 overflow-hidden rounded-[9px]"
+            style={{ background: swatch.base, boxShadow: `inset 0 0 0 1px ${swatch.control}` }}
+        >
+            <span className="absolute inset-x-[5px] top-[6px] block h-[9px] rounded-[3px]" style={{ background: swatch.surface }} />
+            <span className="absolute inset-x-[5px] bottom-[6px] block h-[7px] rounded-[3px]" style={{ background: swatch.control }} />
+        </span>
     );
 }
