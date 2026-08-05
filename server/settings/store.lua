@@ -1132,25 +1132,28 @@ function store.setTheme(citizenid, theme, device)
     ]], { citizenid, device, theme })
 end
 
+---@type table<string, boolean> Selectable dark-mode palettes; anything else falls back to graphite.
+local DARK_THEMES = { graphite = true, black = true, warm = true, midnight = true, moss = true, plum = true, slate = true, ocean = true, rose = true, clay = true }
+
 ---Returns a player's selected dark-mode palette, defaulting to 'graphite'. Read-only.
 ---@param citizenid string framework per-character id
----@return string darkTheme 'graphite' | 'black' | 'warm'
+---@return string darkTheme a key of DARK_THEMES
 function store.getDarkTheme(citizenid, device)
     device = device or 'phone'
     if not citizenid or citizenid == '' then return 'graphite' end
     local row = MySQL.single.await('SELECT dark_theme FROM phone_settings WHERE citizenid = ? AND device = ?', { citizenid, device })
     local v = row and row.dark_theme
-    if v == 'graphite' or v == 'black' or v == 'warm' then return v end
+    if type(v) == 'string' and DARK_THEMES[v] then return v end
     return 'graphite'
 end
 
 ---Persists a player's dark-mode palette (upsert), whitelisted to the known values.
 ---@param citizenid string framework per-character id
----@param theme string 'graphite' | 'black' | 'warm'
+---@param theme string a key of DARK_THEMES
 function store.setDarkTheme(citizenid, theme, device)
     device = device or 'phone'
     if not citizenid or citizenid == '' then return end
-    if theme ~= 'graphite' and theme ~= 'black' and theme ~= 'warm' then theme = 'graphite' end
+    if type(theme) ~= 'string' or not DARK_THEMES[theme] then theme = 'graphite' end
     MySQL.update.await([[
         INSERT INTO phone_settings (citizenid, device, dark_theme) VALUES (?, ?, ?)
         ON DUPLICATE KEY UPDATE dark_theme = VALUES(dark_theme)
@@ -1703,7 +1706,7 @@ function store.snapshot(citizenid, device)
         hour24 = defaultHour24()
     end
     local dark = row and row.dark_theme
-    if dark ~= 'graphite' and dark ~= 'black' and dark ~= 'warm' then dark = 'graphite' end
+    if type(dark) ~= 'string' or not DARK_THEMES[dark] then dark = 'graphite' end
     local icons = row and row.icon_theme
     if not isStorableIconTheme(icons) then icons = 'default' end
     local showAppNames = row == nil or isTruthy(row.show_app_names)

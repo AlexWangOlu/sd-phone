@@ -13,6 +13,13 @@ const DARK_THEME_LABEL: Record<DarkTheme, string> = {
     graphite: t('settings.darkGraphite', 'Graphite'),
     black:    t('settings.darkBlack', 'Black'),
     warm:     t('settings.darkWarm', 'Warm'),
+    midnight: t('settings.darkMidnight', 'Midnight'),
+    moss:     t('settings.darkMoss', 'Moss'),
+    plum:     t('settings.darkPlum', 'Plum'),
+    slate: t('settings.darkSlate', 'Slate'),
+    ocean: t('settings.darkOcean', 'Ocean'),
+    rose: t('settings.darkRose', 'Rose'),
+    clay: t('settings.darkClay', 'Clay'),
 };
 
 export function DisplayBrightnessPage({ onBack }: { onBack: () => void }) {

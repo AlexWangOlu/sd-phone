@@ -29,9 +29,9 @@ function saveThemeLocal(v: Theme) {
     try { window.localStorage.setItem(THEME_KEY, v); } catch { /* ignore */ }
 }
 
-export type DarkTheme = 'graphite' | 'black' | 'warm';
+export type DarkTheme = 'graphite' | 'black' | 'warm' | 'midnight' | 'moss' | 'plum' | 'slate' | 'ocean' | 'rose' | 'clay';
 const DARK_THEME_KEY = 'sd-phone:darkTheme';
-const DARK_THEMES: DarkTheme[] = ['graphite', 'black', 'warm'];
+const DARK_THEMES: DarkTheme[] = ['graphite', 'black', 'warm', 'midnight', 'moss', 'plum', 'slate', 'ocean', 'rose', 'clay'];
 function loadDarkThemeLocal(): DarkTheme {
     try {
         const v = window.localStorage.getItem(DARK_THEME_KEY) as DarkTheme | null;
