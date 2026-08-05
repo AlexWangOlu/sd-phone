@@ -40,6 +40,7 @@ import { usePhoneReset } from '@/core/phoneReset';
 import { resetAuth } from '@/stores/authStore';
 import { setMailDomain } from '@/core/accountsApi';
 import { setNumberFormat } from '@/lib/phone';
+import { shiftWheelDelta, verticalScrollerFor } from '@/lib/wheel';
 import { voiceHub, setLocalTalking } from '@/media/nearbyVoice';
 import { useMusicLibrary } from '@/stores/musicLibraryStore';
 import { DEFAULT_FRAME_COLOR } from '@/shell/frameColors';
@@ -1230,6 +1231,22 @@ function AppContent() {
         }
         window.addEventListener('keydown', blockSpace, true);
         return () => window.removeEventListener('keydown', blockSpace, true);
+    }, []);
+
+    // Shift is sprint, and the browser turns shift+wheel into horizontal scrolling, so a running
+    // player cannot scroll a list. Redirect it back to the vertical scroller under the cursor,
+    // unless something horizontal is there, where sideways scrolling is the point.
+    useEffect(() => {
+        function shiftScroll(e: WheelEvent) {
+            const delta = shiftWheelDelta(e);
+            if (!delta) return;
+            const scroller = verticalScrollerFor(e.target instanceof Element ? e.target : null, document.body);
+            if (!scroller) return;
+            e.preventDefault();
+            scroller.scrollTop += delta;
+        }
+        window.addEventListener('wheel', shiftScroll, { capture: true, passive: false });
+        return () => window.removeEventListener('wheel', shiftScroll, true);
     }, []);
 
     const resetNonce = usePhoneReset(s => s.nonce);
