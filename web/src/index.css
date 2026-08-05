@@ -214,6 +214,9 @@ html, body, #root {
     -webkit-backdrop-filter: none !important;
 }
 
+* { scrollbar-width: none; }
+*::-webkit-scrollbar { display: none; }
+
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .ios-scrollbar { scrollbar-width: thin; scrollbar-color: rgba(60, 60, 67, 0.35) transparent; }
