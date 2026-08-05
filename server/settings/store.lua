@@ -84,7 +84,7 @@ function store.ensureSchema()
             dark_theme         VARCHAR(16)  NULL,
             icon_theme         VARCHAR(16)  NULL,
             icon_custom        LONGTEXT     NULL,
-            show_app_names     TINYINT(1)   NULL,
+            show_app_names     TINYINT(1)   NOT NULL DEFAULT 1,
             ringtone_volume    TINYINT UNSIGNED NULL,
             call_volume        TINYINT UNSIGNED NULL,
             locale             VARCHAR(8)   NULL,
@@ -109,6 +109,16 @@ function store.ensureSchema()
     ]])
     if pkSecond ~= 'device' then
         MySQL.query.await('ALTER TABLE phone_settings DROP PRIMARY KEY, ADD PRIMARY KEY (citizenid, device)')
+    end
+
+    local appNamesNullable = MySQL.scalar.await([[
+        SELECT IS_NULLABLE FROM information_schema.columns
+        WHERE table_schema = DATABASE() AND table_name = 'phone_settings'
+          AND COLUMN_NAME = 'show_app_names'
+    ]])
+    if appNamesNullable == 'YES' then
+        MySQL.update.await('UPDATE phone_settings SET show_app_names = 1 WHERE show_app_names IS NULL')
+        MySQL.query.await('ALTER TABLE phone_settings MODIFY show_app_names TINYINT(1) NOT NULL DEFAULT 1')
     end
 
     MySQL.query.await([[
@@ -1538,18 +1548,15 @@ function store.deleteCustomIconTheme(citizenid, id)
     return true
 end
 
----Returns true if a player wants app names printed under their home-screen icons, defaulting to
----true when the show_app_names column is NULL. Read-only.
+---Returns true if a player wants app names printed under their home-screen icons. Read-only.
 ---@param citizenid string framework per-character id
 ---@return boolean showAppNames
 function store.getShowAppNames(citizenid, device)
     device = device or 'phone'
     if not citizenid or citizenid == '' then return true end
     local row = MySQL.single.await('SELECT show_app_names FROM phone_settings WHERE citizenid = ? AND device = ?', { citizenid, device })
-    if row and row.show_app_names ~= nil then
-        return isTruthy(row.show_app_names)
-    end
-    return true
+    if not row then return true end
+    return isTruthy(row.show_app_names)
 end
 
 ---Persists a player's show-app-names preference (upsert), coerced to a strict boolean.
@@ -1699,12 +1706,7 @@ function store.snapshot(citizenid, device)
     if dark ~= 'graphite' and dark ~= 'black' and dark ~= 'warm' then dark = 'graphite' end
     local icons = row and row.icon_theme
     if not isStorableIconTheme(icons) then icons = 'default' end
-    local showAppNames
-    if row and row.show_app_names ~= nil then
-        showAppNames = isTruthy(row.show_app_names)
-    else
-        showAppNames = true
-    end
+    local showAppNames = row == nil or isTruthy(row.show_app_names)
 
     return {
         ringtone         = row and row.ringtone or nil,
