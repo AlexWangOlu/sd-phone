@@ -44,7 +44,9 @@ export function Profile({ profile, me, handle, onBack, onEdit, onOpenPost, onTog
     onOpenAuthor?:   (handle: string) => void;
     onMessage?:      (handle: string) => void;
 }) {
-    const isOther = !!handle;
+    const isOther = !!handle
+        && handle.toLowerCase() !== me.handle.toLowerCase()
+        && profile?.isMe !== true;
     const label = tabLabels();
     const empty = tabEmptyStates();
     const [tab, setTab] = useState<Tab>('posts');
