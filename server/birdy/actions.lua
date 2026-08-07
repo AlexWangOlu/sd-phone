@@ -50,6 +50,7 @@ local WRITE_BUDGET = {
     dm       = { 400, 1000 },
     react    = { 250, 2000 },
     verify   = { 3000, 20 },
+    deletePost = { 500, 300 },
 }
 
 ---@type integer Rolling window the per-day half of WRITE_BUDGET is measured over (ms).
@@ -62,7 +63,7 @@ local BUDGET_WINDOW = 86400000
 ---@param key string WRITE_BUDGET key
 ---@return table|nil refusal
 local function throttle(cid, key)
-    local budget = WRITE_BUDGET[key]
+    local budget = WRITE_BUDGET[key] or { 2000, 60 }
     if not util.cooldown(cid, 'birdy:' .. key, budget[1]) then return fail('Slow down') end
     if not util.rateLimit(cid, 'birdy:' .. key, BUDGET_WINDOW, budget[2]) then
         return fail('Daily limit reached')
