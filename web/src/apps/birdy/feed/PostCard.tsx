@@ -59,11 +59,11 @@ export function PostCard({ post, isOwn, onToggleLike, onToggleRepost, onOpen, on
                     a 60px avatar. pr-7 keeps it clear of the absolutely positioned more button. */}
                 <div className="flex items-baseline gap-1 pr-7 leading-tight">
                     <button type="button" onClick={openAuthor} className="flex min-w-0 items-baseline gap-1 text-left">
-                        <span className="truncate text-[19px] font-bold text-label">{post.author.name}</span>
+                        <span className="truncate text-[19px] font-bold text-label" style={{ flexShrink: 1 }}>{post.author.name}</span>
                         {post.author.verified && (
                             <span className="shrink-0 self-center"><VerifiedBadge size={18} type={post.author.verifiedType} /></span>
                         )}
-                        <span className="truncate text-[15px]" style={{ color: META }}>@{post.author.handle}</span>
+                        <span className="min-w-0 truncate text-[15px]" style={{ color: META, flexShrink: 999 }}>@{post.author.handle}</span>
                     </button>
                     <span className="shrink-0 text-[15px]" style={{ color: META }}>· {relativeTime(post.createdAt)}</span>
                 </div>
