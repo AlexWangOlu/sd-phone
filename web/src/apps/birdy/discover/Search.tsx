@@ -5,7 +5,7 @@ import { useTheme } from '@/stores/themeStore';
 import { useSessionState } from '@/hooks/useSessionState';
 import { SearchBar } from '@/ui/SearchBar';
 import { apiHashtagPosts, apiSearch, apiTrending } from '../birdyApi';
-import { BG, BLUE, BRAND, BRAND_DIM, META, PILL, type BirdyAuthor, type BirdyPost } from '../data';
+import { BG, BLUE, BRAND, BRAND_DIM, META, PILL, postKey, type BirdyAuthor, type BirdyPost} from '../data';
 import { BirdyBird } from '../BirdyBird';
 import { PostCard } from '../feed/PostCard';
 import type { TrendingTag } from '../hashtags';
@@ -100,7 +100,7 @@ export function Search({ me, onOpenProfile, onOpenPost, onToggleLike, onToggleRe
                         ) : (
                             postResults.map(p => (
                                 <PostCard
-                                    key={p.id}
+                                    key={postKey(p)}
                                     post={p}
                                     isOwn={p.author.handle === me.handle}
                                     onToggleLike={() => flipLike(p.id)}

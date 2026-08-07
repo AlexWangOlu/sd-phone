@@ -57,13 +57,14 @@ export interface BirdyPost {
     images?:   string[];
     views?:    number;
     thread?:   BirdyPost[];
+    repostedBy?: { handle: string; name: string; avatar?: string };
 }
+
+export const postKey = (p: BirdyPost): string =>
+    p.repostedBy ? `${p.id}@${p.repostedBy.handle}` : p.id;
 
 export const BLUE   = 'rgb(var(--ios-blue))';
 export const BRAND  = '#1d9bf0';
-// Brand blue is fine as an accent at any size, but a full-bleed slab of it against the dark
-// palette's near-black page glares. Same hue, roughly a third of the lightness, so the banner
-// still reads as brand rather than turning into another grey surface.
 export const BRAND_DIM = '#0c4165';
 export const META   = 'rgb(var(--ios-gray))';
 export const LIKE   = '#f91880';
@@ -74,8 +75,6 @@ export const PILL   = 'rgb(var(--control))';
 export const TEXT   = 'rgb(var(--label))';
 export const LINE   = 'rgb(var(--hairline) / 0.12)';
 export const LINE_STRONG = 'rgb(var(--hairline) / 0.25)';
-// Empty-avatar fill. Deliberately a fixed mid-slate rather than a surface token: it carries a
-// white camera glyph, which would wash out against the light palette's control grey.
 export const AVATAR_EMPTY = '#5b6671';
 
 export const CURRENT_USER: BirdyAuthor = { name: 'Renata Salas',      handle: 'renata_ls', verified: true, verifiedType: 'blue' };
@@ -121,6 +120,7 @@ export const SEED_POSTS: BirdyPost[] = [
         liked:     true,
         views:     231,
         images:    [seedPhoto3],
+        repostedBy: { handle: MARCUS.handle, name: MARCUS.name },
     },
     {
         id:        'seed-2',

@@ -506,14 +506,16 @@ local function hydratePost(row)
         liked       = (tonumber(row.liked) or 0) > 0,
         reposts     = tonumber(row.repost_count) or 0,
         reposted    = (tonumber(row.reposted) or 0) > 0,
+        repostedBy     = row.reposter,
+        repostedByName = row.reposter_name,
+        repostedByAvatar = row.reposter_avatar,
     }
 end
 
----@type string SELECT prefix producing hydratePost-shaped rows. The viewer handle is params #1 AND
----#2 (the `liked` and `reposted` flags), so every caller must pass it twice, ahead of its own
----parameters.
-local POST_SELECT = [[
-    SELECT
+---@type string Columns shared by the authored and reposted halves of a timeline. Both halves
+---project the same shape so their rows can be merged and sorted together. The viewer handle is
+---params #1 AND #2 (the `liked` and `reposted` flags) in either half.
+local POST_COLS = [[
         p.id, p.author, p.body, p.parent_id, p.images, p.views,
         UNIX_TIMESTAMP(p.created_at) AS created_s,
         pr.handle, pr.display_name, pr.verified, pr.verified_type, pr.avatar,
@@ -522,9 +524,53 @@ local POST_SELECT = [[
         (SELECT COUNT(*) FROM phone_birdy_reposts rp WHERE rp.post_id = p.id) AS repost_count,
         (SELECT COUNT(*) FROM phone_birdy_likes lv WHERE lv.post_id  = p.id AND lv.handle = ?) AS liked,
         (SELECT COUNT(*) FROM phone_birdy_reposts rv WHERE rv.post_id = p.id AND rv.handle = ?) AS reposted
+]]
+
+---@type string SELECT prefix producing hydratePost-shaped rows. The viewer handle is params #1 AND
+---#2 (the `liked` and `reposted` flags), so every caller must pass it twice, ahead of its own
+---parameters. `surfaced_s` is what orders a timeline: for an authored post it is simply its own
+---creation time.
+local POST_SELECT = [[
+    SELECT
+]] .. POST_COLS .. [[,
+        NULL AS reposter, NULL AS reposter_name,
+        UNIX_TIMESTAMP(p.created_at) AS surfaced_s
     FROM phone_birdy_posts p
     JOIN phone_birdy_profiles pr ON pr.handle = p.author
 ]]
+
+---@type string The reposted half of a timeline: the same post, surfaced at the moment somebody
+---reposted it rather than when it was written, carrying who did so. Outer alias is rp2 because
+---POST_COLS already uses rp for the repost-count subquery. Same leading two params as POST_SELECT.
+local REPOST_SELECT = [[
+    SELECT
+]] .. POST_COLS .. [[,
+        rp2.handle AS reposter, rpr.display_name AS reposter_name, rpr.avatar AS reposter_avatar,
+        UNIX_TIMESTAMP(rp2.created_at) AS surfaced_s
+    FROM phone_birdy_reposts rp2
+    JOIN phone_birdy_posts p ON p.id = rp2.post_id
+    JOIN phone_birdy_profiles pr ON pr.handle = p.author
+    JOIN phone_birdy_profiles rpr ON rpr.handle = rp2.handle
+]]
+
+---Merges an authored and a reposted result set into one timeline, newest-surfaced first, capped
+---to `limit`. Done in Lua rather than as a SQL UNION so each half keeps its own readable WHERE
+---and its own positional parameters; at feed-sized limits the sort is free.
+---@param a table[] authored rows
+---@param b table[] reposted rows
+---@param limit integer
+---@return table[] hydrated posts
+local function mergeTimeline(a, b, limit)
+    local all = {}
+    for i = 1, #a do all[#all + 1] = a[i] end
+    for i = 1, #b do all[#all + 1] = b[i] end
+    table.sort(all, function(x, y)
+        return (tonumber(x.surfaced_s) or 0) > (tonumber(y.surfaced_s) or 0)
+    end)
+    local out = {}
+    for i = 1, math.min(#all, limit) do out[i] = hydratePost(all[i]) end
+    return out
+end
 
 ---Lists a single author's posts for a profile tab, newest first. 'replies' = posts with a
 ---parent; 'media' = any post carrying images; anything else = top-level only.
@@ -542,12 +588,25 @@ function store.listPostsBy(author, kind, viewerHandle, limit)
     else
         clause = 'p.parent_id IS NULL'
     end
-    local rows = MySQL.query.await(
+    local authored = MySQL.query.await(
         POST_SELECT .. (' WHERE p.author = ? AND %s ORDER BY p.created_at DESC LIMIT ?'):format(clause),
         { viewerHandle, viewerHandle, author, limit }
     ) or {}
-    for i = 1, #rows do rows[i] = hydratePost(rows[i]) end
-    return rows
+
+    if kind == 'replies' or kind == 'media' then
+        local out = {}
+        for i = 1, #authored do out[i] = hydratePost(authored[i]) end
+        return out
+    end
+
+    local reposted = MySQL.query.await(REPOST_SELECT .. [[
+        WHERE rp2.handle = ?
+          AND rp2.handle <> p.author
+          AND p.parent_id IS NULL
+        ORDER BY rp2.created_at DESC LIMIT ?
+    ]], { viewerHandle, viewerHandle, author, limit }) or {}
+
+    return mergeTimeline(authored, reposted, limit)
 end
 
 ---List posts an account has liked, most-recently-liked first.
@@ -656,24 +715,42 @@ end
 ---@param onlyFollowing boolean
 ---@return table[]
 function store.listFeed(viewerHandle, limit, onlyFollowing)
-    local rows
+    local authored, reposted
     if onlyFollowing then
-        rows = MySQL.query.await(POST_SELECT .. [[
+        authored = MySQL.query.await(POST_SELECT .. [[
             WHERE p.parent_id IS NULL
               AND p.author IN (SELECT target FROM phone_birdy_follows WHERE follower = ?)
             ORDER BY p.created_at DESC LIMIT ?
         ]], { viewerHandle, viewerHandle, viewerHandle, limit }) or {}
+
+        reposted = MySQL.query.await(REPOST_SELECT .. [[
+            WHERE p.parent_id IS NULL
+              AND rp2.handle <> p.author
+              AND rp2.handle IN (SELECT target FROM phone_birdy_follows WHERE follower = ?)
+              AND (pr.protected = 0 OR p.author = ?
+                   OR p.author IN (SELECT target FROM phone_birdy_follows WHERE follower = ?))
+            ORDER BY rp2.created_at DESC LIMIT ?
+        ]], { viewerHandle, viewerHandle, viewerHandle, viewerHandle, viewerHandle, limit }) or {}
     else
         -- Protected authors are visible only to themselves and their followers.
-        rows = MySQL.query.await(POST_SELECT .. [[
+        authored = MySQL.query.await(POST_SELECT .. [[
             WHERE p.parent_id IS NULL
               AND (pr.protected = 0 OR p.author = ?
                    OR p.author IN (SELECT target FROM phone_birdy_follows WHERE follower = ?))
             ORDER BY p.created_at DESC LIMIT ?
         ]], { viewerHandle, viewerHandle, viewerHandle, viewerHandle, limit }) or {}
+
+        reposted = MySQL.query.await(REPOST_SELECT .. [[
+            WHERE p.parent_id IS NULL
+              AND rp2.handle <> p.author
+              AND (pr.protected = 0 OR p.author = ?
+                   OR p.author IN (SELECT target FROM phone_birdy_follows WHERE follower = ?))
+              AND (rpr.protected = 0 OR rp2.handle = ?
+                   OR rp2.handle IN (SELECT target FROM phone_birdy_follows WHERE follower = ?))
+            ORDER BY rp2.created_at DESC LIMIT ?
+        ]], { viewerHandle, viewerHandle, viewerHandle, viewerHandle, viewerHandle, viewerHandle, limit }) or {}
     end
-    for i = 1, #rows do rows[i] = hydratePost(rows[i]) end
-    return rows
+    return mergeTimeline(authored, reposted, limit)
 end
 
 ---@param parentId string

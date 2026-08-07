@@ -226,6 +226,7 @@ local function serializePost(p)
         likes     = p.likes,
         liked     = p.liked,
         views     = p.views,
+        repostedBy = p.repostedBy and { handle = p.repostedBy, name = p.repostedByName, avatar = p.repostedByAvatar } or nil,
     }
 end
 
@@ -771,6 +772,8 @@ function actions.toggleRepost(source, payload)
     local author = store.getPostAuthor(id)
     if not author then return fail('Post not found') end
 
+    if author == prof.handle then return fail('You cannot repost your own post') end
+
     local nowReposted
     if store.isReposted(id, prof.handle) then
         store.removeRepost(id, prof.handle)
@@ -788,6 +791,8 @@ function actions.toggleRepost(source, payload)
         store.insertNotification(store.newId(), author, 'repost', prof.handle, id)
         notify = author
     end
+
+    watchers.push('sd-phone:client:birdy:feedChanged', {})
 
     return ok({ reposted = nowReposted, notify = notify })
 end

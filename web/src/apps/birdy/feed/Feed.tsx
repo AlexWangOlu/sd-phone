@@ -5,7 +5,7 @@ import { BirdyBird } from '../BirdyBird';
 
 import { t } from '@/i18n';
 import { EmptyState } from '@/ui/EmptyState';
-import { BLUE, META, type BirdyAuthor, type BirdyPost } from '../data';
+import { BLUE, META, postKey, type BirdyAuthor, type BirdyPost} from '../data';
 import { FeedSkeleton } from '../polish/Skeleton';
 import { usePullToRefresh } from '../polish/usePullToRefresh';
 import { PostCard } from './PostCard';
@@ -39,7 +39,7 @@ export function Feed({ posts, me, feed, onFeedChange, onRefresh, onToggleLike, o
         const deep = (el?.scrollTop ?? 0) > 400;
         setShown(prev => {
             if (!posts || !prev || prev.length === 0 || !deep) { setHasNew(false); return posts; }
-            if (posts[0]?.id === prev[0]?.id) return posts;
+            if (posts[0] && prev[0] && postKey(posts[0]) === postKey(prev[0])) return posts;
             setHasNew(true);
             return prev;
         });
@@ -129,7 +129,7 @@ export function Feed({ posts, me, feed, onFeedChange, onRefresh, onToggleLike, o
                     ) : (
                         shown.map(p => (
                             <PostCard
-                                key={p.id}
+                                key={postKey(p)}
                                 post={p}
                                 isOwn={p.author.handle === me.handle}
                                 onToggleLike={() => onToggleLike(p.id)}

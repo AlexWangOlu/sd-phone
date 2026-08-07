@@ -23,6 +23,12 @@ export function PostCard({ post, isOwn, onToggleLike, onToggleRepost, onOpen, on
         onOpenAuthor(post.author.handle);
     };
 
+    const openReposter = (e: React.MouseEvent) => {
+        if (!onOpenAuthor || !post.repostedBy) return;
+        e.stopPropagation();
+        onOpenAuthor(post.repostedBy.handle);
+    };
+
     // Server truth; the parent applies the optimistic flip.
     const reposted = post.reposted === true;
     const [confirmRepost, setConfirmRepost] = useState(false);
@@ -33,7 +39,7 @@ export function PostCard({ post, isOwn, onToggleLike, onToggleRepost, onOpen, on
         <>
         <article
             onClick={onOpen}
-            className={`relative flex gap-4 border-b border-hairline/10 px-4 py-[18px] ${onOpen ? 'cursor-pointer transition-colors hover:bg-hairline/[0.04]' : ''}`}
+            className={`relative border-b border-hairline/10 px-4 py-[18px] ${onOpen ? 'cursor-pointer transition-colors hover:bg-hairline/[0.04]' : ''}`}
         >
             {isOwn && onDelete && (
                 // Absolute, not in the header row: as a flex sibling it stole width from the
@@ -49,14 +55,26 @@ export function PostCard({ post, isOwn, onToggleLike, onToggleRepost, onOpen, on
                 </button>
             )}
 
+            {post.repostedBy && (
+                <div className="mb-2 flex items-center gap-4 text-[14px] font-semibold" style={{ color: META }}>
+                    <span className="flex w-[60px] shrink-0 justify-end"><Repeat2 className="h-[18px] w-[18px]" strokeWidth={2.4} /></span>
+                    <button
+                        type="button"
+                        onClick={openReposter}
+                        className="flex min-w-0 items-center gap-1.5 text-left active:opacity-60"
+                    >
+                        <Avatar size={20} src={post.repostedBy.avatar} />
+                        <span className="truncate">{t('squawk.userReposted', '{name} reposted', { name: post.repostedBy.name })}</span>
+                    </button>
+                </div>
+            )}
+
+            <div className="flex gap-4">
             <button type="button" onClick={openAuthor} className="h-fit shrink-0">
                 <Avatar size={60} src={post.author.avatar} />
             </button>
 
             <div className="min-w-0 flex-1">
-                {/* One line. The handle and time sit a size down from the name, which is what buys
-                    the room: at a shared 19px this row needed ~334px and only ~300px exists beside
-                    a 60px avatar. pr-7 keeps it clear of the absolutely positioned more button. */}
                 <div className="flex items-baseline gap-1 pr-7 leading-tight">
                     <button type="button" onClick={openAuthor} className="flex min-w-0 items-baseline gap-1 text-left">
                         <span className="truncate text-[19px] font-bold text-label" style={{ flexShrink: 1 }}>{post.author.name}</span>
@@ -88,6 +106,10 @@ export function PostCard({ post, isOwn, onToggleLike, onToggleRepost, onOpen, on
                         icon={<Repeat2 className="h-[29px] w-[29px]" strokeWidth={1.9} />}
                         count={repostCount}
                         color={reposted ? REPOST : undefined}
+                        disabled={isOwn}
+                        label={isOwn
+                            ? t('squawk.cannotRepostOwn', 'You cannot repost your own post')
+                            : t('squawk.repost', 'Repost')}
                         onClick={() => setConfirmRepost(true)}
                     />
                     <ActionButton
@@ -107,6 +129,7 @@ export function PostCard({ post, isOwn, onToggleLike, onToggleRepost, onOpen, on
                         onClick={onToggleLike}
                     />
                 </div>
+            </div>
             </div>
         </article>
 
@@ -142,20 +165,24 @@ const TONE: Record<'comment' | 'repost' | 'like', { text: string; bg: string }> 
     like:    { text: 'group-hover:text-[#f91880]', bg: 'group-hover:bg-[#f91880]/10' },
 };
 
-function ActionButton({ icon, count, color, tone, onClick }: {
-    icon:     React.ReactNode;
-    count:    number;
-    color?:   string;
-    tone:     'comment' | 'repost' | 'like';
-    onClick?: () => void;
+function ActionButton({ icon, count, color, tone, disabled, label, onClick }: {
+    icon:      React.ReactNode;
+    count:     number;
+    color?:    string;
+    tone:      'comment' | 'repost' | 'like';
+    disabled?: boolean;
+    label?:    string;
+    onClick?:  () => void;
 }) {
     const t = TONE[tone];
     const active = color != null;
     return (
         <button
             type="button"
+            disabled={disabled}
+            aria-label={label}
             onClick={e => { e.stopPropagation(); onClick?.(); }}
-            className={`group flex items-center gap-1 transition-transform active:scale-90 ${active ? '' : `text-ios-gray ${t.text}`}`}
+            className={`group flex items-center gap-1 transition-transform ${disabled ? 'cursor-default opacity-40' : 'active:scale-90'} ${active ? '' : `text-ios-gray ${disabled ? '' : t.text}`}`}
             style={active ? { color } : undefined}
         >
             <span className={`-m-1.5 flex h-10 w-10 items-center justify-center rounded-full transition-colors ${t.bg}`}>

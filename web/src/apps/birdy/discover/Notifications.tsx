@@ -77,9 +77,6 @@ function NotifRow({ icon, user, text, preview, onOpen }: { icon: React.ReactNode
                     </div>
                 </div>
                 {preview && (
-                    // Not META here: it lands at 3.67:1 on this background, under the 4.5:1 body
-                    // text needs. label/70 stays clearly secondary to the headline while reading
-                    // at 6.1:1, and it inverts with the theme instead of pinning a light-mode grey.
                     <div className="mt-1.5 line-clamp-3 pl-[56px] text-[16px] leading-normal text-label/70">{preview}</div>
                 )}
             </div>

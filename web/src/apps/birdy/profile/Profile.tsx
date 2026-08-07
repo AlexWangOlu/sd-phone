@@ -7,7 +7,7 @@ import { t } from '@/i18n';
 import { useAsyncData } from '@/hooks/useAsyncData';
 import { EmptyState } from '@/ui/EmptyState';
 import { apiProfilePosts } from '../birdyApi';
-import { BG, BLUE, META, type BirdyAuthor, type BirdyProfile } from '../data';
+import { BG, BLUE, META, postKey, type BirdyAuthor, type BirdyProfile} from '../data';
 import { compactCount } from '../polish/format';
 import { FeedSkeleton } from '../polish/Skeleton';
 import { FollowList } from './FollowList';
@@ -204,7 +204,7 @@ export function Profile({ profile, me, handle, onBack, onEdit, onOpenPost, onTog
                 ) : (
                     posts.map(post => (
                         <PostCard
-                            key={post.id}
+                            key={postKey(post)}
                             post={post}
                             isOwn={post.author.handle === me.handle}
                             onToggleLike={() => onToggleLike(post.id)}
