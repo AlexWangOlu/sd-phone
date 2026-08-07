@@ -11,6 +11,7 @@ import { NotificationHost, type NotificationItem } from '@/shell/Notifications';
 import { AirShareCard, type AirShareRequest } from '@/shared/AirShare';
 import { SignRequestLayer, type SignRequestData } from '@/apps/documents/SignRequestLayer';
 import { ControlCenter, ControlCenterHotzone } from '@/shell/ControlCenter';
+import { NotificationCenter, NotificationCenterHotzone } from '@/shell/NotificationCenter';
 import { MusicProvider, useMusic } from '@/apps/music/MusicContext';
 import { ryDevDataHidden, ryDevToggleData } from '@/apps/ryde/data';
 import { asAppId, isPreviewApp, preloadAllApps, preloadApp, setPreloadPaused, type AppId } from '@/shell/appRegistry';
@@ -38,7 +39,7 @@ import { isKeyboardCaptured } from '@/hooks/useKeyboardCapture';
 import { useNuiEvent } from '@/hooks/useNuiEvent';
 import { isGameClock, useGameClockStore } from '@/stores/gameClockStore';
 import { seedSessionState } from '@/hooks/useSessionState';
-import { onOpenMail, onOpenMaps, onOpenMessages } from '@/shell/deeplink';
+import { onOpenMail, onOpenMaps, onOpenMessages, requestOpenMail } from '@/shell/deeplink';
 import { fetchNui, isFiveM } from '@/core/nui';
 import { usePhoneReset } from '@/core/phoneReset';
 import { resetAuth } from '@/stores/authStore';
@@ -610,8 +611,17 @@ function AppContent() {
         setSwitcherReady(false);
     }, [switcherClosing]);
 
+    // Seeding session state only reaches an app on its FIRST mount, and the AppDeck keeps apps
+    // alive, so a link handed to an already-open app was silently dropped. Anything with a live
+    // deeplink channel goes through that instead, which apps consume whenever it fires.
     const applyNotifLink = useCallback((link?: Record<string, unknown>) => {
-        if (link) for (const [k, v] of Object.entries(link)) seedSessionState(k, v);
+        if (!link) return;
+        for (const [k, v] of Object.entries(link)) seedSessionState(k, v);
+
+        const mail = link.mail as { folder?: string; msgId?: string; accountId?: string } | undefined;
+        if (mail?.msgId) {
+            requestOpenMail({ message: { folder: mail.folder ?? 'inbox', msgId: mail.msgId, accountId: mail.accountId } });
+        }
     }, []);
 
     const handleOpenFromSwitcher = useCallback((id: AppId, origin: { x: number; y: number }) => {
@@ -847,6 +857,18 @@ function AppContent() {
 
     const [notifs, setNotifs] = useState<NotificationItem[]>([]);
     const [lockNotifs, setLockNotifs] = useState<NotificationItem[]>([]);
+    const [ncOpen, setNcOpen] = useState(false);
+    // The panel fades for 320ms after ncOpen flips false, and is pointer-events-none the whole
+    // time. Without this grace the hotzones remount underneath it and a tap lands straight back
+    // on one, reopening what the player just closed.
+    const [ncClosing, setNcClosing] = useState(false);
+    const ncCloseTimer = useRef<number | undefined>(undefined);
+    const closeNc = useCallback(() => {
+        setNcOpen(false);
+        setNcClosing(true);
+        window.clearTimeout(ncCloseTimer.current);
+        ncCloseTimer.current = window.setTimeout(() => setNcClosing(false), 360);
+    }, []);
     const lockNotifsRef = useRef(lockNotifs);
     lockNotifsRef.current = lockNotifs;
     // Per-profile lockscreen stacks parked while another phone is active (in-memory, like the
@@ -1602,7 +1624,16 @@ function AppContent() {
 
                 {!showSetup && (
                     <>
-                        {!ccOpen && !homeEditing && <ControlCenterHotzone onOpen={() => setCcOpen(true)} />}
+                        {!ccOpen && !ncOpen && !ncClosing && !homeEditing && !locked && <NotificationCenterHotzone onOpen={() => setNcOpen(true)} />}
+                        <NotificationCenter
+                            open={ncOpen}
+                            items={lockNotifs}
+                            onClose={closeNc}
+                            onOpen={openLockNotif}
+                            onDismiss={dismissLockNotif}
+                            onClearAll={() => { setLockNotifs([]); closeNc(); }}
+                        />
+                        {!ccOpen && !ncOpen && !ncClosing && !homeEditing && <ControlCenterHotzone onOpen={() => setCcOpen(true)} />}
                         <ControlCenter
                             open={ccOpen}
                             onClose={() => setCcOpen(false)}

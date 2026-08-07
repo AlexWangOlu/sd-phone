@@ -374,7 +374,7 @@ function ancestorZoom(el: HTMLElement | null): number {
     return z || 1;
 }
 
-function LockNotifCard({ item, onOpen, onDismiss }: { item: NotificationItem; onOpen: () => void; onDismiss: () => void }) {
+export function LockNotifCard({ item, onOpen, onDismiss }: { item: NotificationItem; onOpen: () => void; onDismiss: () => void }) {
     const [dx, setDx] = useState(0);
     const [exiting, setExiting] = useState(false);
     const start    = useRef({ x: 0, y: 0 });
