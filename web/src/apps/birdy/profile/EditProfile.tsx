@@ -235,7 +235,7 @@ export function EditProfile({ profile, onCancel, onSaved, onSignOut, onSignOutAl
     );
 }
 
-const HAIRLINE = 'pointer-events-none absolute bottom-0 left-4 right-0 bg-hairline/[0.08]';
+const HAIRLINE = 'pointer-events-none absolute inset-x-0 bottom-0 bg-hairline/[0.08]';
 
 function Group({ children, footer }: { children: React.ReactNode; footer?: string }) {
     return (

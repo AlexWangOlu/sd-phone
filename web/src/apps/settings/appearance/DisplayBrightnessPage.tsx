@@ -149,7 +149,7 @@ export function DisplayBrightnessPage({ onBack }: { onBack: () => void }) {
                                 <ChevronRight className="h-[17px] w-[17px] shrink-0 text-ios-gray3" strokeWidth={2.5} />
                             </button>
 
-                            <div className="ml-4 h-[0.5px] bg-ios-gray4 dark:bg-control" />
+                            <div className="h-[0.5px] bg-ios-gray4 dark:bg-control" />
 
                             <button
                                 type="button"
@@ -168,7 +168,7 @@ export function DisplayBrightnessPage({ onBack }: { onBack: () => void }) {
 
                             {shellChoice && (
                                 <>
-                                    <div className="ml-4 h-[0.5px] bg-ios-gray4 dark:bg-control" />
+                                    <div className="h-[0.5px] bg-ios-gray4 dark:bg-control" />
                                     <button
                                         type="button"
                                         onClick={() => setShellOpen(true)}
