@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 
 import { t } from '@/i18n';
+import { useTheme } from '@/stores/themeStore';
 import { useSessionState } from '@/hooks/useSessionState';
 import { SearchBar } from '@/ui/SearchBar';
 import { apiHashtagPosts, apiSearch, apiTrending } from '../birdyApi';
-import { BG, BLUE, BRAND, META, PILL, type BirdyAuthor, type BirdyPost } from '../data';
+import { BG, BLUE, BRAND, BRAND_DIM, META, PILL, type BirdyAuthor, type BirdyPost } from '../data';
 import { BirdyBird } from '../BirdyBird';
 import { PostCard } from '../feed/PostCard';
 import type { TrendingTag } from '../hashtags';
@@ -18,6 +19,9 @@ export function Search({ me, onOpenProfile, onOpenPost, onToggleLike, onToggleRe
     onToggleLike:   (id: string) => void;
     onToggleRepost: (id: string) => void;
 }) {
+    const { theme } = useTheme('theme');
+    const isDark = theme === 'dark';
+
     const [query,       setQuery]       = useSessionState('birdy:searchQuery', '');
     const [results,     setResults]     = useState<BirdyAuthor[]>([]);
     const [postResults, setPostResults] = useState<BirdyPost[]>([]);
@@ -131,8 +135,8 @@ export function Search({ me, onOpenProfile, onOpenPost, onToggleLike, onToggleRe
                     )
                 ) : (
                     <div>
-                        <div className="relative flex h-[200px] w-full items-center justify-center overflow-hidden pb-6" style={{ background: BRAND }}>
-                            <BirdyBird className="h-28 w-28 text-white" />
+                        <div className="relative flex h-[200px] w-full items-center justify-center overflow-hidden pb-6" style={{ background: isDark ? BRAND_DIM : BRAND }}>
+                            <BirdyBird className={`h-28 w-28 ${isDark ? 'text-white/85' : 'text-white'}`} />
                             <span className="absolute bottom-4 left-4 text-[17px] font-bold text-white">{t('squawk.startSearching', 'Start searching to explore Squawk')}</span>
                         </div>
 

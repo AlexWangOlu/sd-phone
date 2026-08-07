@@ -61,6 +61,10 @@ export interface BirdyPost {
 
 export const BLUE   = 'rgb(var(--ios-blue))';
 export const BRAND  = '#1d9bf0';
+// Brand blue is fine as an accent at any size, but a full-bleed slab of it against the dark
+// palette's near-black page glares. Same hue, roughly a third of the lightness, so the banner
+// still reads as brand rather than turning into another grey surface.
+export const BRAND_DIM = '#0c4165';
 export const META   = 'rgb(var(--ios-gray))';
 export const LIKE   = '#f91880';
 export const REPOST = '#00ba7c';
