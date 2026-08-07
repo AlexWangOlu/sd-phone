@@ -2,6 +2,8 @@
 local store = {}
 
 local util = require 'server.util'
+---@type table Column back-fills for tables that predate a column (server.migrations).
+local migrations = require 'server.migrations'
 local isTruthy = util.truthy
 local function newId() return util.newId(9) end
 
@@ -205,6 +207,7 @@ function store.ensureSchema()
             password     VARCHAR(64)  NOT NULL DEFAULT '',
             bio          VARCHAR(200) NOT NULL DEFAULT '',
             verified     TINYINT(1)   NOT NULL DEFAULT 0,
+            verified_type VARCHAR(8)   NULL,
             logged_in    TINYINT(1)   NOT NULL DEFAULT 0,
             join_label   VARCHAR(32)  NOT NULL DEFAULT '',
             protected    TINYINT(1)   NOT NULL DEFAULT 0,
@@ -213,6 +216,10 @@ function store.ensureSchema()
             INDEX idx_birdy_profiles_creator (citizenid)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ]])
+
+    -- The CREATE above is the current shape for fresh installs; anything added to this table since
+    -- it first shipped is back-filled here for databases that already have it.
+    migrations.apply('phone_birdy_profiles')
 
     MySQL.query.await([[
         CREATE TABLE IF NOT EXISTS phone_birdy_posts (
@@ -365,6 +372,7 @@ local function hydrateProfile(row)
         password    = row.password,
         bio         = row.bio,
         verified    = isTruthy(row.verified),
+        verifiedType = row.verified_type,
         loggedIn    = isTruthy(row.logged_in),
         joinLabel   = row.join_label,
         avatar      = row.avatar,
@@ -381,7 +389,7 @@ end
 function store.getProfileByHandle(handle)
     if not handle or handle == '' then return nil end
     return hydrateProfile(MySQL.single.await(
-        'SELECT handle, citizenid, display_name, password, bio, verified, logged_in, join_label, protected, avatar, banner, UNIX_TIMESTAMP(created_at) AS created_ts FROM phone_birdy_profiles WHERE handle = ?',
+        'SELECT handle, citizenid, display_name, password, bio, verified, verified_type, logged_in, join_label, protected, avatar, banner, UNIX_TIMESTAMP(created_at) AS created_ts FROM phone_birdy_profiles WHERE handle = ?',
         { handle }
     ))
 end
@@ -396,14 +404,14 @@ end
 function store.searchProfiles(query, viewerHandle, limit)
     local like = '%' .. escapeLike(query) .. '%'
     local rows = MySQL.query.await([[
-        SELECT handle, display_name, verified, avatar FROM phone_birdy_profiles
+        SELECT handle, display_name, verified, verified_type, avatar FROM phone_birdy_profiles
         WHERE (handle LIKE ? ESCAPE '\\' OR display_name LIKE ? ESCAPE '\\') AND handle <> ?
         ORDER BY created_at DESC LIMIT ?
     ]], { like, like, viewerHandle or '', limit }) or {}
     local out = {}
     for i = 1, #rows do
         local r = rows[i]
-        out[i] = { handle = r.handle, displayName = r.display_name, verified = isTruthy(r.verified), avatar = r.avatar }
+        out[i] = { handle = r.handle, displayName = r.display_name, verified = isTruthy(r.verified), verifiedType = r.verified_type, avatar = r.avatar }
     end
     return out
 end
@@ -437,6 +445,17 @@ function store.updateProfileFields(handle, displayName, bio, joinLabel, protecte
         SET display_name = ?, bio = ?, join_label = ?, protected = ?, avatar = ?, banner = ?
         WHERE handle = ?
     ]], { displayName, bio, joinLabel, protected and 1 or 0, avatar, banner, handle })
+end
+
+---Sets the verified badge on one account. Only ever called with a type that came back from
+---verify.parse, so an unrenderable badge cannot reach the column.
+---@param handle string account handle
+---@param vtype string|nil badge type, or nil to clear the badge
+---@return integer affected
+function store.setVerified(handle, vtype)
+    return tonumber(MySQL.update.await(
+        'UPDATE phone_birdy_profiles SET verified = ?, verified_type = ? WHERE handle = ?',
+        { vtype and 1 or 0, vtype, handle })) or 0
 end
 
 ---Replace an account's legacy profile-row password hash (kept in sync with the engine hash).
@@ -475,6 +494,7 @@ local function hydratePost(row)
         handle      = row.handle,
         displayName = row.display_name,
         verified    = isTruthy(row.verified),
+        verifiedType = row.verified_type,
         avatar      = row.avatar,
         body        = row.body,
         parentId    = row.parent_id,
@@ -496,7 +516,7 @@ local POST_SELECT = [[
     SELECT
         p.id, p.author, p.body, p.parent_id, p.images, p.views,
         UNIX_TIMESTAMP(p.created_at) AS created_s,
-        pr.handle, pr.display_name, pr.verified, pr.avatar,
+        pr.handle, pr.display_name, pr.verified, pr.verified_type, pr.avatar,
         (SELECT COUNT(*) FROM phone_birdy_likes l  WHERE l.post_id   = p.id) AS like_count,
         (SELECT COUNT(*) FROM phone_birdy_posts r  WHERE r.parent_id = p.id) AS reply_count,
         (SELECT COUNT(*) FROM phone_birdy_reposts rp WHERE rp.post_id = p.id) AS repost_count,
@@ -582,7 +602,7 @@ function store.getProfilesByHandles(handles)
     local marks = {}
     for i = 1, #handles do marks[i] = '?' end
     local rows = MySQL.query.await(
-        ('SELECT handle, citizenid, display_name, verified, avatar FROM phone_birdy_profiles WHERE handle IN (%s)')
+        ('SELECT handle, citizenid, display_name, verified, verified_type, avatar FROM phone_birdy_profiles WHERE handle IN (%s)')
             :format(table.concat(marks, ',')),
         handles
     ) or {}
@@ -800,6 +820,25 @@ function store.getPostAuthor(id)
     return MySQL.scalar.await('SELECT author FROM phone_birdy_posts WHERE id = ?', { id })
 end
 
+---Deletes a post and everything hanging off it: its replies, and the likes, reposts and
+---notifications belonging to the post or any of those replies. There is no ON DELETE CASCADE on
+---these tables, so orphans would otherwise sit in the likes and notifications tables forever and
+---keep counting toward reply totals.
+---@param id string post id
+---@return integer removed how many rows the posts table lost
+function store.deletePost(id)
+    local replies = MySQL.query.await('SELECT id FROM phone_birdy_posts WHERE parent_id = ?', { id }) or {}
+
+    local ids = { id }
+    for i = 1, #replies do ids[#ids + 1] = replies[i].id end
+
+    local marks = string.rep('?', #ids, ',')
+    MySQL.query.await(('DELETE FROM phone_birdy_likes WHERE post_id IN (%s)'):format(marks), ids)
+    MySQL.query.await(('DELETE FROM phone_birdy_reposts WHERE post_id IN (%s)'):format(marks), ids)
+    MySQL.query.await(('DELETE FROM phone_birdy_notifications WHERE post_id IN (%s)'):format(marks), ids)
+    return MySQL.update.await(('DELETE FROM phone_birdy_posts WHERE id IN (%s)'):format(marks), ids) or 0
+end
+
 ---Adds a like. INSERT IGNORE makes replays a no-op.
 ---@param postId string
 ---@param handle string
@@ -880,7 +919,7 @@ function store.followList(viewerHandle, target, kind)
     end
 
     return MySQL.query.await(([[
-        SELECT pr.handle, pr.display_name, pr.bio, pr.verified, pr.avatar,
+        SELECT pr.handle, pr.display_name, pr.bio, pr.verified, pr.verified_type, pr.avatar,
                EXISTS(SELECT 1 FROM phone_birdy_follows x
                       WHERE x.follower = pr.handle AND x.target = ?)   AS follows_you,
                EXISTS(SELECT 1 FROM phone_birdy_follows y

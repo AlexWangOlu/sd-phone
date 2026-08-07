@@ -39,6 +39,12 @@ local COLUMNS = {
         device            = "device VARCHAR(16) NOT NULL DEFAULT 'phone'",
     },
 
+    -- Verification tier shown next to a handle: blue (individual), gold (business), grey
+    -- (government). NULL means the legacy plain blue tick, so existing rows keep their badge.
+    phone_birdy_profiles = {
+        verified_type = 'verified_type VARCHAR(8) NULL',
+    },
+
     phone_documents = {
         signable  = '`signable` TINYINT(1) NOT NULL DEFAULT 1',
         deletable = '`deletable` TINYINT(1) NOT NULL DEFAULT 1',

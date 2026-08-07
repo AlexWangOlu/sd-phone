@@ -12,6 +12,8 @@ local acctActions = require 'server.accounts.actions'
 local settings = require 'server.settings.store'
 ---@type table Banking actions (server.banking.actions): authoritative money transfer for money DMs.
 local banking = require 'server.banking.actions'
+---@type table Money bridge (bridge.server.money): balance read + charge for buying the blue check.
+local money = require 'bridge.server.money'
 ---@type table Badges module (server.badges.init): server-authoritative unread-badge pushes.
 local badges = require 'server.badges.init'
 ---@type table Admin mute registry (server.admin.moderation): scope guards for posting/DMing.
@@ -47,6 +49,7 @@ local WRITE_BUDGET = {
     follow   = { 400, 500 },
     dm       = { 400, 1000 },
     react    = { 250, 2000 },
+    verify   = { 3000, 20 },
 }
 
 ---@type integer Rolling window the per-day half of WRITE_BUDGET is measured over (ms).
@@ -182,7 +185,7 @@ actions.sourcesFor = sourcesFor
 ---@param profile table
 ---@return { name: string, handle: string, verified: boolean, avatar?: string }
 local function serializeAuthor(profile)
-    return { name = profile.displayName, handle = profile.handle, verified = profile.verified, avatar = profile.avatar }
+    return { name = profile.displayName, handle = profile.handle, verified = profile.verified, verifiedType = profile.verifiedType, avatar = profile.avatar }
 end
 
 ---Shapes a full profile (with live follow counts) for the profile page.
@@ -193,6 +196,7 @@ local function serializeProfile(profile)
         name      = profile.displayName,
         handle    = profile.handle,
         verified  = profile.verified,
+        verifiedType = profile.verifiedType,
         bio       = profile.bio or '',
         -- Derived from created_at; join_label was client-writable.
         joined    = profile.createdTs and os.date('%B %Y', profile.createdTs) or (profile.joinLabel or ''),
@@ -211,7 +215,7 @@ end
 local function serializePost(p)
     return {
         id        = p.id,
-        author    = { name = p.displayName, handle = p.handle, verified = p.verified, avatar = p.avatar },
+        author    = { name = p.displayName, handle = p.handle, verified = p.verified, verifiedType = p.verifiedType, avatar = p.avatar },
         body      = p.body,
         images    = p.images,
         createdAt = p.createdMs,
@@ -419,7 +423,7 @@ function actions.search(source, payload)
     local rows = store.searchProfiles(q:sub(1, 64), me, 20)
     local users = {}
     for i = 1, #rows do
-        users[i] = { name = rows[i].displayName, handle = rows[i].handle, verified = rows[i].verified }
+        users[i] = { name = rows[i].displayName, handle = rows[i].handle, verified = rows[i].verified, verifiedType = rows[i].verifiedType }
     end
     return ok({ users = users })
 end
@@ -474,6 +478,57 @@ function actions.updateProfile(source, payload)
     -- joinLabel is ignored; the join date is derived from created_at.
     store.updateProfileFields(prof.handle, name, bio, prof.joinLabel or '', payload.protected == true, avatar, banner)
     return ok({ profile = serializeProfile(store.getProfileByHandle(prof.handle)) })
+end
+
+---What the Get Verified row should show: whether the blue check is on sale at all, its price, and
+---whether this account already carries a badge. The price is read here rather than mirrored in
+---the bundle so changing configs/birdy.lua takes effect on a restart, with no rebuild.
+---@param source number player server id
+---@return table envelope { enabled, price, account, verified, verifiedType }
+function actions.verificationOffer(source)
+    local prof = viewer(source)
+    if not prof then return fail('Not signed in') end
+
+    local cfg = birdyCfg.Verification
+    return ok({
+        enabled      = (cfg and cfg.Enabled) == true,
+        price        = math.floor(tonumber(cfg and cfg.Price) or 0),
+        account      = (cfg and cfg.Account) or 'bank',
+        verified     = prof.verified == true,
+        verifiedType = prof.verifiedType,
+    })
+end
+
+---Buys the blue check for the signed-in account. Only blue is ever sold: gold and grey assert an
+---identity someone has to have checked, so they stay staff-granted.
+---@param source number player server id
+---@return table envelope { me } on success
+function actions.purchaseVerification(source)
+    local prof, cid = viewer(source)
+    if not prof or not cid then return fail('Not signed in') end
+
+    local cfg = birdyCfg.Verification
+    if not (cfg and cfg.Enabled) then return fail('Verification is not available') end
+    if prof.verified then return fail('This account is already verified') end
+
+    local slow = throttle(cid, 'verify'); if slow then return slow end
+
+    local price   = math.floor(tonumber(cfg.Price) or 0)
+    local account = cfg.Account or 'bank'
+
+    if price > 0 then
+        if (tonumber(money.get(source, account)) or 0) < price then return fail('Not enough money') end
+        if not money.remove(source, account, price, 'Birdy verification') then return fail('Payment failed') end
+    end
+
+    -- Nothing here is transactional, so the charge is undone by hand if the badge write misses.
+    -- Without this a player whose account vanished mid-purchase is simply out the money.
+    if store.setVerified(prof.handle, 'blue') == 0 then
+        if price > 0 then money.add(source, account, price, 'Birdy verification refund') end
+        return fail('Could not verify this account')
+    end
+
+    return ok({ me = serializeAuthor(store.getProfileByHandle(prof.handle)) })
 end
 
 ---Changes the signed-in account's password, syncing the engine hash, the Passwords-app vault
@@ -642,6 +697,28 @@ function actions.reply(source, payload)
     return ok({ post = serializePost(store.getPost(id, prof.handle)), notify = notify })
 end
 
+---Deletes one of the caller's own posts, along with every reply, like, repost and notification
+---hanging off it. Ownership is proved against the stored author handle rather than anything the
+---client sends, so a crafted payload cannot remove someone else's post.
+---@param source number player server id
+---@param payload { id?: string }|nil
+---@return table envelope
+function actions.deletePost(source, payload)
+    local prof, cid = viewer(source); if not prof or not cid then return fail('Player not found') end
+    payload = tbl(payload)
+    local id = payload and payload.id
+    if type(id) ~= 'string' or id == '' then return fail('Missing post') end
+    local slow = throttle(cid, 'deletePost'); if slow then return slow end
+
+    local author = store.getPostAuthor(id)
+    if not author then return fail('Post not found') end
+    if author ~= prof.handle then return fail('Not your post') end
+
+    store.deletePost(id)
+    store.invalidateTrending()
+    return ok({ id = id })
+end
+
 ---Toggles the viewer's like on a post. Returns the new liked state plus the author handle to
 ---notify when a like was just added (not on unlike, never for self-likes).
 ---@param source number player server id
@@ -744,6 +821,7 @@ function actions.followList(source, payload)
             name        = row.display_name,
             handle      = row.handle,
             verified    = tonumber(row.verified) == 1,
+            verifiedType = row.verified_type,
             bio         = row.bio or '',
             avatar      = row.avatar,
             followsYou  = tonumber(row.follows_you) == 1,

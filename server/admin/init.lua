@@ -60,6 +60,40 @@ lib.addCommand('phoneadmin', {
         require('server.sim.state').active)
 end)
 
+---/birdyverify <handle> <blue|gold|grey|none> - sets or clears a Birdy badge without opening the
+---panel. Delegates to the panel's own action, so the allowlist, the failure messages and the
+---audit row are identical either way. The console is allowed here, unlike /phoneadmin: seeding
+---government and business accounts is setup work owners often do before anyone is online.
+lib.addCommand('birdyverify', {
+    help = 'Set or clear a Birdy verification badge',
+    restricted = 'group.admin',
+    params = {
+        { name = 'handle', type = 'string', help = 'Birdy handle, with or without the @' },
+        { name = 'type',   type = 'string', help = 'blue, gold, grey, or none to clear it' },
+    },
+}, function(source, args)
+    local handle = tostring(args.handle or ''):gsub('^@', '')
+    local res    = actions.birdySetVerified(source, { handle = handle, type = args.type })
+
+    local asked = tostring(args.type or ''):lower()
+    local text  = res.message or ''
+    if res.success then
+        text = (asked == '' or asked == 'none' or asked == 'off' or asked == 'remove')
+            and ('Removed verification from @' .. handle)
+            or  ('@' .. handle .. ' verified: ' .. asked)
+    end
+
+    if not source or source <= 0 then
+        print(('%s[sd-phone:admin]^0 %s'):format(res.success and '^2' or '^1', text))
+        return
+    end
+    TriggerClientEvent('ox_lib:notify', source, {
+        title       = 'Birdy',
+        description = text,
+        type        = res.success and 'success' or 'error',
+    })
+end)
+
 reg('search',               actions.search)
 reg('overview',             actions.overview)
 reg('setNumber',            actions.setNumber)
