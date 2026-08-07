@@ -8,13 +8,14 @@ import { compactCount } from '../polish/format';
 import { HeartBurst } from '../polish/HeartBurst';
 import { Avatar, PostImages, RichText, VerifiedBadge } from '../ui';
 
-export function PostCard({ post, isOwn, onToggleLike, onToggleRepost, onOpen, onOpenAuthor }: {
+export function PostCard({ post, isOwn, onToggleLike, onToggleRepost, onOpen, onOpenAuthor, onDelete }: {
     post:          BirdyPost;
     isOwn:         boolean;
     onToggleLike:  () => void;
     onToggleRepost?: () => void;
     onOpen?:       () => void;
     onOpenAuthor?: (handle: string) => void;
+    onDelete?:     () => void;
 }) {
     const openAuthor = (e: React.MouseEvent) => {
         if (!onOpenAuthor) return;
@@ -25,41 +26,50 @@ export function PostCard({ post, isOwn, onToggleLike, onToggleRepost, onOpen, on
     // Server truth; the parent applies the optimistic flip.
     const reposted = post.reposted === true;
     const [confirmRepost, setConfirmRepost] = useState(false);
+    const [menuOpen, setMenuOpen] = useState(false);
     const repostCount = post.reposts;
 
     return (
         <>
         <article
             onClick={onOpen}
-            className={`flex gap-4 border-b border-black/10 px-4 py-[18px] ${onOpen ? 'cursor-pointer transition-colors hover:bg-black/[0.04]' : ''}`}
+            className={`relative flex gap-4 border-b border-hairline/10 px-4 py-[18px] ${onOpen ? 'cursor-pointer transition-colors hover:bg-hairline/[0.04]' : ''}`}
         >
+            {isOwn && onDelete && (
+                // Absolute, not in the header row: as a flex sibling it stole width from the
+                // handle and timestamp, so a post gaining this button visibly shifted its own text.
+                <button
+                    type="button"
+                    onClick={e => { e.stopPropagation(); setMenuOpen(true); }}
+                    className="absolute right-2 top-3 p-2 active:opacity-60"
+                    aria-label={t('squawk.more', 'More')}
+                    style={{ color: META }}
+                >
+                    <MoreHorizontal className="h-[22px] w-[22px]" />
+                </button>
+            )}
+
             <button type="button" onClick={openAuthor} className="h-fit shrink-0">
                 <Avatar size={60} src={post.author.avatar} />
             </button>
 
             <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1 text-[19px] leading-tight">
-                    <button type="button" onClick={openAuthor} className="flex min-w-0 items-center gap-1 text-left">
-                        <span className="font-bold text-black">{post.author.name}</span>
-                        {post.author.verified && <VerifiedBadge size={20} />}
-                        <span className="truncate" style={{ color: META }}>@{post.author.handle}</span>
+                {/* One line. The handle and time sit a size down from the name, which is what buys
+                    the room: at a shared 19px this row needed ~334px and only ~300px exists beside
+                    a 60px avatar. pr-7 keeps it clear of the absolutely positioned more button. */}
+                <div className="flex items-baseline gap-1 pr-7 leading-tight">
+                    <button type="button" onClick={openAuthor} className="flex min-w-0 items-baseline gap-1 text-left">
+                        <span className="truncate text-[19px] font-bold text-label">{post.author.name}</span>
+                        {post.author.verified && (
+                            <span className="shrink-0 self-center"><VerifiedBadge size={18} type={post.author.verifiedType} /></span>
+                        )}
+                        <span className="truncate text-[15px]" style={{ color: META }}>@{post.author.handle}</span>
                     </button>
-                    <span style={{ color: META }}>· {relativeTime(post.createdAt)}</span>
-                    {isOwn && (
-                        <button
-                            type="button"
-                            onClick={e => e.stopPropagation()}
-                            className="ml-auto -mr-1 p-1"
-                            aria-label={t('squawk.more', 'More')}
-                            style={{ color: META }}
-                        >
-                            <MoreHorizontal className="h-[22px] w-[22px]" />
-                        </button>
-                    )}
+                    <span className="shrink-0 text-[15px]" style={{ color: META }}>· {relativeTime(post.createdAt)}</span>
                 </div>
 
                 {post.body && (
-                    <p className="mt-1 whitespace-pre-wrap break-words text-[19px] leading-snug text-black">
+                    <p className="mt-1 whitespace-pre-wrap break-words text-[19px] leading-snug text-label">
                         <RichText text={post.body} />
                     </p>
                 )}
@@ -100,6 +110,17 @@ export function PostCard({ post, isOwn, onToggleLike, onToggleRepost, onOpen, on
             </div>
         </article>
 
+        {menuOpen && (
+            <AlertDialog
+                title={t('squawk.deletePost', 'Delete post?')}
+                message={t('squawk.deletePostMessage', 'This removes the post and its replies for everyone. This cannot be undone.')}
+                confirmLabel={t('squawk.delete', 'Delete')}
+                destructive
+                onCancel={() => setMenuOpen(false)}
+                onConfirm={() => { setMenuOpen(false); onDelete?.(); }}
+            />
+        )}
+
         {confirmRepost && (
             <AlertDialog
                 title={reposted ? t('squawk.undoRetweet', 'Undo Retweet') : t('squawk.retweet', 'Retweet')}
@@ -116,7 +137,7 @@ export function PostCard({ post, isOwn, onToggleLike, onToggleRepost, onOpen, on
 }
 
 const TONE: Record<'comment' | 'repost' | 'like', { text: string; bg: string }> = {
-    comment: { text: 'group-hover:text-[#1d9bf0]', bg: 'group-hover:bg-[#1d9bf0]/10' },
+    comment: { text: 'group-hover:text-ios-blue', bg: 'group-hover:bg-ios-blue/10' },
     repost:  { text: 'group-hover:text-[#00ba7c]', bg: 'group-hover:bg-[#00ba7c]/10' },
     like:    { text: 'group-hover:text-[#f91880]', bg: 'group-hover:bg-[#f91880]/10' },
 };
@@ -134,7 +155,7 @@ function ActionButton({ icon, count, color, tone, onClick }: {
         <button
             type="button"
             onClick={e => { e.stopPropagation(); onClick?.(); }}
-            className={`group flex items-center gap-1 transition-transform active:scale-90 ${active ? '' : `text-[#657786] ${t.text}`}`}
+            className={`group flex items-center gap-1 transition-transform active:scale-90 ${active ? '' : `text-ios-gray ${t.text}`}`}
             style={active ? { color } : undefined}
         >
             <span className={`-m-1.5 flex h-10 w-10 items-center justify-center rounded-full transition-colors ${t.bg}`}>

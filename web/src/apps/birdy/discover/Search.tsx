@@ -4,7 +4,7 @@ import { t } from '@/i18n';
 import { useSessionState } from '@/hooks/useSessionState';
 import { SearchBar } from '@/ui/SearchBar';
 import { apiHashtagPosts, apiSearch, apiTrending } from '../birdyApi';
-import { BG, BLUE, META, PILL, type BirdyAuthor, type BirdyPost } from '../data';
+import { BG, BLUE, BRAND, META, PILL, type BirdyAuthor, type BirdyPost } from '../data';
 import { BirdyBird } from '../BirdyBird';
 import { PostCard } from '../feed/PostCard';
 import type { TrendingTag } from '../hashtags';
@@ -71,14 +71,15 @@ export function Search({ me, onOpenProfile, onOpenPost, onToggleLike, onToggleRe
     return (
         <div className="flex h-full flex-col" style={{ background: BG }}>
             <header className="flex shrink-0 items-center gap-3 px-4 py-2">
-                <button type="button" onClick={() => onOpenProfile()} aria-label={t('squawk.yourProfile', 'Your profile')}><Avatar size={44} /></button>
+                <button type="button" onClick={() => onOpenProfile()} aria-label={t('squawk.yourProfile', 'Your profile')}><Avatar size={44} src={me.avatar} /></button>
                 <SearchBar
                     value={query}
                     onChange={setQuery}
                     placeholder={t('squawk.searchSquawk', 'Search Squawk')}
                     pillClassName="min-w-0 flex-1 gap-2 rounded-[12px] px-3.5 py-[10px]"
                     pillStyle={{ background: PILL }}
-                    textClassName="text-[17px] font-medium text-black placeholder:text-black/55"
+                    iconClassName="h-[18px] w-[18px] text-label/55"
+                    textClassName="text-[17px] font-medium text-label placeholder:text-label/55"
                     caretColor={BLUE}
                 />
             </header>
@@ -115,13 +116,13 @@ export function Search({ me, onOpenProfile, onOpenPost, onToggleLike, onToggleRe
                                 key={u.handle}
                                 type="button"
                                 onClick={() => onOpenProfile(u.handle)}
-                                className="flex w-full items-center gap-3.5 px-4 py-3.5 text-left transition-colors active:bg-black/[0.04]"
+                                className="flex w-full items-center gap-3.5 px-4 py-3.5 text-left transition-colors active:bg-hairline/[0.04]"
                             >
                                 <Avatar size={54} src={u.avatar} />
                                 <div className="min-w-0">
                                     <div className="flex items-center gap-1">
-                                        <span className="truncate text-[18px] font-bold text-black">{u.name}</span>
-                                        {u.verified && <VerifiedBadge size={18} />}
+                                        <span className="truncate text-[18px] font-bold text-label">{u.name}</span>
+                                        {u.verified && <VerifiedBadge size={18} type={u.verifiedType} />}
                                     </div>
                                     <div className="truncate text-[16px]" style={{ color: META }}>@{u.handle}</div>
                                 </div>
@@ -130,12 +131,12 @@ export function Search({ me, onOpenProfile, onOpenPost, onToggleLike, onToggleRe
                     )
                 ) : (
                     <div>
-                        <div className="relative flex h-[200px] w-full items-center justify-center overflow-hidden pb-6" style={{ background: BLUE }}>
+                        <div className="relative flex h-[200px] w-full items-center justify-center overflow-hidden pb-6" style={{ background: BRAND }}>
                             <BirdyBird className="h-28 w-28 text-white" />
                             <span className="absolute bottom-4 left-4 text-[17px] font-bold text-white">{t('squawk.startSearching', 'Start searching to explore Squawk')}</span>
                         </div>
 
-                        <h2 className="px-4 pb-1.5 pt-4 text-[22px] font-extrabold text-black">{t('squawk.trendingNow', 'Trending now')}</h2>
+                        <h2 className="px-4 pb-1.5 pt-4 text-[22px] font-extrabold text-label">{t('squawk.trendingNow', 'Trending now')}</h2>
                         {trending !== null && (
                             trending.length === 0 ? (
                                 <div className="px-10 py-10 text-center text-[15px]" style={{ color: META }}>{t('squawk.noTrending', 'No trending hashtags right now.')}</div>
@@ -145,7 +146,7 @@ export function Search({ me, onOpenProfile, onOpenPost, onToggleLike, onToggleRe
                                         <button
                                             type="button"
                                             onClick={() => setQuery(row.tag)}
-                                            className="flex w-full flex-col items-start px-4 py-3 text-left active:bg-black/[0.04]"
+                                            className="flex w-full flex-col items-start px-4 py-3 text-left active:bg-hairline/[0.04]"
                                         >
                                             <span className="text-[19px] font-bold" style={{ color: BLUE }}>{row.tag}</span>
                                             <span className="mt-0.5 text-[14px]" style={{ color: META }}>
@@ -155,7 +156,7 @@ export function Search({ me, onOpenProfile, onOpenPost, onToggleLike, onToggleRe
                                             </span>
                                         </button>
                                         {i < trending.length - 1 && (
-                                            <div className="pointer-events-none mx-[6%] h-[0.5px] bg-black/15" />
+                                            <div className="pointer-events-none mx-[6%] h-[0.5px] bg-hairline/15" />
                                         )}
                                     </div>
                                 ))
