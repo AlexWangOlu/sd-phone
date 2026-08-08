@@ -470,7 +470,7 @@ function actions.updateProfile(source, payload)
 
     local function imageUrl(v, fallback)
         local u = trimmed(v)
-        if u and u:sub(1, 4) == 'http' then return u:sub(1, 512) end
+        if u and lib.string.startsWith(u, 'http') then return u:sub(1, 512) end
         if v == false then return nil end
         return fallback
     end
@@ -651,17 +651,19 @@ function actions.create(source, payload)
     -- One pass over the connected players for the whole fan-out; this resolved each follower
     -- separately, and every resolution re-scanned every player on the server.
     local activeSrcs = player.activeCidMap()
+    local targets = {}
     for _, handle in ipairs(followers) do
-        for _, src in ipairs(sourcesFor(handle, activeSrcs)) do
-            TriggerClientEvent('sd-phone:client:birdy:notification', src, {})
-            TriggerClientEvent('sd-phone:client:notify', src, {
-                app = 'birdy', appId = 'birdy', title = 'Squawk',
-                body = ('%s posted: %s'):format(prof.displayName, preview),
-                time = 'now', quietInApp = true,
-            })
-            badges.pushApp(src, 'birdy')
-        end
+        for _, src in ipairs(sourcesFor(handle, activeSrcs)) do targets[#targets + 1] = src end
     end
+
+    util.pushMany('sd-phone:client:birdy:notification', targets, {})
+    util.pushMany('sd-phone:client:notify', targets, {
+        app = 'birdy', appId = 'birdy', title = 'Squawk',
+        body = ('%s posted: %s'):format(prof.displayName, preview),
+        time = 'now', quietInApp = true,
+    })
+
+    for _, src in ipairs(targets) do badges.pushApp(src, 'birdy') end
 
     return ok({ post = serializePost(store.getPost(id, prof.handle)) })
 end
@@ -947,13 +949,13 @@ local function sanitizeDmMeta(kind, payload)
         meta.amount = math.max(0, math.floor(amount))
         if payload.requested == true then meta.requested = true end
     elseif kind == 'voice' then
-        meta.duration = math.max(0, math.min(36000, math.floor(tonumber(payload.duration) or 0)))
+        meta.duration = lib.math.clamp(math.floor(tonumber(payload.duration) or 0), 0, 36000)
         local audio = trimmed(payload.audioUrl) or ''
         if audio ~= '' then meta.audio = audio:sub(1, 512) end
         if type(payload.waveform) == 'table' then
             local bars = {}
             for i = 1, math.min(#payload.waveform, 64) do
-                bars[i] = math.max(0, math.min(100, math.floor(tonumber(payload.waveform[i]) or 0)))
+                bars[i] = lib.math.clamp(math.floor(tonumber(payload.waveform[i]) or 0), 0, 100)
             end
             if #bars > 0 then meta.waveform = bars end
         end

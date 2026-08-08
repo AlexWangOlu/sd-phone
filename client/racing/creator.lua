@@ -19,6 +19,9 @@ local TITLE       = 'Racing'
 local FLAG_MODEL  = joaat(type(CREATOR_CFG.FlagModel) == 'string' and CREATOR_CFG.FlagModel or 'prop_beachflag_01')
 ---@type integer Alpha of a placed flag: transparent, not invisible, so gates read as guides.
 local FLAG_ALPHA  = 130
+---@type integer Milliseconds allowed for the flag prop to stream, matching race.lua's MODEL_BUDGET
+---for the same prop. Named rather than inlined so the two stay visibly paired.
+local MODEL_BUDGET <const> = 3000
 ---@type integer Fewest gates a saveable track may hold.
 local MIN_GATES   = math.max(2, math.floor(tonumber(CREATOR_CFG.MinGates) or 2))
 ---@type integer Most gates one track may hold.
@@ -28,7 +31,7 @@ local MIN_WIDTH   = tonumber(CREATOR_CFG.MinWidth) or 2.0
 ---@type number Widest gate, in metres.
 local MAX_WIDTH   = math.max(tonumber(CREATOR_CFG.MaxWidth) or 50.0, MIN_WIDTH)
 ---@type number Width the recorder opens at, in metres.
-local DEF_WIDTH   = math.min(MAX_WIDTH, math.max(MIN_WIDTH, tonumber(CREATOR_CFG.DefaultWidth) or 12.0))
+local DEF_WIDTH   = lib.math.clamp(tonumber(CREATOR_CFG.DefaultWidth) or 12.0, MIN_WIDTH, MAX_WIDTH)
 ---@type number Metres of width gained or lost per frame while an arrow key is held.
 local WIDTH_STEP  = tonumber(CREATOR_CFG.WidthStep) or 0.15
 ---@type number Metres past which a placed gate stops being drawn.
@@ -59,7 +62,7 @@ local gateWidth = DEF_WIDTH
 ---@param value number
 ---@return number rounded two decimals, which keeps the stored gate JSON compact
 local function round2(value)
-    return math.floor(value * 100 + 0.5) / 100
+    return lib.math.round(value, 2)
 end
 
 ---Ground height at a point near the caller's own z. The probe traces downward from where it
@@ -82,7 +85,7 @@ end
 ---either side, gateWidth apart, both snapped to the ground.
 ---@return { a: vector3, b: vector3 } gate
 local function currentGate()
-    local ped = PlayerPedId()
+    local ped = cache.ped
     local veh = GetVehiclePedIsIn(ped, false)
     local ent = veh ~= 0 and veh or ped
     local pos = GetEntityCoords(ent)
@@ -240,12 +243,28 @@ end
 
 ---Opens the recorder and runs the per-frame loop: keys, the ghost gate, the placed gates, and the
 ---key guide.
+---
+---lib.requestModel runs its own validity pre-check and raises on both that and the timeout, so the
+---pcall keeps a bad FlagModel in configs/racing.lua from aborting the open with the recorder already
+---flagged active and no draw thread behind it. The flag is claimed before the streaming wait so a
+---second toggle closes the recorder instead of starting a rival one, and is released again on the
+---failure path.
 local function startCreator()
     if active then return end
     active = true
     gates = {}
     gateWidth = DEF_WIDTH
-    lib.requestModel(FLAG_MODEL)
+
+    if not pcall(lib.requestModel, FLAG_MODEL, MODEL_BUDGET) then
+        active = false
+        notify.show({
+            title = TITLE,
+            description = 'The gate flag prop could not be loaded.',
+            type = 'error',
+        })
+        return
+    end
+
     notify.show({
         title = TITLE,
         description = 'Track creator open. Drive to a start line and press E.',
@@ -269,7 +288,7 @@ local function startCreator()
             local ghost = currentGate()
             drawGatePosts(ghost.a, ghost.b, 80, 230, 140, 110)
 
-            local at = GetEntityCoords(PlayerPedId())
+            local at = GetEntityCoords(cache.ped)
             local previous
             for i = 1, #gates do
                 local gate   = gates[i]

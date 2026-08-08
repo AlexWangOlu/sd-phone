@@ -769,7 +769,7 @@ end
 local function clampSlider(v)
     local n = tonumber(v)
     if not n or n ~= n then return nil end
-    n = math.floor(n + 0.5)
+    n = lib.math.round(n)
     if n < 0 then n = 0 elseif n > 100 then n = 100 end
     return n
 end
@@ -867,7 +867,7 @@ end
 local function clampVolume(v)
     local n = tonumber(v)
     if not n or n ~= n then return nil end
-    n = math.floor(n + 0.5)
+    n = lib.math.round(n)
     if n < 0 then n = 0 elseif n > 100 then n = 100 end
     return n
 end
@@ -1230,12 +1230,7 @@ function store.setShell(citizenid, shell, device)
     device = device or 'phone'
     if not citizenid or citizenid == '' then return end
     if not SHELL_IDS[shell] then return end
-    local allowed = allowedShells()
-    local ok = false
-    for i = 1, #allowed do
-        if allowed[i] == shell then ok = true break end
-    end
-    if not ok then return end
+    if not lib.table.contains(allowedShells(), shell) then return end
     MySQL.update.await([[
         INSERT INTO phone_settings (citizenid, device, shell) VALUES (?, ?, ?)
         ON DUPLICATE KEY UPDATE shell = VALUES(shell)
@@ -1728,9 +1723,9 @@ local function sanitizeCustomPalette(v)
         id    = v.id,
         name  = name,
         mode  = v.mode,
-        hue   = math.floor(math.min(math.max(hue, 0), 359) + 0.5),
-        tint  = math.floor(math.min(math.max(tint, 0), 100) + 0.5),
-        depth = math.floor(math.min(math.max(depth, 0), 100) + 0.5),
+        hue   = lib.math.round(lib.math.clamp(hue, 0, 359)),
+        tint  = lib.math.round(lib.math.clamp(tint, 0, 100)),
+        depth = lib.math.round(lib.math.clamp(depth, 0, 100)),
     }
 end
 
