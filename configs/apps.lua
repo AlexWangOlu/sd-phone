@@ -85,8 +85,11 @@ return {
         -- sees is decided per open by server/appgate.lua, from the departments in configs/mdt.lua:
         -- a `leo` department gets `mdt`, `ems` gets `emsmdt`, `doj` gets `dojmdt`, and anyone else
         -- gets no icon rather than one that refuses them. That gate is asked fresh on every open,
-        -- by both devices, so a job change is picked up with no event to miss. Turning `Enabled`
-        -- off in configs/mdt.lua hides all three everywhere.
+        -- by both devices, so a job change is picked up with no event to miss.
+        --
+        -- `Enabled` in configs/mdt.lua outranks these rows and ships OFF, so all three are hidden
+        -- everywhere and no terminal tables are built until you turn it on. Leaving these rows at
+        -- `enabled = true` costs nothing while it is off.
         --
         -- Keep `base = true`. The job gate is what hands a terminal out, so there is nothing to
         -- download; `base = false` would strand it behind an App Store entry instead.

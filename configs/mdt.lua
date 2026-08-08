@@ -2,19 +2,20 @@
 -- a layout suited to each. Every threshold the server enforces is declared here and
 -- nowhere else: the UI only ever hides controls, it never grants them.
 return {
-    -- Whether this server runs an MDT at all. ON by default, so a fresh install has
-    -- working terminals without a second config to find.
+    -- Whether this server runs an MDT at all. OFF by default, because turning it on
+    -- builds a dozen tables, seeds the penal code and ticks a dispatch sweep, and a
+    -- server already running its own police terminal should not be handed a second
+    -- schema it never reads.
     --
-    -- Turn it OFF if nobody on your server should have one: leaving it on builds a
-    -- dozen tables, seeds the penal code and ticks a dispatch sweep. Which players
-    -- see an icon is a separate question, answered per player by their job through
-    -- server/appgate.lua, so this switch is about the backend existing at all. The
-    -- app catalog cannot decide it either: a companion device carries its own
-    -- catalog and this server never reads it.
+    -- Turn it ON when you want the terminals. Which players then see an icon is a
+    -- separate question, answered per player by their job through server/appgate.lua,
+    -- so this switch is about the backend existing at all. The app catalog cannot
+    -- decide it either: a companion device carries its own catalog and this server
+    -- never reads it.
     --
     -- To run a terminal on the phone itself, set `mdt` to `enabled = true` in
     -- configs/apps.lua as well.
-    Enabled = true,
+    Enabled = false,
 
     -- Departments whose members reach the MDT. A player's ACTIVE framework job
     -- must appear here or every callback refuses, including the reads.
