@@ -62,6 +62,12 @@ local CID_PAIR = {
 
 ---Deletes one character's entire phone footprint: citizenid-keyed rows, social-app rows keyed by
 ---account username, mail logins, and the global app accounts + sessions the character used.
+---
+---Accounts are found by the creator COLUMN as well as by session. A session alone is not proof of
+---ownership and its absence is not proof of the opposite: signing out deletes the session row, so a
+---session-only lookup silently skips every account the character made and then logged out of,
+---leaving both the account and its content behind. phone_app_accounts.created_by is added by
+---util.ensureColumns rather than the CREATE TABLE, which is why it is easy to miss.
 ---@param cid string|nil citizenid whose footprint is wiped
 ---@return string|nil cid wiped citizenid, nil when unresolvable
 ---@return integer|nil rows counted rows deleted (nil only alongside a nil cid)
@@ -69,13 +75,15 @@ local function wipeCid(cid)
     if not cid or cid == '' then return nil end
 
     local userFor, accountIds = {}, {}
-    local sessions = MySQL.query.await([[
-        SELECT s.app, s.account_id, a.username
+    local owned = MySQL.query.await([[
+        SELECT app, username, id AS account_id FROM phone_app_accounts WHERE created_by = ?
+        UNION
+        SELECT a.app, a.username, a.id
         FROM phone_app_sessions s
         JOIN phone_app_accounts a ON a.id = s.account_id
         WHERE s.citizenid = ?
-    ]], { cid }) or {}
-    for _, r in ipairs(sessions) do
+    ]], { cid, cid }) or {}
+    for _, r in ipairs(owned) do
         userFor[r.app] = r.username
         accountIds[#accountIds + 1] = r.account_id
     end
