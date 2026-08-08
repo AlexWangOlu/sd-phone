@@ -178,6 +178,22 @@ local function wipeCid(cid)
     -- pass or mail.listAccountsForCitizen keeps reading rows this wipe just signed out of.
     del('DELETE FROM phone_mail_sessions WHERE citizenid = ?', { cid })
 
+    -- Signing out above is not enough: the per-character mail cap counts rows by created_by_cid,
+    -- so an account left standing keeps its slot and its address forever, and a "wiped" character
+    -- cannot re-register the same email. Deleted after the sign-out pass, so an account shared with
+    -- someone else has already had this character removed from it and is then left alone.
+    local owned = MySQL.query.await(
+        'SELECT email, logged_in_citizens FROM phone_mail_accounts WHERE created_by_cid = ?', { cid }) or {}
+    for _, m in ipairs(owned) do
+        local signedIn = json.decode(m.logged_in_citizens or '[]') or {}
+        local others = 0
+        for _, c in ipairs(signedIn) do if c ~= cid then others = others + 1 end end
+        if others == 0 then
+            del('DELETE FROM phone_mail_sessions WHERE email = ?', { m.email })
+            rows = rows + del('DELETE FROM phone_mail_accounts WHERE email = ?', { m.email })
+        end
+    end
+
     if #accountIds > 0 then
         local ph = {}
         for i = 1, #accountIds do ph[i] = '?' end
