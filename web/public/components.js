@@ -350,7 +350,14 @@
     globalThis.onNuiEvent  = subscribeNuiEvent;
     globalThis.useNuiEvent = subscribeNuiEvent;
 
-    globalThis.componentsVersion = 2;
+    globalThis.componentsVersion = 3;
+
+    globalThis.componentsUnsupported = Object.freeze(['UseCamera', 'SetContactModal']);
+
+    globalThis.componentsSupports = function (name) {
+        if (typeof name !== 'string' || typeof globalThis[name] !== 'function') return false;
+        return globalThis.componentsUnsupported.indexOf(name) === -1;
+    };
 
     globalThis.addEventListener('message', handleMessage);
 
