@@ -26,8 +26,13 @@ import type { Contact } from '@/apps/phone/data';
 // sd-phone's own files.
 const COMPONENTS_URL = `https://cfx-nui-${hostResource}/web/build/components.js`;
 
+let frameDebugEnabled: boolean | null = null;
+
 function frameDebug(message: string): void {
-    void fetchNui('customApps/debug', { message }).catch(() => {});
+    if (frameDebugEnabled === false) return;
+    void fetchNui<{ enabled?: boolean }>('customApps/debug', { message })
+        .then(res => { frameDebugEnabled = res?.enabled === true; })
+        .catch(() => { frameDebugEnabled = false; });
 }
 
 const STORAGE_MAX_BYTES = 64 * 1024;
@@ -429,6 +434,7 @@ export function CustomAppFrame({ appId }: { appId: string; onClose: () => void }
         loadedRef.current = true;
         sdkReadyRef.current = false;
         outboxRef.current = [];
+        frameDebugEnabled = null;
         try {
             const win = iframe.contentWindow as (Window & Record<string, unknown>) | null;
             const doc = iframe.contentDocument;

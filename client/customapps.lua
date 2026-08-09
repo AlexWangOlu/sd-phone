@@ -376,15 +376,22 @@ RegisterNUICallback('customApps/get', function(_, cb)
 end)
 
 ---Breadcrumbs from the app frame and from the SDK running inside a hosted app, routed here so
----they land in the same console as the Lua ones. Silent unless config.Debug is on.
+---they land in the same console as the Lua ones. The reply reports whether anything is being
+---printed, so the frame can stop sending once it knows nobody is listening.
 ---@param data table|nil { message: string }
----@param cb fun(ok: boolean) NUI response
+---@param cb fun(result: table) NUI response { enabled: boolean }
 RegisterNUICallback('customApps/debug', function(data, cb)
+    local enabled = config.Debug == true
+    if not enabled then
+        local level = GetConvar('ox:printlevel:' .. GetCurrentResourceName(), GetConvar('ox:printlevel', 'info'))
+        enabled = level == 'debug' or level == 'verbose'
+    end
+
     local message = type(data) == 'table' and data.message or nil
-    if type(message) == 'string' and message ~= '' then
+    if enabled and type(message) == 'string' and message ~= '' then
         debugPrint(('[frame] %s'):format(message:sub(1, 400)))
     end
-    cb(true)
+    cb({ enabled = enabled })
 end)
 
 ---Lifecycle relay from the UI. open/close dispatch the registered onOpen/onClose under pcall;
