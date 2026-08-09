@@ -219,6 +219,23 @@ html, body, #root {
 @keyframes phone-out-center { from { transform: scale(1); opacity: 1; } to { transform: scale(0.88); opacity: 0; } }
 @keyframes phone-peek-in  { from { transform: translateY(118%); } to { transform: translateY(85%); } }
 @keyframes phone-peek-out { from { transform: translateY(85%);  } to { transform: translateY(118%); } }
+
+/* The staff panel opens on the phone's own centre curve, so a terminal and a
+   device arriving on screen feel like the same system. The scrim fades on the
+   same clock rather than snapping in behind the card. */
+@keyframes admin-in {
+    from { transform: scale(0.88); opacity: 0; }
+    to   { transform: scale(1);    opacity: 1; }
+}
+@keyframes admin-scrim-in { from { opacity: 0; } to { opacity: 1; } }
+
+.admin-panel-in { animation: admin-in 0.52s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.admin-scrim-in { animation: admin-scrim-in 0.32s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+    .admin-panel-in,
+    .admin-scrim-in { animation: none; }
+}
 @keyframes pin-shake {
     0%, 100% { transform: translateX(0); }
     18% { transform: translateX(-9px); }

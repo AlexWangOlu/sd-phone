@@ -48,7 +48,7 @@ export const THEME_APPS: ThemeApp[] = [
     { id: 'calculator',  label: 'Calculator',   icon: 'calculator',  accent: '#333335' },
     { id: 'passwords',   label: 'Passwords',    icon: 'passwords',   accent: '#1c1c1e' },
     { id: 'cookie',      label: 'Cookie',       icon: 'cookie',      accent: '#c77d2e' },
-    { id: 'wordle',      label: 'Wordle',       icon: 'wordle',      accent: '#6aaa64' },
+    { id: 'wordle',      label: 'Penta',        icon: 'wordle',      accent: '#6aaa64' },
     { id: 'flappy',      label: 'Flappy',       icon: 'flappy',      accent: '#4ec0ca' },
     { id: 'blocks',      label: 'Blocks',       icon: 'blocks',      accent: '#7c4dff' },
     { id: 'blackjack',   label: 'Blackjack',    icon: 'blackjack',   accent: '#157347' },

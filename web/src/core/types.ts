@@ -32,6 +32,12 @@ export interface OpenPayload {
         formats?: Record<string, string>;
         length?: number;
     };
+    music?: {
+        youtube?: boolean;
+        hosts?: string[];
+        videos?: string[];
+        tracks?: { url: string; title?: string; artist?: string }[];
+    };
     wallpaper: {
         lock: string;
         home: string;

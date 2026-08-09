@@ -63,7 +63,7 @@ return {
         { id = 'calculator', label = 'Calculator', icon = 'calculator', route = '/calculator', accent = '#333335', base = true, enabled = true },
         { id = 'passwords', label = 'Passwords', icon = 'passwords', route = '/passwords', accent = '#1c1c1e', base = true, enabled = true },
         { id = 'cookie', label = 'Cookie', icon = 'cookie', route = '/cookie', accent = '#C77D2E', base = false, enabled = true },
-        { id = 'wordle', label = 'Wordle', icon = 'wordle', route = '/wordle', accent = '#6AAA64', base = false, enabled = true },
+        { id = 'wordle', label = 'Penta', icon = 'wordle', route = '/wordle', accent = '#6AAA64', base = false, enabled = true },
         { id = 'flappy', label = 'Flappy', icon = 'flappy', route = '/flappy', accent = '#4EC0CA', base = false, enabled = true },
         { id = 'blocks', label = 'Blocks', icon = 'blocks', route = '/blocks', accent = '#7C4DFF', base = false, enabled = true },
         { id = 'blackjack', label = 'Blackjack', icon = 'blackjack', route = '/blackjack', accent = '#157347', base = false, enabled = true },

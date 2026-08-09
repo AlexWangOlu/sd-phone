@@ -5,6 +5,7 @@ import { device } from '@device';
 import { isCustomPaletteId, rampFor, rampVars } from '@/apps/settings/appearance/paletteRamp';
 import { accentVars } from '@/apps/settings/appearance/accentRamp';
 import { AdminPanel } from '@/admin/AdminPanel';
+import { demoAdminOnly } from '@/core/demo';
 import { PayphoneUI } from '@/payphone/PayphoneUI';
 import { RaceOverlay } from '@/apps/racing/hud/RaceOverlay';
 import { CallLayer } from '@/apps/phone/CallLayer';
@@ -45,6 +46,7 @@ import { fetchNui, isFiveM } from '@/core/nui';
 import { usePhoneReset } from '@/core/phoneReset';
 import { resetAuth } from '@/stores/authStore';
 import { setMailDomain } from '@/core/accountsApi';
+import { setMusicSources } from '@/apps/music/data';
 import { setNumberFormat } from '@/lib/phone';
 import { cancelSmoothScroll, shiftWheelDelta, smoothScrollBy, verticalScrollerFor, wheelDelta } from '@/lib/wheel';
 import { voiceHub, setLocalTalking } from '@/media/nearbyVoice';
@@ -168,10 +170,10 @@ export function App() {
     return (
         <ThemeProvider>
             <MusicProvider>
-                <AppContent />
+                {!demoAdminOnly && <AppContent />}
                 {device.admin && <AdminPanel />}
-                {device.payphone && <PayphoneUI />}
-                {device.id === 'phone' && <RaceOverlay />}
+                {!demoAdminOnly && device.payphone && <PayphoneUI />}
+                {!demoAdminOnly && device.id === 'phone' && <RaceOverlay />}
             </MusicProvider>
         </ThemeProvider>
     );
@@ -420,6 +422,7 @@ function AppContent() {
         if (data.locale) useLocaleStore.getState().applyServerDefault(data.locale);   // server default, unless the player already picked their own
         if (data.mailDomain) setMailDomain(data.mailDomain);
         if (data.number) setNumberFormat(data.number.formats, data.number.length);
+        setMusicSources(data.music);
         useWifiStore.getState().setConfigured(data.wifiConfigured === true);
         useBluetoothStore.getState().setConfigured(data.bluetoothConfigured === true);
         useSimStore.getState().apply(data.sim);
