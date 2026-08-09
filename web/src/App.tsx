@@ -32,6 +32,7 @@ import { useLocaleStore } from '@/stores/localeStore';
 import { HomeIndicator } from '@/shell/HomeIndicator';
 import { Lockscreen }  from '@/shell/Lockscreen';
 import { PhoneShell }  from '@/shell/PhoneShell';
+import { BootReplayButton, setBootScreenEnabled } from '@/shell/BootSplash';
 import { StatusBar }   from '@/shell/StatusBar';
 import { useAutoContrast } from '@/shell/useAutoContrast';
 import { VolumeHUD }   from '@/shell/VolumeHUD';
@@ -170,6 +171,7 @@ export function App() {
     return (
         <ThemeProvider>
             <MusicProvider>
+                <BootReplayButton />
                 {!demoAdminOnly && <AppContent />}
                 {device.admin && <AdminPanel />}
                 {!demoAdminOnly && device.payphone && <PayphoneUI />}
@@ -423,6 +425,7 @@ function AppContent() {
         if (data.mailDomain) setMailDomain(data.mailDomain);
         if (data.number) setNumberFormat(data.number.formats, data.number.length);
         setMusicSources(data.music);
+        setBootScreenEnabled(data.bootScreen !== false);
         useWifiStore.getState().setConfigured(data.wifiConfigured === true);
         useBluetoothStore.getState().setConfigured(data.bluetoothConfigured === true);
         useSimStore.getState().apply(data.sim);

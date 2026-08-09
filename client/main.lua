@@ -480,6 +480,7 @@ local function OpenPhone()
             mailDomain = config.Mail.Domain,
             number    = NUMBER_FORMAT,
             music     = MUSIC_SOURCES,
+            bootScreen = config.Phone.BootScreen ~= false,
             wallpaper = {
                 lock = config.Lockscreen.Wallpaper,
                 home = config.Apps.Wallpaper,

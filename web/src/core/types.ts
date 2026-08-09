@@ -32,6 +32,7 @@ export interface OpenPayload {
         formats?: Record<string, string>;
         length?: number;
     };
+    bootScreen?: boolean;
     music?: {
         youtube?: boolean;
         anyAudio?: boolean;
