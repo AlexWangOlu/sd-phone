@@ -6,6 +6,7 @@ import { DisplayBrightnessPage } from './appearance/DisplayBrightnessPage';
 import { FaceUnlockPage } from './security/FaceUnlockPage';
 import { IslandPetPage } from './appearance/IslandPetPage';
 import { BatteryPage } from './general/BatteryPage';
+import { AccessibilityPage } from './general/AccessibilityPage';
 import { GeneralPage } from './general/GeneralPage';
 import { NotificationsPage } from './notifications/NotificationsPage';
 import { PhoneSettingsPage } from './security/PhoneSettingsPage';
@@ -28,7 +29,7 @@ import { shellFor } from '@/shell/shells';
 import { useTheme } from '@/stores/themeStore';
 import { useBluetoothConfigured } from '@/stores/bluetoothStore';
 
-type SubPage = 'general' | 'display' | 'island-pet' | 'wallpaper' | 'app-icons' | 'notifications' | 'sound-haptics' | 'face-unlock' | 'phone' | 'battery' | 'privacy' | 'sim' | 'wifi' | 'bluetooth' | null;
+type SubPage = 'general' | 'accessibility' | 'display' | 'island-pet' | 'wallpaper' | 'app-icons' | 'notifications' | 'sound-haptics' | 'face-unlock' | 'phone' | 'battery' | 'privacy' | 'sim' | 'wifi' | 'bluetooth' | null;
 
 export function Settings({ onClose }: { onClose: () => void }) {
     const [subPage, setSubPage] = useSessionState<SubPage>('settings:subPage', null);
@@ -77,6 +78,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
     function handleRowPress(id: string) {
         setQuery('');
         if (id === 'general')       setSubPage('general');
+        if (id === 'accessibility') setSubPage('accessibility');
         if (id === 'display')       setSubPage('display');
         if (id === 'island-pet')    setSubPage('island-pet');
         if (id === 'wallpaper')     setSubPage('wallpaper');
@@ -94,6 +96,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
 
     const sub =
         subPage === 'general'         ? <GeneralPage           onBack={handleBack} />
+        : subPage === 'accessibility' ? <AccessibilityPage     onBack={handleBack} />
         : subPage === 'display'       ? <DisplayBrightnessPage onBack={handleBack} />
         : subPage === 'island-pet'    ? <IslandPetPage         onBack={handleBack} />
         : subPage === 'wallpaper'     ? <WallpaperPage         onBack={handleBack} />

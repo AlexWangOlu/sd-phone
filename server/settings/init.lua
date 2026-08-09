@@ -251,6 +251,26 @@ lib.callback.register('sd-phone:server:settings:setChatTextScale', function(sour
     return { success = true }
 end)
 
+---Persists the caller's accessibility preferences. Fields are individually optional so a single
+---toggle does not have to echo the rest back.
+lib.callback.register('sd-phone:server:settings:setAccessibility', function(source, payload)
+    local cid = player.getIdentifier(source)
+    if not cid then return { success = false, message = 'Player not found' } end
+    payload = type(payload) == 'table' and payload or {}
+    coalesce(cid, 'accessibility', function() store.setAccessibility(cid, payload, deviceOf(payload)) end)
+    return { success = true }
+end)
+
+---Persists the caller's home screen app name overrides.
+lib.callback.register('sd-phone:server:settings:setAppLabels', function(source, payload)
+    local cid = player.getIdentifier(source)
+    if not cid then return { success = false, message = 'Player not found' } end
+    payload = type(payload) == 'table' and payload or {}
+    local labels = type(payload.labels) == 'table' and payload.labels or {}
+    coalesce(cid, 'appLabels', function() store.setAppLabels(cid, labels, deviceOf(payload)) end)
+    return { success = true }
+end)
+
 ---Returns the installed phone version plus the latest GitHub release, so the Software Update
 ---page can flag when this build is behind. Read-only; the release lookup is cached an hour.
 lib.callback.register('sd-phone:server:settings:versionInfo', function()

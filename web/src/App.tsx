@@ -183,7 +183,7 @@ function AppContent() {
     // Tone/volume fields are deliberately NOT subscribed here — they're only
     // read inside event callbacks (via useThemeStore.getState()), so slider
     // drags in Control Center don't re-render the whole tree from the root.
-    const { theme, darkTheme, lightTheme, accent, customPalettes, wallpaperLock, wallpaperHome, setTheme, setWallpaper, statusLightOverride, statusBarAutoLight, hideHomeIndicator, airplaneMode, hour24, setHour24, setSecurity } = useTheme('theme', 'darkTheme', 'lightTheme', 'accent', 'wallpaperLock', 'wallpaperHome', 'setTheme', 'setWallpaper', 'statusLightOverride', 'statusBarAutoLight', 'hideHomeIndicator', 'airplaneMode', 'hour24', 'setHour24', 'setSecurity', 'customPalettes');
+    const { theme, darkTheme, lightTheme, accent, customPalettes, wallpaperLock, wallpaperHome, setTheme, setWallpaper, statusLightOverride, statusBarAutoLight, hideHomeIndicator, airplaneMode, hour24, setHour24, setSecurity, appLabels } = useTheme('theme', 'darkTheme', 'lightTheme', 'accent', 'wallpaperLock', 'wallpaperHome', 'setTheme', 'setWallpaper', 'statusLightOverride', 'statusBarAutoLight', 'hideHomeIndicator', 'airplaneMode', 'hour24', 'setHour24', 'setSecurity', 'customPalettes', 'appLabels');
     const activeThemeId = theme === 'dark' ? darkTheme : lightTheme;
     const themeVars = useMemo(() => {
         const vars: Record<string, string> = accentVars(theme === 'dark' ? 'dark' : 'light', accent);
@@ -1413,7 +1413,13 @@ function AppContent() {
     const homeWallpaper = wallpaperHome || view.wallpaperHome;
     const lockWallpaper = wallpaperLock || view.wallpaperLock;
 
-    const allApps       = [...view.apps, ...customDefs.filter(c => !view.apps.some(a => a.id === c.id))];
+    // Player renames are applied once, here, where the catalogue is assembled. Every downstream
+    // surface - home grid, dock, switcher cards, App Store, search, settings previews - reads
+    // `label` off these defs, so none of them needs to know renaming exists.
+    const rawApps       = [...view.apps, ...customDefs.filter(c => !view.apps.some(a => a.id === c.id))];
+    const allApps       = appLabels && Object.keys(appLabels).length
+        ? rawApps.map(a => (appLabels[a.id] ? { ...a, label: appLabels[a.id] } : a))
+        : rawApps;
     // Excluded apps are dropped here, not just refused at launch: this list is the home grid,
     // the switcher's card set and the App Store's catalogue.
     const effectiveApps = allApps.filter(a => !device.excludedApps.includes(a.id) && (a.base || installedApps.has(a.id) || downloadingIds.includes(a.id)));

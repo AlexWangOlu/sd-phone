@@ -55,6 +55,7 @@ export function getSettingsGroups(): SettingsGroup[] {
             id: 'general',
             rows: [
                 { id: 'general',      icon: 'Settings2',   iconBg: '#8e8e93', label: t('settings.general', 'General'),              subtitle: t('settings.generalSub', 'Device info, storage and language') },
+                { id: 'accessibility', icon: 'Accessibility', iconBg: '#0a84ff', label: t('settings.accessibility', 'Accessibility'),   subtitle: t('settings.accessibilitySub', 'Motion and text options') },
                 { id: 'display',      icon: 'Sun',         iconBg: '#0a84ff', label: t('settings.displayBrightness', 'Display & Brightness'),  subtitle: t('settings.displayBrightnessSub', 'Wallpaper, theme and brightness') },
                 { id: 'island-pet',   icon: 'PawPrint',    iconBg: '#ff9f0a', label: t('settings.islandPet', 'Island Pets'),          subtitle: t('settings.islandPetSub', 'Pick a pixel pet for the Dynamic Island') },
                 { id: 'wallpaper',    icon: 'Image',       iconBg: '#64d2ff', label: t('settings.wallpaper', 'Wallpaper'),             subtitle: t('settings.wallpaperSub', 'Wallpaper & background') },

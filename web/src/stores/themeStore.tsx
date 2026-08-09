@@ -212,6 +212,55 @@ function loadChatScaleLocal(): number {
         return Number.isFinite(n) ? clampChatScale(n) : 1;
     } catch { return 1; }
 }
+const APP_LABELS_KEY = 'sd-phone:app-labels';
+export const APP_LABEL_MAX = 24;
+function loadAppLabelsLocal(): Record<string, string> {
+    try {
+        const raw = window.localStorage.getItem(APP_LABELS_KEY);
+        const j = raw ? JSON.parse(raw) as Record<string, unknown> : {};
+        const out: Record<string, string> = {};
+        for (const [k, v] of Object.entries(j)) if (typeof v === 'string' && v) out[k] = v;
+        return out;
+    } catch { return {}; }
+}
+function saveAppLabelsLocal(v: Record<string, string>) {
+    try { window.localStorage.setItem(APP_LABELS_KEY, JSON.stringify(v)); } catch { /* ignore */ }
+}
+
+/** full = everything animates. reduced = apps and sheets only. off = nothing animates. */
+export type MotionLevel = 'full' | 'reduced' | 'off';
+const MOTION_LEVELS: MotionLevel[] = ['full', 'reduced', 'off'];
+/** Stored as 0/1/2 in the reduce_motion column, which predates the third level. */
+export function motionFromCode(v: unknown): MotionLevel {
+    return MOTION_LEVELS[Number(v)] ?? 'full';
+}
+export function motionToCode(v: MotionLevel): number {
+    const i = MOTION_LEVELS.indexOf(v);
+    return i < 0 ? 0 : i;
+}
+
+const A11Y_KEY = 'sd-phone:a11y';
+export const TEXT_SCALE_MIN = 0.85;
+export const TEXT_SCALE_MAX = 1.30;
+export function clampTextScale(v: number): number {
+    if (!isFinite(v)) return 1;
+    return Math.round(Math.min(TEXT_SCALE_MAX, Math.max(TEXT_SCALE_MIN, v)) * 100) / 100;
+}
+function loadA11yLocal(): { motion: MotionLevel; boldText: boolean; textScale: number } {
+    try {
+        const raw = window.localStorage.getItem(A11Y_KEY);
+        const j = raw ? JSON.parse(raw) as Record<string, unknown> : {};
+        return {
+            motion:       motionFromCode(j.motion),
+            boldText:     j.boldText === true,
+            textScale:    typeof j.textScale === 'number' ? clampTextScale(j.textScale) : 1,
+        };
+    } catch { return { motion: 'full', boldText: false, textScale: 1 }; }
+}
+function saveA11yLocal(v: { motion: number; boldText: boolean; textScale: number }) {
+    try { window.localStorage.setItem(A11Y_KEY, JSON.stringify(v)); } catch { /* ignore */ }
+}
+
 function saveChatScaleLocal(v: number) {
     try { window.localStorage.setItem(CHAT_SCALE_KEY, String(v)); } catch { /* ignore */ }
 }
@@ -281,6 +330,15 @@ interface ThemeState {
     setPhoneScale:     (v: number) => void;
     chatTextScale:     number;
     setChatTextScale:  (v: number) => void;
+    motion:            MotionLevel;
+    setMotion:         (v: MotionLevel) => void;
+    boldText:          boolean;
+    setBoldText:       (v: boolean) => void;
+    textScale:         number;
+    setTextScale:      (v: number) => void;
+    appLabels:         Record<string, string>;
+    setAppLabel:       (appId: string, label: string) => void;
+    resetAppLabels:    () => void;
     phoneAlign:        PhoneAlign;
     setPhoneAlign:     (v: PhoneAlign) => void;
     ringtoneVol:       number;
@@ -382,6 +440,10 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     brightness: 100,
     phoneScale: isFiveM ? device.defaultScale : loadPhoneScaleLocal(),
     chatTextScale: isFiveM ? 1 : loadChatScaleLocal(),
+    motion:       isFiveM ? ('full' as MotionLevel) : loadA11yLocal().motion,
+    boldText:     isFiveM ? false : loadA11yLocal().boldText,
+    textScale:    isFiveM ? 1     : loadA11yLocal().textScale,
+    appLabels:    isFiveM ? {}    : loadAppLabelsLocal(),
     phoneAlign: isFiveM && device.id === 'phone' ? device.defaultAlign : loadPhoneAlignLocal(),
     ringtoneVol: 40,
     callVol: 60,
@@ -577,6 +639,36 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
         if (isFiveM) persistDebounced('chatTextScale', () => { void fetchNui('sd-phone:settings:setChatTextScale', { scale: get().chatTextScale }).catch(() => {}); });
         else saveChatScaleLocal(next);
     },
+    setMotion: (v) => {
+        set({ motion: v });
+        if (isFiveM) void fetchNui('sd-phone:settings:setAccessibility', { motion: motionToCode(v) }).catch(() => {});
+        else saveA11yLocal({ motion: motionToCode(v), boldText: get().boldText, textScale: get().textScale });
+    },
+    setBoldText: (v) => {
+        set({ boldText: v });
+        if (isFiveM) void fetchNui('sd-phone:settings:setAccessibility', { boldText: v }).catch(() => {});
+        else saveA11yLocal({ motion: motionToCode(get().motion), boldText: v, textScale: get().textScale });
+    },
+    setAppLabel: (appId, label) => {
+        const trimmed = label.trim().slice(0, APP_LABEL_MAX);
+        const next = { ...get().appLabels };
+        // A blank name is how the UI clears an override, so drop the key rather than storing ''.
+        if (trimmed) next[appId] = trimmed; else delete next[appId];
+        set({ appLabels: next });
+        if (isFiveM) void fetchNui('sd-phone:settings:setAppLabels', { labels: next }).catch(() => {});
+        else saveAppLabelsLocal(next);
+    },
+    resetAppLabels: () => {
+        set({ appLabels: {} });
+        if (isFiveM) void fetchNui('sd-phone:settings:setAppLabels', { labels: {} }).catch(() => {});
+        else saveAppLabelsLocal({});
+    },
+    setTextScale: (v) => {
+        const next = clampTextScale(v);
+        set({ textScale: next });
+        if (isFiveM) persistDebounced('textScale', () => { void fetchNui('sd-phone:settings:setAccessibility', { textScale: get().textScale }).catch(() => {}); });
+        else saveA11yLocal({ motion: motionToCode(get().motion), boldText: get().boldText, textScale: next });
+    },
 
     setAirplaneMode: (on) => {
         set({ airplaneMode: on });
@@ -695,7 +787,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
             }
         };
         const keyAtRequest = wallpaperProfileKey;
-        void fetchNui<{ data?: { ringtone?: string; notificationTone?: string; customRingtones?: CustomTone[]; customNotificationTones?: CustomTone[]; airplaneMode?: boolean; hour24?: boolean; gameTime?: boolean; reopenApp?: boolean; setupDone?: boolean; lockClock?: Partial<LockClock>; passcode?: string | null; faceId?: boolean; wallpaper?: string; wallpaperHome?: string; blurLock?: boolean; blurHome?: boolean; islandPet?: string; customWallpapers?: string[]; chatTextScale?: number; phoneScale?: number; brightness?: number; phoneAlign?: string; ringtoneVol?: number; callVol?: number; theme?: string; darkTheme?: string; lightTheme?: string; accent?: string; shell?: string; shellChoice?: boolean; shellsAllowed?: unknown[]; customPalettes?: unknown; iconTheme?: string; showAppNames?: boolean; customIconThemes?: unknown } }>('sd-phone:settings:get')
+        void fetchNui<{ data?: { ringtone?: string; notificationTone?: string; customRingtones?: CustomTone[]; customNotificationTones?: CustomTone[]; airplaneMode?: boolean; hour24?: boolean; gameTime?: boolean; reopenApp?: boolean; setupDone?: boolean; lockClock?: Partial<LockClock>; passcode?: string | null; faceId?: boolean; wallpaper?: string; wallpaperHome?: string; blurLock?: boolean; blurHome?: boolean; islandPet?: string; customWallpapers?: string[]; chatTextScale?: number; motion?: number; boldText?: boolean; textScale?: number; appLabels?: Record<string, string>; phoneScale?: number; brightness?: number; phoneAlign?: string; ringtoneVol?: number; callVol?: number; theme?: string; darkTheme?: string; lightTheme?: string; accent?: string; shell?: string; shellChoice?: boolean; shellsAllowed?: unknown[]; customPalettes?: unknown; iconTheme?: string; showAppNames?: boolean; customIconThemes?: unknown } }>('sd-phone:settings:get')
             .then(res => {
                 if (!res?.data) { retry(); return; }
                 const d = res.data;
@@ -735,6 +827,21 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
                 if (Array.isArray(d.shellsAllowed)) patch.shellsAllowed = d.shellsAllowed.filter(isShellId);
                 if (isShellId(d.shell)) patch.shell = d.shell;
                 if (typeof d.chatTextScale === 'number') patch.chatTextScale = clampChatScale(d.chatTextScale);
+                // Always assigned: these are per-profile, so a profile that never set them must
+                // reset to the default rather than inherit the previous profile's preferences.
+                patch.motion = motionFromCode(d.motion);
+                patch.boldText = d.boldText === true;
+                patch.textScale = typeof d.textScale === 'number' ? clampTextScale(d.textScale) : 1;
+                patch.appLabels = (() => {
+                    const out: Record<string, string> = {};
+                    const raw = d.appLabels;
+                    if (raw && typeof raw === 'object') {
+                        for (const [k, v] of Object.entries(raw)) {
+                            if (typeof v === 'string' && v.trim()) out[k] = v.trim().slice(0, APP_LABEL_MAX);
+                        }
+                    }
+                    return out;
+                })();
                 if (typeof d.phoneScale === 'number') patch.phoneScale = clampPhoneScale(d.phoneScale);
                 if (typeof d.brightness === 'number') patch.brightness = clampPhoneScale(d.brightness);
                 // Position is device-local (see setPhoneAlign): a companion must not adopt the
@@ -788,9 +895,23 @@ export function useTheme(...keys: (keyof ThemeState)[]): unknown {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
     const chatTextScale = useThemeStore(s => s.chatTextScale);
+    const motion        = useThemeStore(s => s.motion);
+    const boldText      = useThemeStore(s => s.boldText);
+    const textScale     = useThemeStore(s => s.textScale);
     useEffect(() => { useThemeStore.getState().hydrate(); }, []);
     useEffect(() => {
         document.documentElement.style.setProperty('--chat-text-scale', String(chatTextScale));
     }, [chatTextScale]);
+    useEffect(() => {
+        document.documentElement.style.setProperty('--text-scale', String(textScale));
+    }, [textScale]);
+    // Attributes rather than classes: index.css keys off them, and the phone frame is not the
+    // document root, so a class on <html> would not survive the app-switcher remounting subtrees.
+    useEffect(() => {
+        document.documentElement.setAttribute('data-motion', motion);
+    }, [motion]);
+    useEffect(() => {
+        document.documentElement.toggleAttribute('data-bold-text', boldText);
+    }, [boldText]);
     return <>{children}</>;
 }
