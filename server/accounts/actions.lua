@@ -469,14 +469,12 @@ end
 -- In-memory password-reset code state, keyed app:accountId.
 ---@type table<string, { code: string, expires: integer, attempts: integer, channel: string }> Live codes by app:accountId.
 local resetCodes     = {}
----@type table<string, { count: integer, windowStart: integer }> Issue-rate windows by app:accountId.
-local resetRequests  = {}
 
 ---@type integer Reset-code lifetime in seconds.
 local CODE_TTL       = 600
 ---@type integer Wrong guesses allowed per code before it is voided.
 local MAX_ATTEMPTS   = 5
----@type integer Codes issuable per account within one request window.
+---@type integer Codes issuable per caller within one request window.
 local MAX_REQUESTS   = 3
 ---@type integer Issue-rate window length in seconds.
 local REQUEST_WINDOW = 600
@@ -545,32 +543,29 @@ function actions.requestReset(source, payload)
     local app = payload.app
     if not ALL_APPS[app] then return fail('Unknown app') end
 
-    local acc, channel, err = resolveRecovery(app, trim(payload.identity))
-    if not acc then return fail(err) end
+    local cid = player.getIdentifier(source); if not cid then return fail('Player not found') end
 
-    local key = resetKey(app, acc.id)
-    local now = os.time()
-    local req = resetRequests[key]
-    if req and now - req.windowStart < REQUEST_WINDOW and req.count >= MAX_REQUESTS then
+    local identity = trim(payload.identity)
+    if identity == '' then return fail('Enter the username, email or phone number on the account') end
+
+    if not util.cooldown(cid, 'accounts:requestReset', 2000)
+        or not util.rateLimit(cid, 'accounts:requestReset', REQUEST_WINDOW * 1000, MAX_REQUESTS) then
         return fail('Too many codes requested. Try again in a few minutes')
     end
-    if not req or now - req.windowStart >= REQUEST_WINDOW then
-        resetRequests[key] = { count = 0, windowStart = now }
-        req = resetRequests[key]
-    end
+
+    local acc, channel = resolveRecovery(app, identity)
+    if not acc then return ok({}) end
 
     local code = ('%06d'):format(math.random(0, 999999))
     local sent
     if channel == 'email' then
         sent = delivery.sendCodeEmail(acc.email, app, code)
-        if not sent then return fail('Could not deliver the email. The linked address may have been deleted') end
     else
         sent = delivery.sendCodeSms(acc.phone, app, code)
-        if not sent then return fail('Could not deliver the text. The linked number is not active') end
     end
+    if not sent then return ok({}) end
 
-    req.count = req.count + 1
-    resetCodes[key] = { code = code, expires = now + CODE_TTL, attempts = 0, channel = channel }
+    resetCodes[resetKey(app, acc.id)] = { code = code, expires = os.time() + CODE_TTL, attempts = 0, channel = channel }
     return ok({ channel = channel })
 end
 
