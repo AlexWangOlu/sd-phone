@@ -227,10 +227,8 @@ function saveAppLabelsLocal(v: Record<string, string>) {
     try { window.localStorage.setItem(APP_LABELS_KEY, JSON.stringify(v)); } catch { /* ignore */ }
 }
 
-/** full = everything animates. reduced = apps and sheets only. off = nothing animates. */
 export type MotionLevel = 'full' | 'reduced' | 'off';
 const MOTION_LEVELS: MotionLevel[] = ['full', 'reduced', 'off'];
-/** Stored as 0/1/2 in the reduce_motion column, which predates the third level. */
 export function motionFromCode(v: unknown): MotionLevel {
     return MOTION_LEVELS[Number(v)] ?? 'full';
 }
@@ -652,7 +650,6 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     setAppLabel: (appId, label) => {
         const trimmed = label.trim().slice(0, APP_LABEL_MAX);
         const next = { ...get().appLabels };
-        // A blank name is how the UI clears an override, so drop the key rather than storing ''.
         if (trimmed) next[appId] = trimmed; else delete next[appId];
         set({ appLabels: next });
         if (isFiveM) void fetchNui('sd-phone:settings:setAppLabels', { labels: next }).catch(() => {});
@@ -827,8 +824,6 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
                 if (Array.isArray(d.shellsAllowed)) patch.shellsAllowed = d.shellsAllowed.filter(isShellId);
                 if (isShellId(d.shell)) patch.shell = d.shell;
                 if (typeof d.chatTextScale === 'number') patch.chatTextScale = clampChatScale(d.chatTextScale);
-                // Always assigned: these are per-profile, so a profile that never set them must
-                // reset to the default rather than inherit the previous profile's preferences.
                 patch.motion = motionFromCode(d.motion);
                 patch.boldText = d.boldText === true;
                 patch.textScale = typeof d.textScale === 'number' ? clampTextScale(d.textScale) : 1;
@@ -905,8 +900,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         document.documentElement.style.setProperty('--text-scale', String(textScale));
     }, [textScale]);
-    // Attributes rather than classes: index.css keys off them, and the phone frame is not the
-    // document root, so a class on <html> would not survive the app-switcher remounting subtrees.
     useEffect(() => {
         document.documentElement.setAttribute('data-motion', motion);
     }, [motion]);

@@ -14,10 +14,6 @@ export function AppNamesPage({ onBack }: { onBack: () => void }) {
 
     const target = renaming === null ? null : apps.find(a => a.id === renaming) ?? null;
     const renamedCount = Object.keys(appLabels).length;
-
-    // apps arrive already renamed (App.tsx applies overrides at the source), so `label` is what
-    // the player sees today and the original only exists in the override map's absence. Sorting
-    // on the visible name is what matches the list they are looking at.
     const sorted = [...apps].sort((a, b) => a.label.localeCompare(b.label));
 
     return (

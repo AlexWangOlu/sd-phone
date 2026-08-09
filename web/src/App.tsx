@@ -1412,10 +1412,6 @@ function AppContent() {
     const statusLight = locked || !currentApp || theme === 'dark';
     const homeWallpaper = wallpaperHome || view.wallpaperHome;
     const lockWallpaper = wallpaperLock || view.wallpaperLock;
-
-    // Player renames are applied once, here, where the catalogue is assembled. Every downstream
-    // surface - home grid, dock, switcher cards, App Store, search, settings previews - reads
-    // `label` off these defs, so none of them needs to know renaming exists.
     const rawApps       = [...view.apps, ...customDefs.filter(c => !view.apps.some(a => a.id === c.id))];
     const allApps       = appLabels && Object.keys(appLabels).length
         ? rawApps.map(a => (appLabels[a.id] ? { ...a, label: appLabels[a.id] } : a))
