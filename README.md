@@ -48,6 +48,16 @@ If sd-phone is useful to you, please ⭐ the repo. Issues and pull requests are 
 >
 > It is a companion resource and needs sd-phone to run. [More below](#companion-sd-tablet).
 
+> [!NOTE]
+> **Know what leaves your server before you go live.**
+> A handful of features talk to third parties, and some of what they send is personal data
+> about your players: media uploads, GIF searches, map tiles, and microphone audio when
+> nearby voice capture is on. [**PRIVACY.md**](PRIVACY.md) lists every one of them, what
+> triggers it, and the exact config line that switches it off.
+>
+> Five minutes well spent before launch, and rather more than that if your players are in
+> the EU or UK.
+
 ## Preview
 
 <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/c1300d66-6530-47d4-ad02-676646b96fc7" />
@@ -238,14 +248,6 @@ In `configs/server/apikeys.lua`:
 | --- | --- |
 | `FivemanageMedia` | **Required.** Camera, Photos and Voice Memos uploads. Create a free [Fivemanage](https://refer.fivemanage.com/samuel) token of type **Media**. Without it those apps open, but nothing uploads or saves. |
 | `Giphy` | Optional. The GIF picker in Messages. Free key from [developers.giphy.com](https://developers.giphy.com). |
-
-### 4. Decide what leaves your server
-
-A few features send data to third parties, and some of it is personal data about your
-players: media uploads, GIF searches, map tiles, and microphone audio when nearby voice
-capture is on. [**PRIVACY.md**](PRIVACY.md) lists every one of them, what triggers it, and
-the config line that switches it off. Worth five minutes before you go live, and worth
-more than that if your players are in the EU or UK.
 
 ### Building from source
 
