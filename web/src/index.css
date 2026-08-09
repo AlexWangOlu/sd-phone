@@ -237,18 +237,10 @@ html, body, #root {
     .admin-scrim-in { animation: none; }
 }
 
-/* Accessibility: motion. Two levels, because they want different things.
-   REDUCED calms movement inside apps and sheets while leaving the phone's own ceremonies alone:
-   unlocking, the phone opening, swiping between Home Screen pages. Those are the device, not the
-   content, and killing them makes the phone feel broken rather than calm. It is opt-IN by
-   selector for a concrete reason: the page-swipe transition is set inline on the element, and a
-   stylesheet !important beats an inline style, so a blanket rule cannot avoid eating it.
-   OFF is the blanket, for players who want no movement anywhere at all.
-   Durations go to 1ms rather than 0 so anything awaiting transitionend/animationend still fires
-   and no state machine stalls waiting for a frame that never arrives. */
 [data-motion='reduced'] [data-app-screen] *,
 [data-motion='reduced'] [data-app-screen] *::before,
 [data-motion='reduced'] [data-app-screen] *::after,
+[data-motion='reduced'] [data-motion-app],
 [data-motion='reduced'] [data-motion-app] *,
 [data-motion='reduced'] [data-motion-app] *::before,
 [data-motion='reduced'] [data-motion-app] *::after,
@@ -265,14 +257,6 @@ html, body, #root {
 [data-motion='reduced'] [data-motion-app] *,
 [data-motion='off'] * { scroll-behavior: auto !important; }
 
-/* Accessibility: Bold Text. Most body text carries a size class but no weight class, so it
-   renders at the inherited default - raising the inherited weight here is what actually reaches
-   it. The class rules then shift each named weight up one step.
-   Everything moves, deliberately: if only the body moved it would arrive at 600 and collide with
-   semibold headings, erasing the very hierarchy that leaving them alone was meant to protect.
-   Inter is loaded at 400-900 in whole hundreds, so every value below is a real weight - a
-   fractional one (650, 775) would silently snap to the nearest and re-collide. 900 is the
-   ceiling, which is why extrabold and black share it. */
 [data-bold-text] { font-weight: 600; }
 [data-bold-text] .font-light,
 [data-bold-text] .font-normal,
