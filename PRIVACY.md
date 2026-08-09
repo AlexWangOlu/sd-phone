@@ -41,11 +41,6 @@ IP address is visible to the service.
 | **Google STUN** | The player's IP | Any voice capture session | `configs/voice.lua` -> empty `StunServers` |
 | **Map tile CDN** | The player's IP | Opening the Maps app | Self-host tiles and change the base URL in `web/src/apps/maps/data.ts` |
 | **YouTube** | The player's IP and the video id | Only if you set `AllowYouTube` or `AllowedVideos` | `configs/music.lua`, both off by default |
-| **picsum.photos** | The player's IP | Streaks photo capture | See the note below |
-
-> The picsum.photos call comes from `captureStreakPhoto()` in
-> `web/src/apps/streaks/streaksApi.ts`, which currently returns a placeholder image in
-> game as well as in development. Treat this as unintended until it is fixed.
 
 ## The microphone one deserves attention
 
