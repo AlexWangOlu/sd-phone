@@ -34,6 +34,7 @@ export interface OpenPayload {
     };
     music?: {
         youtube?: boolean;
+        anyAudio?: boolean;
         hosts?: string[];
         videos?: string[];
         tracks?: { url: string; title?: string; artist?: string }[];

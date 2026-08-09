@@ -22,7 +22,7 @@ import { MusicTabBar, type MusicTab } from './MusicTabBar';
 import { useMusic, useMusicProgress } from './MusicContext';
 import {
     coverColor, coverGradient, fetchYouTubeMeta, fmt, groupByAlbum, groupByArtist,
-    allowedTrackList, allowedVideoIds, hasAllowlist, isSourceAllowed, newId, sourceRejection,
+    allowedTrackList, allowedVideoIds, anySourceEnabled, audioLinksAccepted, hasAllowlist, isSourceAllowed, newId, sourceRejection,
     titleFromUrl, youtubeCurated, youtubeId, youtubePlaybackPossible, youtubeThumb, youtubeWatchUrl,
     shareTrack, sharePlaylist,
 } from './data';
@@ -640,6 +640,7 @@ function unavailableLabel(url: string): string {
         case 'host-not-allowed':   return t('music.blockedHost', 'Unavailable: host not allowed here');
         case 'youtube-off':        return t('music.blockedYoutubeOff', 'Unavailable: YouTube is off here');
         case 'video-not-approved': return t('music.blockedNotListed', 'Unavailable: not on the allowlist');
+        case 'not-configured':     return t('music.blockedNoSources', 'Unavailable: no music sources set up here');
         case 'not-audio':          return t('music.blockedNotAudio', 'Unavailable: not a supported link');
         default:                   return t('music.blockedInvalid', 'Unavailable: broken link');
     }
@@ -915,8 +916,17 @@ function AddForm({ onAdd, onClose, backLabel }: { onAdd: (url: string, title: st
     const [ytStatus, setYtStatus] = useState<'idle' | 'loading' | 'filled'>('idle');
     const [pickOpen, setPickOpen] = useState(false);
     function clearDraft() { clearSessionState('music:add:'); }
-    const ytOk = youtubePlaybackPossible();
+    const canYt = youtubePlaybackPossible();
+    const canAudio = audioLinksAccepted();
     const curated = youtubeCurated();
+    const linkLabel = canYt && canAudio ? t('music.pasteAnyLink', 'Paste a song link')
+        : canYt ? t('music.pasteYoutubeLink', 'Paste a YouTube link')
+            : canAudio ? t('music.pasteAudioLink', 'Paste an audio file link')
+                : t('music.pasteNothing', 'Links cannot be added on this server');
+    const previewLabel = canYt && canAudio ? t('music.pasteAnyPreview', 'Paste a song link to preview it.')
+        : canYt ? t('music.pasteLinkPreview', 'Paste a YouTube link to preview your song.')
+            : canAudio ? t('music.pasteAudioPreview', 'Paste a link to an audio file to preview your song.')
+                : t('music.pasteNothingPreview', 'This server only allows songs from its own list.');
     const vid = isSourceAllowed(url) ? youtubeId(url) : null;
     const hasUrl = url.trim().length > 0;
     const rejection = hasUrl ? sourceRejection(url) : null;
@@ -971,11 +981,7 @@ function AddForm({ onAdd, onClose, backLabel }: { onAdd: (url: string, title: st
                         <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-black/[0.06] dark:bg-white/10">
                             <Music2 className="h-7 w-7 text-ios-gray" strokeWidth={1.7} />
                         </div>
-                        <p className="text-[15px] font-medium text-ios-gray">
-                            {ytOk
-                                ? t('music.pasteLinkPreview', 'Paste a YouTube link to preview your song.')
-                                : t('music.pasteAudioPreview', 'Paste a link to an audio file to preview your song.')}
-                        </p>
+                        <p className="text-[15px] font-medium text-ios-gray">{previewLabel}</p>
                     </div>
                     <div className={`absolute inset-0 flex items-center gap-4 rounded-[18px] bg-elevated px-5 shadow-sm transition-all duration-300 dark:bg-surface ${hasUrl ? 'opacity-100 translate-y-0 scale-100' : 'pointer-events-none opacity-0 translate-y-2 scale-[0.97]'}`}>
                         <Cover track={shown.track} size={80} rounded={14} />
@@ -988,9 +994,8 @@ function AddForm({ onAdd, onClose, backLabel }: { onAdd: (url: string, title: st
                 </div>
 
                 <p className="mb-2.5 mt-6 px-1 text-[19px] font-bold tracking-tight">{t('music.link', 'Link')}</p>
-                <Field large value={url} onChange={setUrl}
-                    placeholder={ytOk ? t('music.pasteYoutubeLink', 'Paste a YouTube link') : t('music.pasteAudioLink', 'Paste an audio file link')}
-                    icon={ytOk ? <YouTubeGlyph size={22} /> : <Music2 className="h-[22px] w-[22px] text-ios-gray" strokeWidth={1.7} />} />
+                <Field large value={url} onChange={setUrl} placeholder={linkLabel}
+                    icon={canYt && !canAudio ? <YouTubeGlyph size={22} /> : <Music2 className="h-[22px] w-[22px] text-ios-gray" strokeWidth={1.7} />} />
                 {hasAllowlist() && (
                     <button type="button" onClick={() => setPickOpen(true)}
                         className="mt-3 flex w-full items-center justify-center gap-2 rounded-[12px] bg-black/[0.06] py-3 text-[17px] font-semibold text-ios-blue active:opacity-70 dark:bg-white/10">
@@ -1001,6 +1006,11 @@ function AddForm({ onAdd, onClose, backLabel }: { onAdd: (url: string, title: st
                 {curated && (
                     <p className="mt-2 px-1 text-[13px] text-ios-gray">
                         {t('music.allowlistOnly', 'Only YouTube links on the allowlist can be added on this server.')}
+                    </p>
+                )}
+                {!anySourceEnabled() && (
+                    <p className="mt-2 px-1 text-[13px] text-ios-gray">
+                        {t('music.noSources', 'This server has not set up any music sources yet.')}
                     </p>
                 )}
 
@@ -1032,7 +1042,7 @@ function AddForm({ onAdd, onClose, backLabel }: { onAdd: (url: string, title: st
 }
 
 function AllowlistSheet({ onPick, onClose }: { onPick: (url: string) => void; onClose: () => void }) {
-    const ids = useMemo(() => allowedVideoIds(), []);
+    const ids = useMemo(() => (youtubeCurated() ? allowedVideoIds() : []), []);
     const hosted = useMemo(() => allowedTrackList(), []);
     const [titles, setTitles] = useState<Record<string, string>>({});
 

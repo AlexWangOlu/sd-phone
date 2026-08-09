@@ -37,15 +37,17 @@ export interface AllowedTrack {
 }
 
 export interface MusicSources {
-    youtube?: boolean;
-    hosts?:   string[];
-    videos?:  string[];
-    tracks?:  AllowedTrack[];
+    youtube?:  boolean;
+    anyAudio?: boolean;
+    hosts?:    string[];
+    videos?:   string[];
+    tracks?:   AllowedTrack[];
 }
 
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 
 let allowYouTube = false;
+let allowAnyAudio = false;
 let allowedHosts: string[] = [];
 let allowedVideos = new Set<string>();
 let allowedTracks: AllowedTrack[] = [];
@@ -53,6 +55,7 @@ let allowedTrackUrls = new Set<string>();
 
 export function setMusicSources(src: MusicSources | undefined): void {
     allowYouTube = src?.youtube === true;
+    allowAnyAudio = src?.anyAudio === true;
     allowedHosts = Array.isArray(src?.hosts)
         ? src.hosts.filter(h => typeof h === 'string' && h !== '').map(h => h.toLowerCase())
         : [];
@@ -77,7 +80,16 @@ export function allowedTrackList(): AllowedTrack[] {
 }
 
 export function hasAllowlist(): boolean {
-    return allowedVideos.size > 0 || allowedTracks.length > 0;
+    return allowedTracks.length > 0 || (!allowYouTube && allowedVideos.size > 0);
+}
+
+export function audioLinksAccepted(): boolean {
+    return allowAnyAudio || allowedHosts.length > 0;
+}
+
+export function anySourceEnabled(): boolean {
+    return allowYouTube || allowAnyAudio
+        || allowedHosts.length > 0 || allowedVideos.size > 0 || allowedTracks.length > 0;
 }
 
 export function youtubePlaybackPossible(): boolean {
@@ -120,6 +132,7 @@ export type SourceRejection =
     | 'youtube-off'
     | 'video-not-approved'
     | 'host-not-allowed'
+    | 'not-configured'
     | 'not-audio'
     | 'invalid';
 
@@ -135,6 +148,7 @@ export function sourceRejection(url: string): SourceRejection | null {
     const u = parseUrl(clean);
     if (!u) return 'invalid';
     if (allowedHosts.length) return hostAllowed(u.hostname.toLowerCase()) ? null : 'host-not-allowed';
+    if (!allowAnyAudio) return 'not-configured';
     return AUDIO_FILE.test(u.pathname) ? null : 'not-audio';
 }
 

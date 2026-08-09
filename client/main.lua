@@ -91,7 +91,13 @@ do
             }
         end
     end
-    MUSIC_SOURCES = { youtube = cfg.AllowYouTube == true, hosts = hosts, videos = videos, tracks = tracks }
+    MUSIC_SOURCES = {
+        youtube  = cfg.AllowYouTube == true,
+        anyAudio = cfg.AllowAnyAudioLink == true,
+        hosts    = hosts,
+        videos   = videos,
+        tracks   = tracks,
+    }
 end
 
 ---@type table Weather bridge (bridge.client.weather): live weather + synced world-time reads.
