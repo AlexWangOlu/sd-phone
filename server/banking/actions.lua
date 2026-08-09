@@ -183,12 +183,13 @@ function actions.send(src, payload)
         end
     end
 
-    bank.removeMoney(src, amount, ('Transfer to %s'):format(number))
+    if not bank.removeMoney(src, amount, ('Transfer to %s'):format(number)) then
+        return { success = false, message = 'Could not take that from your account' }
+    end
 
     local credited
     if rsrc then
-        bank.addMoney(rsrc, amount, ('Transfer from %s'):format(myNumber))
-        credited = true
+        credited = bank.addMoney(rsrc, amount, ('Transfer from %s'):format(myNumber))
     else
         credited = bank.addOffline(rcid, amount)
     end

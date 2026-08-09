@@ -124,7 +124,9 @@ function actions.deposit(src, payload)
         local bal = bank.getBalance(src) or 0
         if bal < amount then return { success = false, message = 'Insufficient bank funds' } end
 
-        bank.removeMoney(src, amount, 'Brokerage deposit')
+        if not bank.removeMoney(src, amount, 'Brokerage deposit') then
+            return { success = false, message = 'Could not take that from your account' }
+        end
         local cash = store.ensureWallet(cid, ST.StartingCash) + amount
         store.setWallet(cid, cash)
 
@@ -150,7 +152,10 @@ function actions.withdraw(src, payload)
 
         cash = cash - amount
         store.setWallet(cid, cash)
-        bank.addMoney(src, amount, 'Brokerage withdrawal')
+        if not bank.addMoney(src, amount, 'Brokerage withdrawal') then
+            store.setWallet(cid, cash + amount)
+            return { success = false, message = 'Could not reach your account' }
+        end
 
         return { success = true, data = { cash = cash, bank = bank.getBalance(src) or 0 } }
     end)

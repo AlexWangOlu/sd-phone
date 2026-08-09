@@ -55,13 +55,12 @@ function banking.balanceIsFramework()
     return not (name and OWN_TABLE[name])
 end
 
----Runs a provider export call; true only if it didn't error. The provider's return value is
----ignored.
+---Runs a provider export call. False when the call errored or the provider returned false.
 ---@param fn function
 ---@return boolean
 local function try(fn)
-    local ok = pcall(fn)
-    return ok
+    local ok, res = pcall(fn)
+    return ok and res ~= false
 end
 
 ---The player's current bank balance. Read-only. Own-table providers are read through their
@@ -107,6 +106,22 @@ local function expect(src, amount, minus)
     list[#list + 1] = { amount = math.floor(tonumber(amount) or 0), minus = minus, expires = GetGameTimer() + 3000 }
 end
 
+---Withdraws a registration made by `expect` when the announced movement never happened.
+---@param src number
+---@param amount number
+---@param minus boolean
+local function unexpect(src, amount, minus)
+    local list = expected[src]
+    if not list then return end
+    local want = math.floor(tonumber(amount) or 0)
+    for i = #list, 1, -1 do
+        if list[i].amount == want and list[i].minus == minus then
+            table.remove(list, i)
+            return
+        end
+    end
+end
+
 ---Consumes one matching expected movement; false means the change came from another script.
 ---@param src number
 ---@param amount number
@@ -127,42 +142,67 @@ function banking.consumeExpected(src, amount, minus)
     return false
 end
 
----Credit the player's bank account. A dedicated provider path returns early only when its export
----call didn't error; otherwise the credit lands on the framework bank account.
+---Credit the player's bank account, falling back to the framework account when no provider path
+---handles it. True when a path was taken without error.
 ---@param src number
 ---@param amount number
 ---@param reason? string
+---@return boolean added
 function banking.addMoney(src, amount, reason)
+    amount = math.floor(tonumber(amount) or 0)
+    if amount <= 0 then return false end
+
     expect(src, amount, false)
     local name = banking.name
     if name == 'wasabi_banking' then
         local id = player.getIdentifier(src)
-        if id and try(function() exports.wasabi_banking:AddMoney(id, amount, reason or 'Phone transfer') end) then return end
+        if id and try(function() exports.wasabi_banking:AddMoney(id, amount, reason or 'Phone transfer') end) then return true end
     elseif name == 'omes_banking' then
-        if try(function() exports['omes_banking']:AddBankMoney(src, amount, reason or 'Phone transfer') end) then return end
+        if try(function() exports['omes_banking']:AddBankMoney(src, amount, reason or 'Phone transfer') end) then return true end
     elseif name == 'prism_banking' then
-        if try(function() exports['prism_banking']:AddBankingTransaction(src, 'deposit', amount, 'phone', false, reason or 'Phone transfer', reason or '') end) then return end
+        if try(function() exports['prism_banking']:AddBankingTransaction(src, 'deposit', amount, 'phone', false, reason or 'Phone transfer', reason or '') end) then return true end
     end
     money.add(src, 'bank', amount, reason)
+    return true
 end
 
----Debit the player's bank account. Returns nothing and cannot report a declined debit; callers
----must pre-check getBalance >= amount first.
+---Debit the player's bank account, re-reading the balance to confirm the money moved. True only
+---when it left the account; callers must not credit anyone on a false.
 ---@param src number
 ---@param amount number
 ---@param reason? string
+---@return boolean removed
 function banking.removeMoney(src, amount, reason)
+    amount = math.floor(tonumber(amount) or 0)
+    if amount <= 0 then return false end
+
+    local before = banking.getBalance(src) or 0
+    if before < amount then return false end
+
     expect(src, amount, true)
+
     local name = banking.name
+    local viaProvider = false
     if name == 'wasabi_banking' then
         local id = player.getIdentifier(src)
-        if id and try(function() exports.wasabi_banking:RemoveMoney(id, amount, reason or 'Phone transfer') end) then return end
+        viaProvider = id ~= nil and try(function() exports.wasabi_banking:RemoveMoney(id, amount, reason or 'Phone transfer') end)
     elseif name == 'omes_banking' then
-        if try(function() exports['omes_banking']:RemoveBankMoney(src, amount, reason or 'Phone transfer') end) then return end
+        viaProvider = try(function() exports['omes_banking']:RemoveBankMoney(src, amount, reason or 'Phone transfer') end)
     elseif name == 'prism_banking' then
-        if try(function() exports['prism_banking']:AddBankingTransaction(src, 'withdraw', amount, 'phone', false, reason or 'Phone transfer', reason or '') end) then return end
+        viaProvider = try(function() exports['prism_banking']:AddBankingTransaction(src, 'withdraw', amount, 'phone', false, reason or 'Phone transfer', reason or '') end)
     end
-    money.remove(src, 'bank', amount, reason)
+
+    if not viaProvider then
+        if money.remove(src, 'bank', amount, reason) then return true end
+        unexpect(src, amount, true)
+        return false
+    end
+
+    if (banking.getBalance(src) or 0) >= before then
+        unexpect(src, amount, true)
+        return false
+    end
+    return true
 end
 
 ---Best-effort credit to an offline character's framework bank account via a parameterized DB

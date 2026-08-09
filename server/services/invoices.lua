@@ -515,7 +515,10 @@ function invoices.pay(src, payload)
     if not store.markPaid(id, os.time()) then return fail('That invoice is no longer pending') end
 
     local code = codeOf(id)
-    bank.removeMoney(src, amount, ('Invoice %s'):format(code))
+    if not bank.removeMoney(src, amount, ('Invoice %s'):format(code)) then
+        store.revertToPending(id)
+        return fail('Could not take that from your account')
+    end
 
     -- Business commission: a per-company fraction of a society-credited invoice goes to the
     -- sending employee instead of the society, so the two legs always sum to the invoice amount
@@ -536,8 +539,7 @@ function invoices.pay(src, payload)
             local esrc = player.getSourceByIdentifier(inv.sender_cid)
             local paid
             if esrc then
-                bank.addMoney(esrc, cut, ('Commission · %s'):format(code))
-                paid = true
+                paid = bank.addMoney(esrc, cut, ('Commission · %s'):format(code))
             else
                 paid = bank.addOffline(inv.sender_cid, cut)
             end
@@ -551,8 +553,7 @@ function invoices.pay(src, payload)
     if not credited then
         local ssrc = player.getSourceByIdentifier(inv.sender_cid)
         if ssrc then
-            bank.addMoney(ssrc, amount, ('Invoice payment · %s'):format(label))
-            credited = true
+            credited = bank.addMoney(ssrc, amount, ('Invoice payment · %s'):format(label))
         else
             credited = bank.addOffline(inv.sender_cid, amount)
         end
