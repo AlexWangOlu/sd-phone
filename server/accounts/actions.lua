@@ -75,14 +75,19 @@ end
 ---@type integer Longest password any creation path accepts.
 local MAX_PASSWORD_LEN = math.max(64, config.Birdy.MaxPasswordLength or 0, config.Mail.MaxPasswordLength or 0)
 
----Checks a plaintext password against an account's stored hash, trying the app's legacy hasher
----on an engine-hash miss and re-hashing a legacy match with the engine hash.
+---Checks a plaintext password against an account's stored hash, trying the app's legacy hasher on
+---a miss. Any match held in an older format is written back as a current hash on the way out.
 ---@param account table account row (store shape, passwordHash included)
 ---@param plain any client-supplied plaintext password
 ---@return boolean verified
 function actions.verifyPassword(account, plain)
     if type(plain) ~= 'string' or plain == '' or #plain > MAX_PASSWORD_LEN then return false end
-    if store.hashPassword(plain) == account.passwordHash then return true end
+    if store.verifyPassword(plain, account.passwordHash) then
+        if store.needsRehash(account.passwordHash) then
+            store.setPassword(account.id, store.hashPassword(plain))
+        end
+        return true
+    end
     local legacy = LEGACY_HASHERS[account.app]
     if legacy and legacy(plain) == account.passwordHash then
         store.setPassword(account.id, store.hashPassword(plain))
