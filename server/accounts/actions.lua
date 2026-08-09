@@ -39,6 +39,37 @@ local LEGACY_HASHERS = {
     mail  = mailStore.hashPassword,
 }
 
+-- Password-guessing budget, keyed on the caller rather than the account being guessed: a
+-- per-target bucket would let anyone lock a player out of their own login by burning it.
+---@type integer Guess window in milliseconds.
+local GUESS_WINDOW   = 300000
+---@type integer Sign-in attempts allowed per caller per window.
+local LOGIN_MAX      = 15
+---@type integer Password changes allowed per caller per window.
+local CHANGE_MAX     = 10
+
+---True when the caller holds the account. Mail keys ownership by mailbox address, every other
+---app by session.
+---@param app string account app key
+---@param cid string framework per-character id
+---@param acc table resolved account row
+---@return boolean owns
+local function ownsAccount(app, cid, acc)
+    if app == 'mail' then
+        local want  = tostring(acc.username or ''):lower()
+        local boxes = mailStore.listAccountsForCitizen(cid) or {}
+        for i = 1, #boxes do
+            if tostring(boxes[i].email or ''):lower() == want then return true end
+        end
+        return false
+    end
+    local held = store.listSessionAccounts(app, cid) or {}
+    for i = 1, #held do
+        if held[i].id == acc.id then return true end
+    end
+    return false
+end
+
 
 
 ---@type integer Longest password any creation path accepts.
@@ -226,6 +257,11 @@ function actions.login(source, payload)
     local app = payload.app
     if not DIRECT_APPS[app] then return fail('Unknown app') end
     local cid = player.getIdentifier(source); if not cid then return fail('Player not found') end
+
+    if not util.cooldown(cid, 'accounts:login', 1000)
+        or not util.rateLimit(cid, 'accounts:login', GUESS_WINDOW, LOGIN_MAX) then
+        return fail('Too many sign-in attempts. Try again shortly')
+    end
 
     local raw = trim(payload.username):lower()
     if raw == '' then return fail('Wrong username or password') end
@@ -620,10 +656,16 @@ function actions.changePassword(source, payload)
     payload = payload or {}
     local app = payload.app
     if not ALL_APPS[app] then return fail('Unknown app') end
+    local cid = player.getIdentifier(source); if not cid then return fail('Player not found') end
+    if not util.cooldown(cid, 'accounts:changePassword', 1000)
+        or not util.rateLimit(cid, 'accounts:changePassword', GUESS_WINDOW, CHANGE_MAX) then
+        return fail('Too many attempts. Try again shortly')
+    end
+
     local username = trim(payload.identity or '')
     if username == '' then return fail('Account is required') end
     local acc = store.getAccount(app, username)
-    if not acc or not actions.verifyPassword(acc, payload.currentPassword) then
+    if not acc or not ownsAccount(app, cid, acc) or not actions.verifyPassword(acc, payload.currentPassword) then
         return fail('Current password is incorrect')
     end
     local password, pe = validPassword(payload.newPassword); if not password then return fail(pe) end
