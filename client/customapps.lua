@@ -375,6 +375,18 @@ RegisterNUICallback('customApps/get', function(_, cb)
     cb(currentList())
 end)
 
+---Breadcrumbs from the app frame and from the SDK running inside a hosted app, routed here so
+---they land in the same console as the Lua ones. Silent unless config.Debug is on.
+---@param data table|nil { message: string }
+---@param cb fun(ok: boolean) NUI response
+RegisterNUICallback('customApps/debug', function(data, cb)
+    local message = type(data) == 'table' and data.message or nil
+    if type(message) == 'string' and message ~= '' then
+        debugPrint(('[frame] %s'):format(message:sub(1, 400)))
+    end
+    cb(true)
+end)
+
 ---Lifecycle relay from the UI. open/close dispatch the registered onOpen/onClose under pcall;
 ---install and uninstall are acknowledged only (the frontend persists install state itself).
 ---@param data table|nil { id: string, action: 'open'|'close'|'install'|'uninstall' }

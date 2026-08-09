@@ -26,6 +26,10 @@ import type { Contact } from '@/apps/phone/data';
 // sd-phone's own files.
 const COMPONENTS_URL = `https://cfx-nui-${hostResource}/web/build/components.js`;
 
+function frameDebug(message: string): void {
+    void fetchNui('customApps/debug', { message }).catch(() => {});
+}
+
 const STORAGE_MAX_BYTES = 64 * 1024;
 const STORAGE_MAX_KEYS = 64;
 
@@ -105,6 +109,29 @@ export function CustomAppFrame({ appId }: { appId: string; onClose: () => void }
     const defRef = useRef(def);
     defRef.current = def;
 
+    const sdkReadyRef = useRef(false);
+    const outboxRef   = useRef<unknown[]>([]);
+
+    const postToApp = useCallback((message: unknown) => {
+        if (!sdkReadyRef.current) {
+            if (outboxRef.current.length < 64) outboxRef.current.push(message);
+            return;
+        }
+        try { iframeRef.current?.contentWindow?.postMessage(message, '*'); } catch { /* cross-origin */ }
+    }, []);
+
+    const markSdkReady = useCallback(() => {
+        if (sdkReadyRef.current) return;
+        sdkReadyRef.current = true;
+        const win = iframeRef.current?.contentWindow;
+        try { win?.postMessage('componentsLoaded', '*'); } catch { /* cross-origin */ }
+        const queued = outboxRef.current;
+        outboxRef.current = [];
+        for (const message of queued) {
+            try { win?.postMessage(message, '*'); } catch { /* cross-origin */ }
+        }
+    }, []);
+
     const [popup, setPopup]         = useState<PopupData | null>(null);
     const [ctxMenu, setCtxMenu]     = useState<CtxMenuData | null>(null);
     const [gallery, setGallery]     = useState<GalleryReq | null>(null);
@@ -167,8 +194,8 @@ export function CustomAppFrame({ appId }: { appId: string; onClose: () => void }
     }, []);
 
     const streamPopupInput = useCallback((value: string) => {
-        try { iframeRef.current?.contentWindow?.postMessage({ type: 'popUpInputChanged', value }, '*'); } catch { /* cross-origin */ }
-    }, []);
+        postToApp({ type: 'popUpInputChanged', value });
+    }, [postToApp]);
 
     const notify = useCallback((data: Record<string, unknown>) => {
         const d = defRef.current;
@@ -325,13 +352,8 @@ export function CustomAppFrame({ appId }: { appId: string; onClose: () => void }
 
     useEffect(() => {
         if (!loadedRef.current) return;
-        try {
-            iframeRef.current?.contentWindow?.postMessage(
-                { type: active ? 'appOpen' : 'appClose', data: { id: defRef.current?.id } },
-                '*',
-            );
-        } catch { /* cross-origin */ }
-    }, [active, ready]);
+        postToApp({ type: active ? 'appOpen' : 'appClose', data: { id: defRef.current?.id } });
+    }, [active, ready, postToApp]);
 
     const bridge = useMemo(() => {
         const withCallbackIds = (data: PopupData | undefined) => {
@@ -405,10 +427,16 @@ export function CustomAppFrame({ appId }: { appId: string; onClose: () => void }
         const d = defRef.current;
         if (!iframe || !d) return;
         loadedRef.current = true;
+        sdkReadyRef.current = false;
+        outboxRef.current = [];
         try {
             const win = iframe.contentWindow as (Window & Record<string, unknown>) | null;
             const doc = iframe.contentDocument;
-            if (!win || !doc) return;
+            frameDebug(`${d.id}: load fired, window=${!!win}, document=${!!doc}, src=${iframe.getAttribute('src') ?? ''}`);
+            if (!win || !doc) {
+                frameDebug(`${d.id}: no same-origin document, the page is blank or served from another origin`);
+                return;
+            }
             if (doc.documentElement) {
                 doc.documentElement.style.width = '100%';
                 doc.documentElement.style.height = '100%';
@@ -432,14 +460,33 @@ export function CustomAppFrame({ appId }: { appId: string; onClose: () => void }
             win.formatPhoneNumber = (n: string) => formatPhone(n);
             win.setApp            = setApp;
             win.components        = bridge;
+            const rootMarkup = doc.getElementById('root')?.innerHTML.length ?? -1;
+            frameDebug(`${d.id}: globals set, #root markup ${rootMarkup} chars, injecting ${COMPONENTS_URL}`);
             const script = doc.createElement('script');
             script.src = COMPONENTS_URL;
+            script.onload = () => {
+                frameDebug(`${d.id}: components.js ran, componentsLoaded=${!!win.componentsLoaded}, fetchNui=${typeof win.fetchNui}`);
+                markSdkReady();
+            };
+            script.onerror = () => {
+                frameDebug(`${d.id}: components.js FAILED to load from ${COMPONENTS_URL}`);
+                markSdkReady();
+            };
             (doc.body ?? doc.documentElement).appendChild(script);
+            window.setTimeout(markSdkReady, 4000);
+            window.setTimeout(() => {
+                try {
+                    const body = iframe.contentDocument?.body;
+                    const root = iframe.contentDocument?.getElementById('root');
+                    frameDebug(`${d.id}: after 3s body ${body?.innerHTML.length ?? -1} chars, #root ${root?.innerHTML.length ?? -1} chars, visible=${body ? getComputedStyle(body).visibility : 'n/a'}`);
+                } catch { /* cross-origin */ }
+            }, 3000);
         } catch (err) {
+            frameDebug(`${d.id}: injection threw ${err instanceof Error ? err.message : String(err)}`);
             console.warn('[sd-phone] custom-app iframe injection failed (expected outside FiveM)', err);
         }
         setReady(true);
-    }, [theme, bridge, setApp]);
+    }, [theme, bridge, setApp, markSdkReady]);
 
     useEffect(() => {
         if (!loadedRef.current) return;
@@ -448,15 +495,25 @@ export function CustomAppFrame({ appId }: { appId: string; onClose: () => void }
         try {
             iframe.contentDocument?.body?.setAttribute('data-theme', theme);
         } catch { /* cross-origin */ }
-        try {
-            iframe.contentWindow?.postMessage({ type: 'settingsUpdated', settings: buildSettings() }, '*');
-        } catch { /* cross-origin */ }
-    }, [theme, airplaneMode, hour24, brightness]);
+        postToApp({ type: 'settingsUpdated', settings: buildSettings() });
+    }, [theme, airplaneMode, hour24, brightness, postToApp]);
+
+    useEffect(() => {
+        function onFrameMessage(event: MessageEvent) {
+            if (event.source !== iframeRef.current?.contentWindow) return;
+            const msg = event.data as { type?: string; message?: string } | null;
+            if (!msg || typeof msg.type !== 'string') return;
+            if (msg.type === 'sdphoneDebug' && typeof msg.message === 'string') { frameDebug(msg.message); return; }
+            if (msg.type === 'sdphoneSdkReady') markSdkReady();
+        }
+        window.addEventListener('message', onFrameMessage);
+        return () => window.removeEventListener('message', onFrameMessage);
+    }, [markSdkReady]);
 
     useNuiEvent('customApps:message', useCallback((data) => {
         if (!data || (data.id !== appId && data.id !== 'any')) return;
-        try { iframeRef.current?.contentWindow?.postMessage(data.message, '*'); } catch { /* cross-origin */ }
-    }, [appId]));
+        postToApp(data.message);
+    }, [appId, postToApp]));
 
     const activeRef = useRef(false);
     useEffect(() => {
