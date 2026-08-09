@@ -3,6 +3,7 @@ import { t } from '@/i18n';
 import { useSessionState } from '@/hooks/useSessionState';
 import { AppIconsPage } from './appearance/AppIconsPage';
 import { DisplayBrightnessPage } from './appearance/DisplayBrightnessPage';
+import { HomeDensityPage } from './appearance/HomeDensityPage';
 import { FaceUnlockPage } from './security/FaceUnlockPage';
 import { IslandPetPage } from './appearance/IslandPetPage';
 import { BatteryPage } from './general/BatteryPage';
@@ -29,7 +30,7 @@ import { shellFor } from '@/shell/shells';
 import { useTheme } from '@/stores/themeStore';
 import { useBluetoothConfigured } from '@/stores/bluetoothStore';
 
-type SubPage = 'general' | 'accessibility' | 'display' | 'island-pet' | 'wallpaper' | 'app-icons' | 'notifications' | 'sound-haptics' | 'face-unlock' | 'phone' | 'battery' | 'privacy' | 'sim' | 'wifi' | 'bluetooth' | null;
+type SubPage = 'general' | 'accessibility' | 'display' | 'island-pet' | 'wallpaper' | 'app-icons' | 'home-density' | 'notifications' | 'sound-haptics' | 'face-unlock' | 'phone' | 'battery' | 'privacy' | 'sim' | 'wifi' | 'bluetooth' | null;
 
 export function Settings({ onClose }: { onClose: () => void }) {
     const [subPage, setSubPage] = useSessionState<SubPage>('settings:subPage', null);
@@ -83,6 +84,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
         if (id === 'island-pet')    setSubPage('island-pet');
         if (id === 'wallpaper')     setSubPage('wallpaper');
         if (id === 'app-icons')     setSubPage('app-icons');
+        if (id === 'home-density')  setSubPage('home-density');
         if (id === 'notifications') setSubPage('notifications');
         if (id === 'sound-haptics') setSubPage('sound-haptics');
         if (id === 'face-unlock')   setSubPage('face-unlock');
@@ -101,6 +103,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
         : subPage === 'island-pet'    ? <IslandPetPage         onBack={handleBack} />
         : subPage === 'wallpaper'     ? <WallpaperPage         onBack={handleBack} />
         : subPage === 'app-icons'     ? <AppIconsPage          onBack={handleBack} />
+        : subPage === 'home-density'  ? <HomeDensityPage       onBack={handleBack} />
         : subPage === 'notifications' ? <NotificationsPage     onBack={handleBack} />
         : subPage === 'sound-haptics' ? <SoundHapticsPage      onBack={handleBack} />
         : subPage === 'face-unlock'   ? <FaceUnlockPage        onBack={handleBack} />

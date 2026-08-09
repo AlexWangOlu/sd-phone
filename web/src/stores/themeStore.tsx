@@ -4,7 +4,8 @@ import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 
 import { device } from '@device';
-import type { DeviceAlign } from '@/device/types';
+import { isDensity, setDensity } from '@/device/grid';
+import type { Density, DeviceAlign } from '@/device/types';
 import lockscreenAsset from '@/assets/wallpapers/lockscreen.webp';
 import devDefaultAsset from '@/assets/photos/background5.webp';
 import { fetchNui, isFiveM } from '@/core/nui';
@@ -263,6 +264,19 @@ function saveChatScaleLocal(v: number) {
     try { window.localStorage.setItem(CHAT_SCALE_KEY, String(v)); } catch { /* ignore */ }
 }
 
+const DENSITY_KEY = 'sd-phone:homeDensity';
+function loadDensityLocal(): Density {
+    try {
+        const v = window.localStorage.getItem(DENSITY_KEY);
+        return isDensity(v) ? v : 'default';
+    } catch { return 'default'; }
+}
+function saveDensityLocal(v: Density) {
+    try { window.localStorage.setItem(DENSITY_KEY, v); } catch { /* ignore */ }
+}
+const initialDensity: Density = isFiveM ? 'default' : loadDensityLocal();
+setDensity(initialDensity);
+
 const PHONE_SCALE_KEY = 'sd-phone:phoneScale';
 // Shared by the phone frame scale and screen brightness; both are 0-100 sliders.
 const clampPhoneScale = (n: number) => Math.min(100, Math.max(0, Math.round(n)));
@@ -334,6 +348,8 @@ interface ThemeState {
     setBoldText:       (v: boolean) => void;
     textScale:         number;
     setTextScale:      (v: number) => void;
+    homeDensity:       Density;
+    setHomeDensity:    (v: Density) => void;
     appLabels:         Record<string, string>;
     setAppLabel:       (appId: string, label: string) => void;
     resetAppLabels:    () => void;
@@ -441,6 +457,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     motion:       isFiveM ? ('full' as MotionLevel) : loadA11yLocal().motion,
     boldText:     isFiveM ? false : loadA11yLocal().boldText,
     textScale:    isFiveM ? 1     : loadA11yLocal().textScale,
+    homeDensity:  initialDensity,
     appLabels:    isFiveM ? {}    : loadAppLabelsLocal(),
     phoneAlign: isFiveM && device.id === 'phone' ? device.defaultAlign : loadPhoneAlignLocal(),
     ringtoneVol: 40,
@@ -667,6 +684,13 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
         else saveA11yLocal({ motion: motionToCode(get().motion), boldText: get().boldText, textScale: next });
     },
 
+    setHomeDensity: (v) => {
+        setDensity(v);
+        set({ homeDensity: v });
+        if (isFiveM) void fetchNui('sd-phone:settings:setHomeDensity', { density: v }).catch(() => {});
+        else saveDensityLocal(v);
+    },
+
     setAirplaneMode: (on) => {
         set({ airplaneMode: on });
         void fetchNui('sd-phone:settings:setAirplane', { on }).catch(() => {});
@@ -784,7 +808,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
             }
         };
         const keyAtRequest = wallpaperProfileKey;
-        void fetchNui<{ data?: { ringtone?: string; notificationTone?: string; customRingtones?: CustomTone[]; customNotificationTones?: CustomTone[]; airplaneMode?: boolean; hour24?: boolean; gameTime?: boolean; reopenApp?: boolean; setupDone?: boolean; lockClock?: Partial<LockClock>; passcode?: string | null; faceId?: boolean; wallpaper?: string; wallpaperHome?: string; blurLock?: boolean; blurHome?: boolean; islandPet?: string; customWallpapers?: string[]; chatTextScale?: number; motion?: number; boldText?: boolean; textScale?: number; appLabels?: Record<string, string>; phoneScale?: number; brightness?: number; phoneAlign?: string; ringtoneVol?: number; callVol?: number; theme?: string; darkTheme?: string; lightTheme?: string; accent?: string; shell?: string; shellChoice?: boolean; shellsAllowed?: unknown[]; customPalettes?: unknown; iconTheme?: string; showAppNames?: boolean; customIconThemes?: unknown } }>('sd-phone:settings:get')
+        void fetchNui<{ data?: { ringtone?: string; notificationTone?: string; customRingtones?: CustomTone[]; customNotificationTones?: CustomTone[]; airplaneMode?: boolean; hour24?: boolean; gameTime?: boolean; reopenApp?: boolean; setupDone?: boolean; lockClock?: Partial<LockClock>; passcode?: string | null; faceId?: boolean; wallpaper?: string; wallpaperHome?: string; blurLock?: boolean; blurHome?: boolean; islandPet?: string; customWallpapers?: string[]; chatTextScale?: number; motion?: number; boldText?: boolean; textScale?: number; homeDensity?: string; appLabels?: Record<string, string>; phoneScale?: number; brightness?: number; phoneAlign?: string; ringtoneVol?: number; callVol?: number; theme?: string; darkTheme?: string; lightTheme?: string; accent?: string; shell?: string; shellChoice?: boolean; shellsAllowed?: unknown[]; customPalettes?: unknown; iconTheme?: string; showAppNames?: boolean; customIconThemes?: unknown } }>('sd-phone:settings:get')
             .then(res => {
                 if (!res?.data) { retry(); return; }
                 const d = res.data;
@@ -827,6 +851,8 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
                 patch.motion = motionFromCode(d.motion);
                 patch.boldText = d.boldText === true;
                 patch.textScale = typeof d.textScale === 'number' ? clampTextScale(d.textScale) : 1;
+                patch.homeDensity = isDensity(d.homeDensity) ? d.homeDensity : 'default';
+                setDensity(patch.homeDensity);
                 patch.appLabels = (() => {
                     const out: Record<string, string> = {};
                     const raw = d.appLabels;

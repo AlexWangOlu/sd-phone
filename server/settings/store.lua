@@ -94,6 +94,7 @@ function store.ensureSchema()
             icon_theme         VARCHAR(16)  NULL,
             icon_custom        LONGTEXT     NULL,
             show_app_names     TINYINT(1)   NOT NULL DEFAULT 1,
+            home_density       VARCHAR(12)  NULL,
             ringtone_volume    TINYINT UNSIGNED NULL,
             call_volume        TINYINT UNSIGNED NULL,
             locale             VARCHAR(8)   NULL,
@@ -885,6 +886,27 @@ function store.setAppLabels(citizenid, labels, device)
         INSERT INTO phone_settings (citizenid, device, app_labels) VALUES (?, ?, ?)
         ON DUPLICATE KEY UPDATE app_labels = VALUES(app_labels)
     ]], { citizenid, device, json.encode(clean) })
+end
+
+---@type table<string, boolean> The home-grid presets the UI offers. Stored as a name rather than
+---an index: an index would have to agree with the order the client happens to list them in, and
+---the column reads as itself in the database.
+local HOME_DENSITIES = { compact = true, default = true, large = true }
+
+---Persist the home screen density preset, leaving other settings intact. An unknown preset is
+---dropped rather than stored, so a client cannot park a value the UI can never render.
+---@param citizenid string framework per-character id
+---@param density any client-supplied preset name
+---@param device string|nil 'phone' | 'tablet'
+function store.setHomeDensity(citizenid, density, device)
+    device = device or 'phone'
+    if not citizenid or citizenid == '' then return end
+    if type(density) ~= 'string' or not HOME_DENSITIES[density] then return end
+
+    MySQL.update.await([[
+        INSERT INTO phone_settings (citizenid, device, home_density) VALUES (?, ?, ?)
+        ON DUPLICATE KEY UPDATE home_density = VALUES(home_density)
+    ]], { citizenid, device, density })
 end
 
 ---Clamps a 0-100 slider value to an integer; nil for non-numbers and NaN, out-of-range values
@@ -2092,6 +2114,8 @@ function store.snapshot(citizenid, device)
     local icons = row and row.icon_theme
     if not isStorableIconTheme(icons) then icons = 'default' end
     local showAppNames = row == nil or isTruthy(row.show_app_names)
+    local homeDensity = row and row.home_density
+    if type(homeDensity) ~= 'string' or not HOME_DENSITIES[homeDensity] then homeDensity = 'default' end
 
     -- Belt and braces against the TINYINT(1) boolean mapping: if a driver still hands this back
     -- as a boolean, `true` means the player asked for less motion, so read it as 'reduced'
@@ -2122,6 +2146,7 @@ function store.snapshot(citizenid, device)
         customIconThemes = shared and decodeCustomIconThemes(shared.icon_custom) or {},
         customPalettes   = shared and decodeCustomPalettes(shared.palette_custom) or {},
         showAppNames     = showAppNames,
+        homeDensity      = homeDensity,
         lockClock        = row and decodeColumn(row.lock_clock, nil) or nil,
         wallpaper        = (row and row.wallpaper ~= '') and row.wallpaper or nil,
         wallpaperHome    = (row and row.wallpaper_home ~= '') and row.wallpaper_home or nil,

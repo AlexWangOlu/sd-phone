@@ -45,6 +45,7 @@ writeCallback('sd-phone:settings:wallpapers:remove', 'sd-phone:server:settings:w
 writeCallback('sd-phone:settings:setChatTextScale', 'sd-phone:server:settings:setChatTextScale')
 writeCallback('sd-phone:settings:setAccessibility', 'sd-phone:server:settings:setAccessibility')
 writeCallback('sd-phone:settings:setAppLabels',     'sd-phone:server:settings:setAppLabels')
+writeCallback('sd-phone:settings:setHomeDensity',   'sd-phone:server:settings:setHomeDensity')
 writeCallback('sd-phone:settings:setPhoneScale',    'sd-phone:server:settings:setPhoneScale')
 writeCallback('sd-phone:settings:setBrightness',    'sd-phone:server:settings:setBrightness')
 writeCallback('sd-phone:settings:setPhoneAlign',    'sd-phone:server:settings:setPhoneAlign')

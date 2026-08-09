@@ -261,6 +261,16 @@ lib.callback.register('sd-phone:server:settings:setAccessibility', function(sour
     return { success = true }
 end)
 
+---Persists the caller's home screen density preset. The layout itself is refitted client-side and
+---saved through the existing layout callback, so this only carries the preset name.
+lib.callback.register('sd-phone:server:settings:setHomeDensity', function(source, payload)
+    local cid = player.getIdentifier(source)
+    if not cid then return { success = false, message = 'Player not found' } end
+    payload = type(payload) == 'table' and payload or {}
+    coalesce(cid, 'homeDensity', function() store.setHomeDensity(cid, payload.density, deviceOf(payload)) end)
+    return { success = true }
+end)
+
 ---Persists the caller's home screen app name overrides.
 lib.callback.register('sd-phone:server:settings:setAppLabels', function(source, payload)
     local cid = player.getIdentifier(source)
