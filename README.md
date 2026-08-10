@@ -1,6 +1,6 @@
 <div align="center">
 
-# sd-phone (THIS IS A BETA RELEASE, WILL HAVE ISSUES)
+# sd-phone
 
 ### Try it right now, in your browser
 
@@ -33,6 +33,15 @@ If sd-phone is useful to you, please ⭐ the repo. Issues and pull requests are 
 </div>
 
 ---
+
+> [!IMPORTANT]
+> **This is production ready.** sd-phone is ready to run on a live server — there should be
+> no blatant issues with the phone as it stands today.
+>
+> The version number is not a warning about stability. It sits below 1.0.0 because 1.0.0 is
+> a scope target rather than a quality one: I want the initial 1.0.0 release to ship more
+> than what is here today, racing and MDTs among them. That is the only thing holding the
+> number back.
 
 > [!IMPORTANT]
 > **Coming from lb-phone? Give the first boot time to finish.**
