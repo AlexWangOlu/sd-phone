@@ -389,6 +389,7 @@ export type NuiMessage =
     | { action: 'sd-phone:racing:hud:hide' }
     | { action: 'sd-phone:racing:hud:state';  data: Partial<HudState> }
     | { action: 'sd-phone:racing:hud:countdown'; data: { from: number } }
+    | { action: 'sd-phone:racing:hud:clock' }
     | { action: 'sd-phone:racing:hud:dnf';    data: { seconds: number } }
     | { action: 'sd-phone:racing:markers';    data: { markers: HudMarker[]; color: string; colorClosest: string } }
     | { action: 'sd-phone:racing:board:show'; data: StartBoard }
