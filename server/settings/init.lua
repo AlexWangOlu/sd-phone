@@ -311,6 +311,16 @@ lib.callback.register('sd-phone:server:settings:setPhoneTilt', function(source, 
     return { success = true }
 end)
 
+---Persists the caller's shell presentation preferences (dock treatment, open animation,
+---wallpaper parallax). Fields are individually optional.
+lib.callback.register('sd-phone:server:settings:setInterface', function(source, payload)
+    local cid = player.getIdentifier(source)
+    if not cid then return { success = false, message = 'Player not found' } end
+    payload = type(payload) == 'table' and payload or {}
+    coalesce(cid, 'interface', function() store.setInterface(cid, payload, deviceOf(payload)) end)
+    return { success = true }
+end)
+
 ---Persists the caller's screen brightness (0-100 slider).
 lib.callback.register('sd-phone:server:settings:setBrightness', function(source, payload)
     local cid = player.getIdentifier(source)

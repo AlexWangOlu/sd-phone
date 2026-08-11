@@ -8,6 +8,7 @@ import type { PhoneAlign, DarkTheme, LightTheme } from '@/stores/themeStore';
 import { NavBar } from '@/ui/NavBar';
 import { Toggle } from '@/ui/Toggle';
 import { DEFAULT_PHONE_TILT, isTilted, TILT_LIMIT, tiltTransform, type PhoneTilt } from '@/shell/phoneTilt';
+import { OPEN_ANIMS, type OpenAnim } from '@/shell/shellLook';
 import { DarkAppearancePage } from './DarkAppearancePage';
 import { LightAppearancePage } from './LightAppearancePage';
 import { AccentColourPage } from './AccentColourPage';
@@ -51,10 +52,11 @@ export function DisplayBrightnessPage({ onBack }: { onBack: () => void }) {
         chatTextScale, setChatTextScale,
         phoneAlign, setPhoneAlign,
         phoneTilt, setPhoneTilt,
+        openAnim, setOpenAnim,
         customPalettes,
         accent,
         shellChoice,
-    } = useTheme('theme', 'setTheme', 'darkTheme', 'lightTheme', 'brightness', 'setBrightness', 'phoneScale', 'setPhoneScale', 'chatTextScale', 'setChatTextScale', 'phoneAlign', 'setPhoneAlign', 'phoneTilt', 'setPhoneTilt', 'customPalettes', 'accent', 'shellChoice');
+    } = useTheme('theme', 'setTheme', 'darkTheme', 'lightTheme', 'brightness', 'setBrightness', 'phoneScale', 'setPhoneScale', 'chatTextScale', 'setChatTextScale', 'phoneAlign', 'setPhoneAlign', 'phoneTilt', 'setPhoneTilt', 'openAnim', 'setOpenAnim', 'customPalettes', 'accent', 'shellChoice');
 
     const isDark     = theme === 'dark';
     const trackEmpty = isDark ? 'rgb(var(--control))' : 'rgb(var(--surface))';
@@ -272,6 +274,35 @@ export function DisplayBrightnessPage({ onBack }: { onBack: () => void }) {
 
                     <section>
                         <p className="mb-2 text-[12px] uppercase tracking-widest text-ios-gray">
+                            {t('settings.openAnim', 'Open Animation')}
+                        </p>
+                        <div className="overflow-hidden rounded-[12px] bg-surface">
+                            {OPEN_ANIMS.map((a, i) => (
+                                <div key={a}>
+                                    {i > 0 && <div className="h-[0.5px] bg-ios-gray4 dark:bg-control" />}
+                                    <button
+                                        type="button"
+                                        onClick={() => setOpenAnim(a)}
+                                        className="flex w-full items-center px-4 py-3 text-left active:bg-black/5 dark:active:bg-white/5"
+                                    >
+                                        <span className="flex min-w-0 flex-1 flex-col">
+                                            <span className="text-[17px] font-normal text-black dark:text-white">{ANIM_LABEL[a]}</span>
+                                            <span className="text-[13px] leading-snug text-ios-gray">{ANIM_HINT[a]}</span>
+                                        </span>
+                                        {openAnim === a && (
+                                            <Check className="ml-3 h-[18px] w-[18px] shrink-0 text-ios-blue" strokeWidth={3} />
+                                        )}
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                        <p className="mt-1.5 px-1 text-[12px] leading-snug text-ios-gray">
+                            {t('settings.openAnimHint', 'How the phone arrives on screen and leaves again when you put it away.')}
+                        </p>
+                    </section>
+
+                    <section>
+                        <p className="mb-2 text-[12px] uppercase tracking-widest text-ios-gray">
                             {t('settings.chatTextSize', 'Chat Text Size')}
                         </p>
                         <div className="overflow-hidden rounded-[12px] bg-surface">
@@ -419,6 +450,20 @@ function PositionPicker({
 
 const PREVIEW_W = 78;
 const PREVIEW_H = 118;
+
+const ANIM_LABEL: Record<OpenAnim, string> = {
+    slide: t('settings.openAnimSlide', 'Slide'),
+    fade:  t('settings.openAnimFade', 'Fade'),
+    pop:   t('settings.openAnimPop', 'Pop'),
+    flip:  t('settings.openAnimFlip', 'Flip'),
+};
+
+const ANIM_HINT: Record<OpenAnim, string> = {
+    slide: t('settings.openAnimSlideHint', 'Slides in from the edge it is anchored to.'),
+    fade:  t('settings.openAnimFadeHint', 'Fades in where it sits, with no movement.'),
+    pop:   t('settings.openAnimPopHint', 'Springs up from small to full size.'),
+    flip:  t('settings.openAnimFlipHint', 'Swings in on its side like a turning page.'),
+};
 
 function TiltSliderRow({ label, value, trackEmpty, onChange }: {
     label:      string;

@@ -19,6 +19,7 @@ import { DEFAULT_FRAME_COLOR, frameHex, frameStops } from './frameColors';
 import { BootSplash } from './BootSplash';
 import { chassisMetrics, rrect } from './chassis';
 import { tiltTransform } from './phoneTilt';
+import type { OpenAnim } from './shellLook';
 import type { ChassisMetrics, FacePart, RailButton } from './chassis';
 import { shellFor } from './shells';
 import { t } from '@/i18n';
@@ -45,7 +46,8 @@ const ALIGN_MAP: Record<string, string> = {
 
 const EDGE_PADDING = 24;
 
-function enterKeyframe(align: PhoneAlign): string {
+function enterKeyframe(align: PhoneAlign, anim: OpenAnim): string {
+    if (anim !== 'slide')           return `phone-in-${anim}`;
     if (align.startsWith('bottom')) return 'phone-in-bottom';
     if (align.startsWith('top'))    return 'phone-in-top';
     if (align === 'middle-left')    return 'phone-in-left';
@@ -53,7 +55,8 @@ function enterKeyframe(align: PhoneAlign): string {
     return 'phone-in-center';
 }
 
-function exitKeyframe(align: PhoneAlign): string {
+function exitKeyframe(align: PhoneAlign, anim: OpenAnim): string {
+    if (anim !== 'slide')           return `phone-out-${anim}`;
     if (align.startsWith('bottom')) return 'phone-out-bottom';
     if (align.startsWith('top'))    return 'phone-out-top';
     if (align === 'middle-left')    return 'phone-out-left';
@@ -404,7 +407,7 @@ function RailKey({ btn, m }: { btn: RailButton; m: ChassisMetrics }) {
 }
 
 export function PhoneShell({ children, cameraActive = false, entering = false, leaving = false, landscape = false, peek, onClose, radioIsland, alarmIsland, frameColor = DEFAULT_FRAME_COLOR }: PhoneShellProps) {
-    const { brightness, phoneScale, phoneAlign, phoneTilt, ringtoneVol, setRingtoneVol, islandPet, shell } = useTheme('brightness', 'phoneScale', 'phoneAlign', 'phoneTilt', 'ringtoneVol', 'setRingtoneVol', 'islandPet', 'shell');
+    const { brightness, phoneScale, phoneAlign, phoneTilt, openAnim, ringtoneVol, setRingtoneVol, islandPet, shell } = useTheme('brightness', 'phoneScale', 'phoneAlign', 'phoneTilt', 'openAnim', 'ringtoneVol', 'setRingtoneVol', 'islandPet', 'shell');
     const m = useMemo(() => chassisMetrics(shellFor(shell, device.id)), [shell]);
     const {
         SW, SH, W, H, SX, SY, BR, SR, SCREEN_MASK, BEZEL, hostsIsland, hasCutout, pillInCutout,
@@ -497,9 +500,9 @@ export function PhoneShell({ children, cameraActive = false, entering = false, l
         : peek === 'in'
         ? 'phone-peek-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards'
         : leaving
-        ? `${exitKeyframe(phoneAlign)} 0.42s cubic-bezier(0.4, 0, 0.7, 1) both`
+        ? `${exitKeyframe(phoneAlign, openAnim)} 0.42s cubic-bezier(0.4, 0, 0.7, 1) both`
         : entering
-        ? `${enterKeyframe(phoneAlign)} 0.52s cubic-bezier(0.16, 1, 0.3, 1) both`
+        ? `${enterKeyframe(phoneAlign, openAnim)} 0.52s cubic-bezier(0.16, 1, 0.3, 1) both`
         : undefined;
 
     const dimOpacity = (1 - brightness / 100) * 0.85;
