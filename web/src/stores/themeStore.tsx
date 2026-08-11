@@ -15,6 +15,7 @@ import { isDemo } from '@/core/demo';
 import { wallpaperKey } from '@/shell/wallpapers';
 import { useIconThemeStore } from '@/stores/iconThemeStore';
 import { DEFAULT_LOCK_CLOCK, loadLockClockLocal, saveLockClockLocal, type LockClock } from '@/shell/lockClock';
+import { DEFAULT_PHONE_TILT, loadPhoneTiltLocal, normalizeTilt, savePhoneTiltLocal, type PhoneTilt } from '@/shell/phoneTilt';
 import { DEFAULT_NOTIFICATION, DEFAULT_RINGTONE } from '@/apps/settings/tones';
 import type { CustomTone, ToneKind } from '@/apps/settings/tones';
 import { warmYouTube } from '@/apps/settings/tonePlayer';
@@ -355,6 +356,8 @@ interface ThemeState {
     resetAppLabels:    () => void;
     phoneAlign:        PhoneAlign;
     setPhoneAlign:     (v: PhoneAlign) => void;
+    phoneTilt:         PhoneTilt;
+    setPhoneTilt:      (v: PhoneTilt) => void;
     ringtoneVol:       number;
     setRingtoneVol:    (v: number) => void;
     callVol:           number;
@@ -460,6 +463,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     homeDensity:  initialDensity,
     appLabels:    isFiveM ? {}    : loadAppLabelsLocal(),
     phoneAlign: isFiveM && device.id === 'phone' ? device.defaultAlign : loadPhoneAlignLocal(),
+    phoneTilt: isFiveM ? DEFAULT_PHONE_TILT : loadPhoneTiltLocal(),
     ringtoneVol: 40,
     callVol: 60,
     airplaneMode: false,
@@ -634,6 +638,13 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
         else savePhoneScaleLocal(next);
     },
 
+    setPhoneTilt: (v) => {
+        const next = normalizeTilt(v);
+        set({ phoneTilt: next });
+        if (isFiveM) persistDebounced('phoneTilt', () => { void fetchNui('sd-phone:settings:setPhoneTilt', get().phoneTilt).catch(() => {}); });
+        else savePhoneTiltLocal(next);
+    },
+
     setRingtoneVol: (v) => {
         set({ ringtoneVol: v });
         if (isFiveM) persistDebounced('volumes', () => { void fetchNui('sd-phone:settings:setVolumes', { ringtone: get().ringtoneVol, call: get().callVol }).catch(() => {}); });
@@ -780,6 +791,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
             blurHome: false,
             islandPet: 'none',
             lockClock: DEFAULT_LOCK_CLOCK,
+            phoneTilt: DEFAULT_PHONE_TILT,
             setupDone: null,
         });
     },
@@ -808,7 +820,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
             }
         };
         const keyAtRequest = wallpaperProfileKey;
-        void fetchNui<{ data?: { ringtone?: string; notificationTone?: string; customRingtones?: CustomTone[]; customNotificationTones?: CustomTone[]; airplaneMode?: boolean; hour24?: boolean; gameTime?: boolean; reopenApp?: boolean; setupDone?: boolean; lockClock?: Partial<LockClock>; passcode?: string | null; faceId?: boolean; wallpaper?: string; wallpaperHome?: string; blurLock?: boolean; blurHome?: boolean; islandPet?: string; customWallpapers?: string[]; chatTextScale?: number; motion?: number; boldText?: boolean; textScale?: number; homeDensity?: string; appLabels?: Record<string, string>; phoneScale?: number; brightness?: number; phoneAlign?: string; ringtoneVol?: number; callVol?: number; theme?: string; darkTheme?: string; lightTheme?: string; accent?: string; shell?: string; shellChoice?: boolean; shellsAllowed?: unknown[]; customPalettes?: unknown; iconTheme?: string; showAppNames?: boolean; customIconThemes?: unknown } }>('sd-phone:settings:get')
+        void fetchNui<{ data?: { ringtone?: string; notificationTone?: string; customRingtones?: CustomTone[]; customNotificationTones?: CustomTone[]; airplaneMode?: boolean; hour24?: boolean; gameTime?: boolean; reopenApp?: boolean; setupDone?: boolean; lockClock?: Partial<LockClock>; passcode?: string | null; faceId?: boolean; wallpaper?: string; wallpaperHome?: string; blurLock?: boolean; blurHome?: boolean; islandPet?: string; customWallpapers?: string[]; chatTextScale?: number; motion?: number; boldText?: boolean; textScale?: number; homeDensity?: string; appLabels?: Record<string, string>; phoneScale?: number; brightness?: number; phoneAlign?: string; phoneTilt?: { turn?: number; lean?: number }; ringtoneVol?: number; callVol?: number; theme?: string; darkTheme?: string; lightTheme?: string; accent?: string; shell?: string; shellChoice?: boolean; shellsAllowed?: unknown[]; customPalettes?: unknown; iconTheme?: string; showAppNames?: boolean; customIconThemes?: unknown } }>('sd-phone:settings:get')
             .then(res => {
                 if (!res?.data) { retry(); return; }
                 const d = res.data;
@@ -864,6 +876,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
                     return out;
                 })();
                 if (typeof d.phoneScale === 'number') patch.phoneScale = clampPhoneScale(d.phoneScale);
+                patch.phoneTilt = d.phoneTilt ? normalizeTilt(d.phoneTilt) : DEFAULT_PHONE_TILT;
                 if (typeof d.brightness === 'number') patch.brightness = clampPhoneScale(d.brightness);
                 // Position is device-local (see setPhoneAlign): a companion must not adopt the
                 // phone's corner out of the shared settings row.

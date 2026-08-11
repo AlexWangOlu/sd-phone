@@ -572,6 +572,36 @@ input[type='number'] {
     cursor: pointer;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.30), 0 0.5px 1.5px rgba(0, 0, 0, 0.20);
 }
+
+/* Signed sliders (angles, offsets) fill OUT FROM THE CENTRE rather than from the left edge, so
+   the bar shows how far the value sits either side of zero. Same --sp/--se contract as above. */
+.ios-slider-center::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background:
+        linear-gradient(
+            to right,
+            transparent min(var(--sp, 50%), 50%),
+            #0A84FF   min(var(--sp, 50%), 50%),
+            #0A84FF   max(var(--sp, 50%), 50%),
+            transparent max(var(--sp, 50%), 50%)
+        ),
+        var(--se, #E5E5EA);
+}
+
+.ios-slider-center::-moz-range-track {
+    height: 4px;
+    border-radius: 2px;
+    background:
+        linear-gradient(
+            to right,
+            transparent min(var(--sp, 50%), 50%),
+            #0A84FF   min(var(--sp, 50%), 50%),
+            #0A84FF   max(var(--sp, 50%), 50%),
+            transparent max(var(--sp, 50%), 50%)
+        ),
+        var(--se, #E5E5EA);
+}
 @keyframes ios-app-open {
     from { transform: scale(0.01); }
     to   { transform: scale(1);    }

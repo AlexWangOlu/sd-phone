@@ -81,6 +81,7 @@ function store.ensureSchema()
             phone_scale        TINYINT UNSIGNED NULL,
             brightness         TINYINT UNSIGNED NULL,
             phone_align        VARCHAR(16) NULL,
+            phone_tilt         VARCHAR(48) NULL,
             hour24             TINYINT(1)   NULL,
             reopen_app         TINYINT(1)   NULL,
             setup_done         TINYINT(1)   NULL,
@@ -946,6 +947,38 @@ function store.setPhoneScale(citizenid, scale, device)
         INSERT INTO phone_settings (citizenid, device, phone_scale) VALUES (?, ?, ?)
         ON DUPLICATE KEY UPDATE phone_scale = VALUES(phone_scale)
     ]], { citizenid, device, clean })
+end
+
+---@type integer Degrees the phone may be turned or leaned in either direction. Mirrors TILT_LIMIT
+---in web/src/shell/phoneTilt.ts, which clamps to the same range before anything is sent here.
+local TILT_LIMIT <const> = 25
+
+---Rounds one tilt angle to a whole degree inside the supported range; nil for anything
+---non-numeric, so a half-broken payload cannot write a garbage axis.
+---@param v any client-supplied angle in degrees
+---@return integer|nil degrees
+local function clampTilt(v)
+    local n = tonumber(v)
+    if not n or n ~= n then return nil end
+    n = math.floor(n + 0.5)
+    if n < -TILT_LIMIT then n = -TILT_LIMIT elseif n > TILT_LIMIT then n = TILT_LIMIT end
+    return n
+end
+
+---Persists a player's 3D tilt: turn is the rotateY angle, lean the rotateX one. A flat 0/0 IS
+---stored rather than skipped, because that is how a player turns the effect back off - only a
+---payload with no usable axis at all is ignored.
+---@param citizenid string framework per-character id
+---@param tilt { turn?: number, lean?: number }
+function store.setPhoneTilt(citizenid, tilt, device)
+    device = device or 'phone'
+    if not citizenid or citizenid == '' or type(tilt) ~= 'table' then return end
+    local turn, lean = clampTilt(tilt.turn), clampTilt(tilt.lean)
+    if not turn and not lean then return end
+    MySQL.update.await([[
+        INSERT INTO phone_settings (citizenid, device, phone_tilt) VALUES (?, ?, ?)
+        ON DUPLICATE KEY UPDATE phone_tilt = VALUES(phone_tilt)
+    ]], { citizenid, device, json.encode({ turn = turn or 0, lean = lean or 0 }) })
 end
 
 ---Reads a player's screen brightness (slider value 0-100), or nil when never set.
@@ -2162,6 +2195,7 @@ function store.snapshot(citizenid, device)
         phoneScale       = (row and row.phone_scale ~= nil) and tonumber(row.phone_scale) or nil,
         brightness       = (row and row.brightness ~= nil) and tonumber(row.brightness) or nil,
         phoneAlign       = (row and row.phone_align ~= '') and row.phone_align or nil,
+        phoneTilt        = row and decodeColumn(row.phone_tilt, nil) or nil,
         ringtoneVol      = (row and row.ringtone_volume ~= nil) and tonumber(row.ringtone_volume) or nil,
         callVol          = (row and row.call_volume ~= nil) and tonumber(row.call_volume) or nil,
         locale           = (row and row.locale ~= '') and row.locale or nil,

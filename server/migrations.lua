@@ -30,6 +30,7 @@ local COLUMNS = {
         blur_home         = 'blur_home TINYINT(1) NULL',
         phone_scale       = 'phone_scale TINYINT UNSIGNED NULL',
         phone_align       = 'phone_align VARCHAR(16) NULL',
+        phone_tilt        = 'phone_tilt VARCHAR(48) NULL',
         brightness        = 'brightness TINYINT UNSIGNED NULL',
         icon_theme        = 'icon_theme VARCHAR(16) NULL',
         icon_custom       = 'icon_custom LONGTEXT NULL',

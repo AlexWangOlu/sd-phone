@@ -302,6 +302,15 @@ lib.callback.register('sd-phone:server:settings:setPhoneScale', function(source,
     return { success = true }
 end)
 
+---Persists the caller's 3D tilt (turn / lean, in degrees).
+lib.callback.register('sd-phone:server:settings:setPhoneTilt', function(source, payload)
+    local cid = player.getIdentifier(source)
+    if not cid then return { success = false, message = 'Player not found' } end
+    local tilt = type(payload) == 'table' and payload or {}
+    coalesce(cid, 'phoneTilt', function() store.setPhoneTilt(cid, tilt, deviceOf(payload)) end)
+    return { success = true }
+end)
+
 ---Persists the caller's screen brightness (0-100 slider).
 lib.callback.register('sd-phone:server:settings:setBrightness', function(source, payload)
     local cid = player.getIdentifier(source)
