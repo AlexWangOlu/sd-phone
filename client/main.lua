@@ -532,9 +532,13 @@ function ClosePhone()
 
     phoneState.open = false
     companion.phoneOpen = false
-    TriggerEvent('sd-phone:client:openState', false)
     TriggerServerEvent('sd-phone:server:phone:setOpen', false)
     SetNuiFocus(false, false)
+    -- Announced AFTER the focus drop, never before. Same-resource handlers run synchronously, and
+    -- the payphone booth and the admin panel both answer this event by re-claiming focus when
+    -- their own UI is still on screen. Announced first, that claim was undone by the very next
+    -- line, and the player was left looking at a live overlay the cursor could no longer reach.
+    TriggerEvent('sd-phone:client:openState', false)
     typingInPhone = false
     typingNumeric = false
     lookMode = false
