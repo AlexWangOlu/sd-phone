@@ -427,6 +427,7 @@ export function PhoneShell({ children, cameraActive = false, entering = false, l
     const [musicExpanded, setMusicExpanded] = useState(false);
 
     const callActive    = useCallStore(s => s.phase !== null);
+    const callRinging   = useCallStore(s => s.phase === 'incoming' || s.phase === 'outgoing');
     const callStartedAt = useCallStore(s => s.startedAt);
 
     const radioOn      = radioIsland?.on      ?? false;
@@ -930,7 +931,7 @@ export function PhoneShell({ children, cameraActive = false, entering = false, l
                             height={PET_H}
                             battery={batteryLevel}
                             playing={musicPlaying && !musicExpanded}
-                            ringing={callActive || alarmRinging}
+                            ringing={callRinging || alarmRinging}
                         />
                     )}
 
