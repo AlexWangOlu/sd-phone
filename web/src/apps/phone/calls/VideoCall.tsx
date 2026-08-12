@@ -28,8 +28,8 @@ function TrayButton({ label, active, shown = true, onClick, children }: {
             aria-hidden={!shown}
             tabIndex={shown ? 0 : -1}
             onClick={onClick}
-            className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full backdrop-blur-md transition-all duration-200 ease-out active:opacity-70 ${
-                active ? 'bg-white text-black' : 'bg-white/15 text-white'
+            className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full transition-all duration-200 ease-out active:opacity-70 ${
+                active ? 'bg-white text-black' : 'bg-white/25 text-white'
             }`}
             style={{
                 width:        shown ? TRAY_SIZE : 0,
@@ -64,6 +64,7 @@ export function VideoCall({ peerName, initiator, muted, onToggleMute, onEndVideo
     const [angleLocked, setAngleLocked] = useState(false);
     const [facingCam,   setFacingCam]   = useState(false);
     const [zoom, setZoom] = useState(1);
+    const [cursorUp, setCursorUp] = useState(true);
 
     useEffect(() => {
         let dead = false;
@@ -141,6 +142,7 @@ export function VideoCall({ peerName, initiator, muted, onToggleMute, onEndVideo
 
     useNuiEvent('sd-phone:video:lock',    (data) => setAngleLocked(!!data?.on));
     useNuiEvent('sd-phone:video:faceCam', (data) => setFacingCam(!!data?.on));
+    useNuiEvent('sd-phone:video:cursorState', (data) => setCursorUp(data?.on !== false));
 
     useEffect(() => {
         setAngleLocked(false);
@@ -229,71 +231,81 @@ export function VideoCall({ peerName, initiator, muted, onToggleMute, onEndVideo
                 <canvas ref={localCanvas} className="h-full w-full object-cover" style={{ transform: front ? 'scaleX(-1)' : undefined }} />
             </div>
 
-            {walkable && (
-                <div className="absolute inset-x-0 bottom-[136px] flex items-center justify-center">
-                    <TrayButton
-                        label={facingCam ? t('camera.hintLookAhead','Look Ahead') : t('camera.hintFaceCamera','Face Camera')}
-                        active={facingCam}
-                        shown={front}
-                        onClick={() => void toggleFace()}
-                    >
-                        <ScanFace className="h-[22px] w-[22px]" strokeWidth={2} />
-                    </TrayButton>
-                    <TrayButton
-                        label={angleLocked ? t('camera.hintMoveYourself','Move Yourself') : t('camera.hintMoveCamera','Move Camera')}
-                        active={angleLocked}
-                        shown={front}
-                        onClick={() => void toggleAngle()}
-                    >
-                        <Orbit className="h-[22px] w-[22px]" strokeWidth={2} />
-                    </TrayButton>
-                    <TrayButton
-                        label={t('phone.hintZoom','Zoom')}
-                        active={zoom > 1}
-                        onClick={() => setZoom(nextZoomPreset(zoom))}
-                    >
-                        <span className="text-[13px] font-semibold tabular-nums">{zoomLabel(zoom)}</span>
-                    </TrayButton>
-                </div>
-            )}
+            <div
+                className="absolute inset-x-0 bottom-[52px] flex justify-center transition-transform duration-200 ease-out"
+                style={{
+                    transform:     cursorUp ? 'translateY(0)' : 'translateY(230px)',
+                    pointerEvents: cursorUp ? 'auto' : 'none',
+                }}
+            >
+                <div className="flex flex-col items-center gap-3 rounded-[34px] bg-black/55 px-5 py-4 shadow-[0_8px_40px_rgba(0,0,0,0.45)] ring-1 ring-white/15 backdrop-blur-xl">
+                    {walkable && (
+                        <div className="flex items-center justify-center">
+                            <TrayButton
+                                label={facingCam ? t('camera.hintLookAhead','Look Ahead') : t('camera.hintFaceCamera','Face Camera')}
+                                active={facingCam}
+                                shown={front}
+                                onClick={() => void toggleFace()}
+                            >
+                                <ScanFace className="h-[22px] w-[22px]" strokeWidth={2} />
+                            </TrayButton>
+                            <TrayButton
+                                label={angleLocked ? t('camera.hintMoveYourself','Move Yourself') : t('camera.hintMoveCamera','Move Camera')}
+                                active={angleLocked}
+                                shown={front}
+                                onClick={() => void toggleAngle()}
+                            >
+                                <Orbit className="h-[22px] w-[22px]" strokeWidth={2} />
+                            </TrayButton>
+                            <TrayButton
+                                label={t('phone.hintZoom','Zoom')}
+                                active={zoom > 1}
+                                onClick={() => setZoom(nextZoomPreset(zoom))}
+                            >
+                                <span className="text-[13px] font-semibold tabular-nums">{zoomLabel(zoom)}</span>
+                            </TrayButton>
+                        </div>
+                    )}
 
-            <div className="absolute inset-x-0 bottom-[60px] flex items-center justify-center gap-4">
-                <button
-                    type="button"
-                    aria-label={t('phone.flipCamera','Flip camera')}
-                    onClick={flip}
-                    className="flex h-[60px] w-[60px] items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-md active:opacity-70"
-                >
-                    <SwitchCamera className="h-[26px] w-[26px]" strokeWidth={2} />
-                </button>
-                <button
-                    type="button"
-                    aria-label={t('phone.mute','Mute')}
-                    onClick={onToggleMute}
-                    className={`flex h-[60px] w-[60px] items-center justify-center rounded-full backdrop-blur-md active:opacity-70 ${
-                        muted ? 'bg-white text-black' : 'bg-white/15 text-white'
-                    }`}
-                >
-                    {muted
-                        ? <MicOff className="h-[26px] w-[26px]" strokeWidth={2} />
-                        : <Mic className="h-[26px] w-[26px]" strokeWidth={2} />}
-                </button>
-                <button
-                    type="button"
-                    aria-label={t('phone.stopVideo','Stop video')}
-                    onClick={() => { stopVideo(); onEndVideo(); }}
-                    className="flex h-[60px] w-[60px] items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-md active:opacity-70"
-                >
-                    <Video className="h-[26px] w-[26px]" strokeWidth={2} />
-                </button>
-                <button
-                    type="button"
-                    aria-label={t('phone.endCall','End call')}
-                    onClick={onHangup}
-                    className="flex h-[68px] w-[68px] items-center justify-center rounded-full bg-ios-red shadow-[0_6px_24px_rgba(255,59,48,0.45)] active:opacity-80"
-                >
-                    <Phone className="h-[28px] w-[28px] rotate-[135deg] text-white" fill="currentColor" strokeWidth={0} />
-                </button>
+                    <div className="flex items-center justify-center gap-4">
+                        <button
+                            type="button"
+                            aria-label={t('phone.flipCamera','Flip camera')}
+                            onClick={flip}
+                            className="flex h-[60px] w-[60px] items-center justify-center rounded-full bg-white/25 text-white active:opacity-70"
+                        >
+                            <SwitchCamera className="h-[26px] w-[26px]" strokeWidth={2} />
+                        </button>
+                        <button
+                            type="button"
+                            aria-label={t('phone.mute','Mute')}
+                            onClick={onToggleMute}
+                            className={`flex h-[60px] w-[60px] items-center justify-center rounded-full active:opacity-70 ${
+                                muted ? 'bg-white text-black' : 'bg-white/25 text-white'
+                            }`}
+                        >
+                            {muted
+                                ? <MicOff className="h-[26px] w-[26px]" strokeWidth={2} />
+                                : <Mic className="h-[26px] w-[26px]" strokeWidth={2} />}
+                        </button>
+                        <button
+                            type="button"
+                            aria-label={t('phone.stopVideo','Stop video')}
+                            onClick={() => { stopVideo(); onEndVideo(); }}
+                            className="flex h-[60px] w-[60px] items-center justify-center rounded-full bg-white/25 text-white active:opacity-70"
+                        >
+                            <Video className="h-[26px] w-[26px]" strokeWidth={2} />
+                        </button>
+                        <button
+                            type="button"
+                            aria-label={t('phone.endCall','End call')}
+                            onClick={onHangup}
+                            className="flex h-[68px] w-[68px] items-center justify-center rounded-full bg-ios-red shadow-[0_6px_24px_rgba(255,59,48,0.45)] active:opacity-80"
+                        >
+                            <Phone className="h-[28px] w-[28px] rotate-[135deg] text-white" fill="currentColor" strokeWidth={0} />
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     );

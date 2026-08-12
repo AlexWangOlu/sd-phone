@@ -330,6 +330,7 @@ export type NuiMessage =
     | { action: 'sd-phone:video:key';      data: { key: string } }
     | { action: 'sd-phone:video:lock';     data: { on: boolean } }
     | { action: 'sd-phone:video:faceCam';  data: { on: boolean } }
+    | { action: 'sd-phone:video:cursorState'; data: { on: boolean } }
     | { action: 'sd-phone:video:begin';    data: { initiator?: boolean } }
     | { action: 'sd-phone:voice:added';        data: { id: string; name: string; url: string; duration: number; date: string } }
     | { action: 'sd-phone:notes:added';        data: { id: string; body: string; sketches: string[]; images: string[]; createdAt: string; updatedAt: string } }

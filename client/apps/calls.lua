@@ -121,7 +121,7 @@ end
 ---@type boolean Whether a camera currently owns the local view (video call active).
 local videoCamActive = false
 
--- Keyboard controls for a FaceTime call (control group 0). The video surface hands the mouse to
+-- Keyboard controls for a video call (control group 0). The video surface hands the mouse to
 -- the game exactly the way the Camera app's viewfinder does, so it answers to the same keys.
 ---@type integer Left Alt (INPUT_CHARACTER_WHEEL) - take the cursor back.
 local CTRL_CURSOR <const> = 19
@@ -142,7 +142,7 @@ local CONTROLS_VIDEO <const> = { CTRL_CURSOR, CTRL_FLIP, CTRL_LOCK, CTRL_ZOOM_IN
 
 ---@type boolean True while NUI focus (clickable cursor) is on.
 local cursorOn = true
----@type boolean True while the FaceTime keyboard-control thread is alive.
+---@type boolean True while the video-call keyboard-control thread is alive.
 local inputLoopRunning = false
 ---@type boolean Mirror of the phone's open state (sd-phone:client:openState).
 local phoneOpen = false
@@ -154,10 +154,16 @@ end)
 ---Records the call's cursor state and announces it, so client.main knows whether the mouse is
 ---steering the view rather than clicking the call UI - that flag is what stops the phone
 ---suppressing mouse-look. Call it after SetNuiFocus, so the keep-input re-sync lands last.
+---
+---The page is told as well as client.main, because the control tray is only reachable while the
+---cursor is up: hand the mouse to the game and those buttons cannot be clicked at all, so the tray
+---stands down rather than sitting over the caller doing nothing. The keybind hints stay up, since
+---the keys are the whole interface in that mode.
 ---@param on boolean whether the NUI cursor is showing
 local function setVideoCursor(on)
     cursorOn = on
     TriggerEvent('sd-phone:client:cameraCursor', on)
+    SendNUIMessage({ action = 'sd-phone:video:cursorState', data = { on = on } })
 end
 
 ---Pushes a key action into the NUI.
@@ -166,7 +172,7 @@ local function sendKey(key)
     SendNUIMessage({ action = 'sd-phone:video:key', data = { key = key } })
 end
 
----Runs the FaceTime keyboard loop: disables each control's default action for as long as the call
+---Runs the video-call keyboard loop: disables each control's default action for as long as the call
 ---view is up, and relays presses into the NUI while the cursor is off.
 ---
 ---The set is added once and dropped on the way out rather than reissued per frame, but
@@ -321,7 +327,7 @@ end)
 -- Server to NUI relays: the peer's video request/accept/stop and signaling messages forward
 -- unchanged into the React call overlay.
 RegisterNetEvent('sd-phone:client:call:video:request', function()      pushCall('sd-phone:video:request', nil) end)
----An answered FaceTime opens on both ends at once; `initiator` decides which side makes the offer.
+---An answered video call opens on both ends at once; `initiator` decides which side makes the offer.
 RegisterNetEvent('sd-phone:client:call:video:begin',   function(data)  pushCall('sd-phone:video:begin',    data) end)
 RegisterNetEvent('sd-phone:client:call:video:accept',  function()      pushCall('sd-phone:video:accept',  nil) end)
 RegisterNetEvent('sd-phone:client:call:video:stop',    function()      pushCall('sd-phone:video:stop',    nil) end)
