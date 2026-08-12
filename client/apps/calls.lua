@@ -127,11 +127,18 @@ local videoCamActive = false
 local CTRL_CURSOR <const> = 19
 ---@type integer Up arrow (INPUT_CELLPHONE_UP) - flip rear/selfie.
 local CTRL_FLIP <const> = 172
+---@type integer Down arrow (INPUT_CELLPHONE_DOWN) - the angle lock's default bind. Suppressed like
+---its siblings so the game's own action never fires underneath the keybind.
+local CTRL_LOCK <const> = 173
+---@type integer Wheel up (INPUT_CURSOR_SCROLL_UP) - zoom in.
+local CTRL_ZOOM_IN <const> = 241
+---@type integer Wheel down (INPUT_CURSOR_SCROLL_DOWN) - zoom out.
+local CTRL_ZOOM_OUT <const> = 242
 
----@type integer[] Both call keys, suppressed for as long as the call view is up whether the cursor
+---@type integer[] Every call key, suppressed for as long as the call view is up whether the cursor
 ---is on or not: with movement allowed the game still reads them, so Alt would open the character
 ---wheel underneath the player reaching to take the cursor back.
-local CONTROLS_VIDEO <const> = { CTRL_CURSOR, CTRL_FLIP }
+local CONTROLS_VIDEO <const> = { CTRL_CURSOR, CTRL_FLIP, CTRL_LOCK, CTRL_ZOOM_IN, CTRL_ZOOM_OUT }
 
 ---@type boolean True while NUI focus (clickable cursor) is on.
 local cursorOn = true
@@ -176,7 +183,11 @@ local function startVideoInputLoop()
             lib.disableControls()
 
             if not cursorOn then
-                if IsDisabledControlJustPressed(0, CTRL_CURSOR) then
+                if IsDisabledControlJustPressed(0, CTRL_ZOOM_IN) then
+                    sendKey('zoomIn')
+                elseif IsDisabledControlJustPressed(0, CTRL_ZOOM_OUT) then
+                    sendKey('zoomOut')
+                elseif IsDisabledControlJustPressed(0, CTRL_CURSOR) then
                     SetNuiFocus(true, true)
                     setVideoCursor(true)
                 elseif IsDisabledControlJustPressed(0, CTRL_FLIP) then
@@ -269,6 +280,41 @@ RegisterNUICallback('sd-phone:video:cursor', function(data, cb)
     local on = data and data.on and true or false
     SetNuiFocus(on, on)
     setVideoCursor(on)
+    cb({ success = true })
+end)
+
+---React -> Lua: angle lock toggled from the call's on-screen control (or the Down key, which
+---reaches phonecam through the global keybind and reports back over the push instead).
+---
+---The lens is asked for the state it ended up in rather than the page being trusted for it: every
+---flip clears the lock in Lua, so a page copy can describe a lens that stopped behaving that way.
+---A nil refusal is the outward lens or the native cell cam, neither of which can swing.
+---@param _ any unused
+---@param cb fun(result: { success: boolean, on: boolean|nil }) NUI response
+RegisterNUICallback('sd-phone:video:lock', function(_, cb)
+    if not videoCamActive then cb({ success = false }) return end
+    local on = phonecam.toggleLock()
+    if on == nil then cb({ success = false }) return end
+    cb({ success = true, on = on })
+end)
+
+---React -> Lua: head tracking toggled from the call's on-screen control (or the R Shift keybind).
+---Same refusal and same reporting as the lock above.
+---@param _ any unused
+---@param cb fun(result: { success: boolean, on: boolean|nil }) NUI response
+RegisterNUICallback('sd-phone:video:faceCam', function(_, cb)
+    if not videoCamActive then cb({ success = false }) return end
+    local on = phonecam.toggleFaceCam()
+    if on == nil then cb({ success = false }) return end
+    cb({ success = true, on = on })
+end)
+
+---React -> Lua: call-camera magnification. Zooming the lens optically keeps the picture sharp,
+---where cropping the captured frame sends the peer fewer pixels the further in you go.
+---@param data { zoom: number }
+---@param cb fun(result: { success: boolean }) NUI response
+RegisterNUICallback('sd-phone:video:zoom', function(data, cb)
+    phonecam.setZoom(data and data.zoom)
     cb({ success = true })
 end)
 

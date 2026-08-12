@@ -595,10 +595,21 @@ lib.addKeybind({
     onReleased  = exitLookMode,
 })
 
+-- Both selfie-lens keybinds below serve two surfaces: the Camera app's viewfinder and a FaceTime
+-- call. Each pushes its state to the one that is actually up, because the Camera app stays MOUNTED
+-- in the switcher deck once backgrounded and its listeners with it, so a single shared action would
+-- have a parked viewfinder quietly re-labelling its hints off a call it has no part in.
+---@param action string action name minus its surface prefix ('lock' or 'faceCam')
+---@param on boolean state the lens ended up in
+local function pushLensState(action, on)
+    local surface = cameraSurface == 'video' and 'video' or 'camera'
+    SendNUIMessage({ action = ('sd-phone:%s:%s'):format(surface, action), data = { on = on } })
+end
+
 -- Angle lock: stops the body turning with the selfie lens, so the shot can swing around the player
 -- for something other than head-on. Walking is untouched. toggleLock returns nil on the outward
 -- lens, which frames the world and gains nothing from it.
--- The viewfinder's own hint carries the lock state, so it flips to "Unlock Angle" rather than a
+-- The surface's own hint carries the lock state, so it flips to "Unlock Angle" rather than a
 -- toast interrupting the shot.
 lib.addKeybind({
     name        = 'sdphone_camlock',
@@ -608,7 +619,7 @@ lib.addKeybind({
         if not cameraActive then return end
         local locked = phonecam.toggleLock()
         if locked == nil then return end
-        SendNUIMessage({ action = 'sd-phone:camera:lock', data = { on = locked } })
+        pushLensState('lock', locked)
     end,
 })
 
@@ -622,7 +633,7 @@ lib.addKeybind({
         if not cameraActive then return end
         local facing = phonecam.toggleFaceCam()
         if facing == nil then return end
-        SendNUIMessage({ action = 'sd-phone:camera:faceCam', data = { on = facing } })
+        pushLensState('faceCam', facing)
     end,
 })
 

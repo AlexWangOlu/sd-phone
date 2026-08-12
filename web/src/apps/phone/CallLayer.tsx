@@ -241,31 +241,30 @@ export function CallLayer({ wallpaper }: { wallpaper?: string }) {
                             </div>
                         </div>
 
-                        {videoPhase === 'incoming' && phase === 'active' && (
-                            <div className="flex shrink-0 flex-col items-center gap-3 px-8 pb-7">
-                                <div className="text-center text-[15px] text-white/85">
-                                    {t('phone.wantsToSwitchToVideo','{name} wants to switch to video',{ name: title })}
+                        <div className="relative flex w-full shrink-0 justify-center pb-[120px]">
+                            {videoPhase === 'incoming' && phase === 'active' && (
+                                <div className="absolute inset-x-0 bottom-full flex flex-col items-center gap-3 px-8 pb-5">
+                                    <div className="rounded-full bg-black/45 px-4 py-1.5 text-center text-[15px] text-white/90 backdrop-blur-md">
+                                        {t('phone.wantsToSwitchToVideo','{name} wants to switch to video',{ name: title })}
+                                    </div>
+                                    <div className="flex gap-4">
+                                        <button
+                                            type="button"
+                                            onClick={() => { stopVideo(); setVideoPhase('off'); }}
+                                            className="rounded-full bg-white/15 px-6 py-2.5 text-[15px] font-semibold text-white backdrop-blur-md active:opacity-70"
+                                        >
+                                            {t('phone.decline','Decline')}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => { acceptVideo(); setVideoInitiator(false); setVideoPhase('active'); }}
+                                            className="rounded-full bg-ios-green px-6 py-2.5 text-[15px] font-semibold text-white active:opacity-80"
+                                        >
+                                            {t('phone.accept','Accept')}
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="flex gap-4">
-                                    <button
-                                        type="button"
-                                        onClick={() => { stopVideo(); setVideoPhase('off'); }}
-                                        className="rounded-full bg-white/15 px-6 py-2.5 text-[15px] font-semibold text-white backdrop-blur-md active:opacity-70"
-                                    >
-                                        {t('phone.decline','Decline')}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => { acceptVideo(); setVideoInitiator(false); setVideoPhase('active'); }}
-                                        className="rounded-full bg-ios-green px-6 py-2.5 text-[15px] font-semibold text-white active:opacity-80"
-                                    >
-                                        {t('phone.accept','Accept')}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="flex shrink-0 justify-center pb-[120px]">
+                            )}
                             <button
                                 type="button"
                                 aria-label={t('phone.endCall','End call')}
@@ -419,6 +418,8 @@ export function CallLayer({ wallpaper }: { wallpaper?: string }) {
                 <VideoCall
                     peerName={title}
                     initiator={videoInitiator}
+                    muted={muted}
+                    onToggleMute={() => { const on = !muted; setMuted(on); void fetchNui('sd-phone:call:mute', { on }); }}
                     onEndVideo={() => { stopVideo(); setVideoPhase('off'); }}
                     onHangup={() => void hangupCall(channel!)}
                 />
