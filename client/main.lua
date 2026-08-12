@@ -225,7 +225,7 @@ local remoteProps = {}
 local flashlightOn = false
 ---@type boolean True while the Camera app's native cell-cam owns the pose and controls.
 local cameraActive = false
----@type string Which surface owns the cell-cam while active: 'camera' or 'video' (FaceTime).
+---@type string Which surface owns the cell-cam while active: 'camera' or 'video' (video call).
 local cameraSurface = 'camera'
 ---@type boolean True while the Camera app has handed the mouse to the game to aim the lens.
 local cameraCursorFree = false
@@ -376,7 +376,7 @@ end
 
 ---Enters look mode: releases the NUI cursor so the mouse rotates the camera while the phone stays
 ---on screen. Only fires with the phone open in movement mode and not typing or in a frozen camera
----view. This is how a walking player aims the lens during a FaceTime.
+---view. This is how a walking player aims the lens during a video call.
 local function enterLookMode()
     if lookMode or not phoneState.open or not config.Phone.AllowMovement then return end
     if typingInPhone or cameraFrozen() then return end
@@ -399,7 +399,7 @@ end
 ---Tracks the Camera app's cell-cam state, then re-syncs the pose and keep-input. Payload coerced
 ---to a strict boolean.
 ---@param on any truthy while the cell-cam view is live
----@param surface string|nil which surface owns it: 'video' for FaceTime, otherwise the Camera app
+---@param surface string|nil which surface owns it: 'video' for the video call, otherwise the Camera app
 AddEventHandler('sd-phone:client:cameraMode', function(on, surface)
     cameraActive  = on and true or false
     cameraSurface = surface == 'video' and 'video' or 'camera'
@@ -595,7 +595,7 @@ lib.addKeybind({
     onReleased  = exitLookMode,
 })
 
--- Both selfie-lens keybinds below serve two surfaces: the Camera app's viewfinder and a FaceTime
+-- Both selfie-lens keybinds below serve two surfaces: the Camera app's viewfinder and a video
 -- call. Each pushes its state to the one that is actually up, because the Camera app stays MOUNTED
 -- in the switcher deck once backgrounded and its listeners with it, so a single shared action would
 -- have a parked viewfinder quietly re-labelling its hints off a call it has no part in.

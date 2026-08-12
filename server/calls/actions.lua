@@ -500,7 +500,7 @@ local DIAL_PER_WINDOW = 10
 ---Starts a call to a dialed number. Rejects when the caller is mid-call/ring or in airplane
 ---mode, the number is unassigned, or the callee is unreachable, blocked, or busy.
 ---@param source number caller server id
----@param payload { number?: string, video?: boolean } video places it as a FaceTime rather than a voice call
+---@param payload { number?: string, video?: boolean } video places it as a video call rather than a voice call
 ---@return table
 function actions.dial(source, payload)
     if type(payload) ~= 'table' then payload = {} end
@@ -572,7 +572,7 @@ function actions.dial(source, payload)
     nextChannel = nextChannel + 1
 
     -- A video call is a call placed AS a video call, not one upgraded partway through: the callee
-    -- is told at ring time so their phone can present it as a FaceTime, and answering opens the
+    -- is told at ring time so their phone can present it as a video call, and answering opens the
     -- picture straight away rather than asking a second time.
     local wantsVideo = payload.video == true
 
@@ -955,7 +955,7 @@ function actions.accept(source, payload)
     TriggerClientEvent('sd-phone:client:call:connected', s.caller.src, { channel = channel })
     TriggerClientEvent('sd-phone:client:call:connected', s.callee.src, { channel = channel })
 
-    -- Answered FaceTime: both sides open the picture immediately, with no request/accept round
+    -- Answered video call: both sides open the picture immediately, with no request/accept round
     -- trip, because placing the call WAS the request. Driven from here rather than from the
     -- Accept button's own handler, so answering through any other path - an export, a companion
     -- device - still opens video, and so the two ends can never disagree on who offers.

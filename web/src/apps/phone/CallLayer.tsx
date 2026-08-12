@@ -144,8 +144,8 @@ export function CallLayer({ wallpaper }: { wallpaper?: string }) {
     const subtitle = phase === 'active'
         ? fmtElapsed(elapsed)
         : phase === 'outgoing'
-            ? (isVideo ? t('phone.faceTimeCalling','FaceTime…') : t('phone.calling','Calling…'))
-            : (isVideo ? t('phone.faceTimeIncoming','FaceTime Video') : t('phone.incomingCallStatus','Incoming call'));
+            ? (isVideo ? t('phone.videoCallCalling','Video call…') : t('phone.calling','Calling…'))
+            : (isVideo ? t('phone.videoCallIncoming','Incoming video call') : t('phone.incomingCallStatus','Incoming call'));
 
     return (
         <div className="absolute inset-0 z-[60] overflow-hidden font-sf">
@@ -166,7 +166,7 @@ export function CallLayer({ wallpaper }: { wallpaper?: string }) {
                     {isVideo && phase !== 'active' && (
                         <div className="mb-3 flex items-center gap-2 rounded-full bg-white/15 px-3.5 py-1.5 backdrop-blur-md">
                             <Video className="h-[16px] w-[16px] text-white" strokeWidth={2.2} />
-                            <span className="text-[13px] font-semibold tracking-wide text-white">{t('phone.faceTime','FaceTime')}</span>
+                            <span className="text-[13px] font-semibold tracking-wide text-white">{t('phone.videoCall','Video Call')}</span>
                         </div>
                     )}
                     <div className="text-center text-[34px] font-semibold leading-tight text-white">{title}</div>
