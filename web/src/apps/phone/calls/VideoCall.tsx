@@ -44,10 +44,11 @@ function TrayButton({ label, active, shown = true, onClick, children }: {
     );
 }
 
-export function VideoCall({ peerName, initiator, muted, onToggleMute, onEndVideo, onHangup }: {
+export function VideoCall({ peerName, initiator, muted, canMute, onToggleMute, onEndVideo, onHangup }: {
     peerName:     string;
     initiator:    boolean;
     muted:        boolean;
+    canMute:      boolean;
     onToggleMute: () => void;
     onEndVideo:   () => void;
     onHangup:     () => void;
@@ -276,18 +277,20 @@ export function VideoCall({ peerName, initiator, muted, onToggleMute, onEndVideo
                         >
                             <SwitchCamera className="h-[26px] w-[26px]" strokeWidth={2} />
                         </button>
-                        <button
-                            type="button"
-                            aria-label={t('phone.mute','Mute')}
-                            onClick={onToggleMute}
-                            className={`flex h-[60px] w-[60px] items-center justify-center rounded-full active:opacity-70 ${
-                                muted ? 'bg-white text-black' : 'bg-white/25 text-white'
-                            }`}
-                        >
-                            {muted
-                                ? <MicOff className="h-[26px] w-[26px]" strokeWidth={2} />
-                                : <Mic className="h-[26px] w-[26px]" strokeWidth={2} />}
-                        </button>
+                        {canMute && (
+                            <button
+                                type="button"
+                                aria-label={t('phone.mute','Mute')}
+                                onClick={onToggleMute}
+                                className={`flex h-[60px] w-[60px] items-center justify-center rounded-full active:opacity-70 ${
+                                    muted ? 'bg-white text-black' : 'bg-white/25 text-white'
+                                }`}
+                            >
+                                {muted
+                                    ? <MicOff className="h-[26px] w-[26px]" strokeWidth={2} />
+                                    : <Mic className="h-[26px] w-[26px]" strokeWidth={2} />}
+                            </button>
+                        )}
                         <button
                             type="button"
                             aria-label={t('phone.stopVideo','Stop video')}

@@ -1,7 +1,10 @@
----Maps a frequency (1.0-999.9) to an integer pma-voice radio channel: 12.5 -> 125. Anything
----below the 1.0 floor returns channel 0.
+---@type table Voice backend (bridge.client.voice): one API over pma-voice and SaltyChat.
+local voice = require 'bridge.client.voice'
+
+---Maps a frequency (1.0-999.9) to an integer radio channel: 12.5 -> 125. Anything below the 1.0
+---floor returns channel 0. The bridge stringifies it for backends that name channels.
 ---@param freq number|string|nil user-facing frequency
----@return integer channel pma-voice radio channel (0 = leave the radio)
+---@return integer channel radio channel (0 = leave the radio)
 local function freqToChannel(freq)
     local f = tonumber(freq) or 0
     if f < 1.0 then return 0 end
@@ -21,12 +24,12 @@ local function pushStatus()
     SendNUIMessage({ action = 'sd-phone:radio:status', data = { on = state.on, freq = state.freq, standby = state.standby } })
 end
 
----Applies the session state to pma-voice (volume + channel; channel 0 when off), announces the
----channel to the server, and pushes the status to the NUI. Both exports are pcall'd.
+---Applies the session state to the voice backend (volume + channel; channel 0 when off),
+---announces the channel to the server, and pushes the status to the NUI.
 local function applyVoice()
     local channel = state.on and freqToChannel(state.freq) or 0
-    pcall(function() exports['pma-voice']:setRadioVolume(state.volume) end)
-    pcall(function() exports['pma-voice']:setRadioChannel(channel) end)
+    voice.setRadioVolume(state.volume)
+    voice.setRadioChannel(channel)
     TriggerServerEvent('sd-phone:server:radio:presence', channel)
     pushStatus()
 end
@@ -111,10 +114,10 @@ proxy('sd-phone:radio:saved:add',    'sd-phone:server:radio:saved:add')
 proxy('sd-phone:radio:saved:update', 'sd-phone:server:radio:saved:update')
 proxy('sd-phone:radio:saved:remove', 'sd-phone:server:radio:saved:remove')
 
----Forwards pma-voice's local transmit announcement to the NUI on-air indicator.
----@param active boolean whether the local player is transmitting
-AddEventHandler('pma-voice:radioActive', function(active)
-    SendNUIMessage({ action = 'sd-phone:radio:onair', data = { active = active == true } })
+-- Forwards the backend's local transmit announcement to the NUI on-air indicator. Which event
+-- that is, and how to read it, is the bridge's problem.
+voice.onRadioTransmit(function(active)
+    SendNUIMessage({ action = 'sd-phone:radio:onair', data = { active = active } })
 end)
 
 ---Forwards the server-pushed channel head-count into the NUI.
@@ -129,7 +132,7 @@ end)
 RegisterNetEvent('sd-phone:client:radio:forceoff', function(data)
     state.on = false
     state.standby = false
-    pcall(function() exports['pma-voice']:setRadioChannel(0) end)
+    voice.setRadioChannel(0)
     SendNUIMessage({ action = 'sd-phone:radio:forceoff', data = data })
     pushStatus()
 end)

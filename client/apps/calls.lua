@@ -5,6 +5,8 @@ local proxyCallback = require 'client.nui'
 local phonecam = require 'client.phonecam'
 ---@type table On-screen keybind hints (client.hints): placement config shared with the Camera app.
 local hints = require 'client.hints'
+---@type table Voice backend (bridge.client.voice): one API over pma-voice and SaltyChat.
+local voice = require 'bridge.client.voice'
 
 -- Thin delegates: each call action proxies straight into its server callback.
 proxyCallback('sd-phone:call:dial',    'sd-phone:server:call:dial')
@@ -24,21 +26,13 @@ end
 ---@type boolean True while the local mic is muted for the active call.
 local micMuted = false
 
----Mutes/unmutes the local mic entirely (call AND proximity).
----Switching the voice target to 0 (the default, which carries no call channels) prevents audio
----from reaching the pma-voice call channel; zeroing the input distance silences proximity too.
----The target is only touched when pma-voice is running, since the index is its own.
+---Mutes/unmutes the local mic entirely (call AND proximity), through whichever voice script is
+---running. A backend with no mute (SaltyChat) leaves the flag alone, so the phone never reports
+---itself muted when nothing was actually silenced.
 ---@param on boolean
 local function setMicMuted(on)
+    if not voice.setMuted(on == true) then return end
     micMuted = on == true
-    local pma = GetResourceState('pma-voice') == 'started'
-    if micMuted then
-        if pma then MumbleSetVoiceTarget(0) end
-        MumbleSetAudioInputDistance(0.0)
-    else
-        if pma then MumbleSetVoiceTarget(1) end
-        MumbleSetAudioInputDistance(9999.0)
-    end
 end
 
 ---React to Lua: the call UI's Mute button.
@@ -65,9 +59,17 @@ RegisterNUICallback('sd-phone:call:setVolume', function(data, cb)
     local volume = tonumber(data and data.volume)
     if volume then
         if volume < 0 then volume = 0 elseif volume > 100 then volume = 100 end
-        pcall(function() exports['pma-voice']:setCallVolume(volume) end)
+        voice.setCallVolume(volume)
     end
     cb('ok')
+end)
+
+---React -> Lua: what the running voice script can actually do, so the call UI never offers a
+---control it cannot honour. Asked rather than pushed because it is fixed for the session.
+---@param _ any unused
+---@param cb fun(caps: { mute: boolean, callVolume: boolean, transmitState: boolean, radio: boolean })
+RegisterNUICallback('sd-phone:call:voiceCapabilities', function(_, cb)
+    cb(voice.capabilities())
 end)
 
 ---Incoming call: forces the phone open, waits briefly for the React tree to mount, then pushes

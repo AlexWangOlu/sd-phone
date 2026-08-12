@@ -48,8 +48,15 @@ export function CallLayer({ wallpaper }: { wallpaper?: string }) {
     const [now, setNow]         = useState(() => Date.now());
     const [videoPhase, setVideoPhase]         = useState<'off' | 'requesting' | 'incoming' | 'active'>('off');
     const [videoInitiator, setVideoInitiator] = useState(false);
+    const [canMute, setCanMute] = useState(true);
     const { ringtone, ringtoneVol, customRingtones } = useTheme('ringtone', 'ringtoneVol', 'customRingtones');
     const { contacts: contactList, load: loadContacts } = useContacts('contacts', 'load');
+
+    useEffect(() => {
+        void fetchNui<{ mute?: boolean }>('sd-phone:call:voiceCapabilities')
+            .then(caps => { if (caps && typeof caps.mute === 'boolean') setCanMute(caps.mute); })
+            .catch(() => {});
+    }, []);
 
     const resetControls = useCallback(() => {
         setMuted(false); setSpeaker(false); setVideoPhase('off');
@@ -215,12 +222,14 @@ export function CallLayer({ wallpaper }: { wallpaper?: string }) {
                                         onClick={() => { const on = !speaker; setSpeaker(on); void fetchNui('sd-phone:call:speaker', { on }); }}
                                         icon={<Volume2 className="h-[31px] w-[31px]" strokeWidth={2} />}
                                     />
-                                    <ControlButton
-                                        label={t('phone.mute','Mute')}
-                                        active={muted}
-                                        onClick={() => { const on = !muted; setMuted(on); void fetchNui('sd-phone:call:mute', { on }); }}
-                                        icon={muted ? <MicOff className="h-[31px] w-[31px]" strokeWidth={2} /> : <Mic className="h-[31px] w-[31px]" strokeWidth={2} />}
-                                    />
+                                    {canMute && (
+                                        <ControlButton
+                                            label={t('phone.mute','Mute')}
+                                            active={muted}
+                                            onClick={() => { const on = !muted; setMuted(on); void fetchNui('sd-phone:call:mute', { on }); }}
+                                            icon={muted ? <MicOff className="h-[31px] w-[31px]" strokeWidth={2} /> : <Mic className="h-[31px] w-[31px]" strokeWidth={2} />}
+                                        />
+                                    )}
                                     <ControlButton
                                         label={t('phone.video','Video')}
                                         active={videoPhase === 'requesting'}
@@ -419,6 +428,7 @@ export function CallLayer({ wallpaper }: { wallpaper?: string }) {
                     peerName={title}
                     initiator={videoInitiator}
                     muted={muted}
+                    canMute={canMute}
                     onToggleMute={() => { const on = !muted; setMuted(on); void fetchNui('sd-phone:call:mute', { on }); }}
                     onEndVideo={() => { stopVideo(); setVideoPhase('off'); }}
                     onHangup={() => void hangupCall(channel!)}

@@ -14,6 +14,9 @@ local moderation = require 'server.admin.moderation'
 local payphones = require 'server.payphone.store'
 ---@type table Cell service (server.service): authoritative signal level per player.
 local service  = require 'server.service'
+---@type table Voice backend (bridge.server.voice): call-channel membership and speakerphone over
+---whichever voice script is running.
+local voice    = require 'bridge.server.voice'
 
 ---@type table Actions module; the table returned at end of file.
 local actions = {}
@@ -173,16 +176,18 @@ local function contactNameFor(citizenid, numberDigits)
     return nil
 end
 
----Moves a player in/out of a pma-voice call channel, pcall-guarded.
+---Moves a player in/out of a call channel through the voice bridge.
 ---@param src number
 ---@param channel number
 local function setVoice(src, channel)
-    pcall(function() exports['pma-voice']:setPlayerCall(src, channel) end)
+    voice.setPlayerCall(src, channel)
 end
 
--- Speakerphone: while a participant keeps speaker on, players standing near them join the
--- pma-voice call channel (they hear AND can talk - a real speakerphone circle) and drop out
--- again when they walk away, the speaker turns off, or the call ends.
+-- Speakerphone. SaltyChat has a real one of its own (nearby players HEAR the call without being
+-- able to talk into it), so on that backend the export does the work and everything below stays
+-- asleep. pma-voice has none, so it is built here: while a participant keeps speaker on, players
+-- standing near them join the call channel (they hear AND can talk - a speakerphone circle) and
+-- drop out again when they walk away, the speaker turns off, or the call ends.
 ---@type number Metres a bystander may stand from a speaker-holder and stay in the circle.
 local SPEAKER_RANGE = 3.0
 ---@type table<number, number> Speaker-enabled participant source -> their call channel.
@@ -262,9 +267,21 @@ end
 
 ---Enables/disables speakerphone for a call participant. The sweep thread runs only while
 ---someone keeps a speaker on; turning it off releases that channel's bystanders immediately.
+---
+---A backend carrying its own speakerphone does the whole job in one export, and the proximity
+---circle stays asleep for it: running both would put bystanders INTO the call on a backend that
+---already lets them merely listen, which is the difference between overhearing a call and
+---joining it.
 ---@param source number participant server id
 ---@param on boolean
 function actions.setSpeaker(source, on)
+    if voice.nativeSpeaker() then
+        local s = sessionForSource(source)
+        if on and (not s or s.state ~= 'active') then return end
+        voice.setPhoneSpeaker(source, on == true)
+        return
+    end
+
     if not on then dropSpeaker(source) return end
     local s = sessionForSource(source)
     if not s or s.state ~= 'active' then return end
@@ -362,6 +379,8 @@ local function endCall(channel, reason, endedBy)
     speakerOn[s.caller.src] = nil
     speakerOn[s.callee.src] = nil
     clearSpeakerGuests(channel)
+    voice.setPhoneSpeaker(s.caller.src, false)
+    voice.setPhoneSpeaker(s.callee.src, false)
 
     local answered = s.state == 'active'
     local duration = (answered and s.startedAt) and (os.time() - s.startedAt) or 0
@@ -373,6 +392,8 @@ local function endCall(channel, reason, endedBy)
         for msrc, m in pairs(s.merged) do
             setVoice(msrc, 0)
             speakerOn[msrc] = nil
+            voice.setPhoneSpeaker(msrc, false)
+            voice.setPhoneSpeaker(msrc, false)
             TriggerClientEvent('sd-phone:client:call:ended', msrc, { channel = channel, reason = reason })
             logCall(m.cid, m.addedNumber or s.caller.number, m.addedName or s.caller.name,
                     'incoming', m.joinedAt and (os.time() - m.joinedAt) or 0)
