@@ -303,6 +303,13 @@ return {
         -- Numbers counted down on the line before the field is released.
         CountdownSeconds   = 3,
 
+        -- Gates carrying a map pin and a GPS line at once: the one being driven to
+        -- and the two after it. The set slides forward as each gate is taken rather
+        -- than standing as a finished picture of the track, so the minimap stays
+        -- readable and the racing line is something you read off the road. Raise it
+        -- to show more of what is coming; 1 shows only the gate you are chasing.
+        GatesAhead         = 3,
+
         -- Prop spawned at both posts of every gate for the duration of a race.
         -- Frozen and flagged as a mission entity so it cannot be shoved or culled.
         GateProp           = 'prop_beachflag_01',
