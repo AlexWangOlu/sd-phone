@@ -20,6 +20,18 @@ const WRONG = '#F87171';
 const SHADOW = '0 2px 8px rgba(0,0,0,0.95), 0 0 2px rgba(0,0,0,0.9)';
 const MONO   = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
 
+const SCRIM: CSSProperties = {
+    position:     'absolute',
+    left:         -18,
+    right:        -18,
+    top:          -14,
+    bottom:       -12,
+    zIndex:       -1,
+    borderRadius: 30,
+    background:   'rgba(0, 0, 0, 0.46)',
+    filter:       'blur(26px)',
+};
+
 const LINEUP: Record<LineupState, { tone: string; text: string }> = {
     ready:   { tone: READY, text: t('racing.lineupReady', 'Lined up') },
     vehicle: { tone: MUTE,  text: t('racing.lineupVehicle', 'Get in the driver seat') },
@@ -126,8 +138,11 @@ export function RaceStartBoard({ board, x, y, lineup }: {
                 transform:  'translate(-50%, -100%)',
                 zIndex:     3,
                 textShadow: SHADOW,
+                isolation:  'isolate',
             }}
         >
+            <span style={SCRIM} />
+
             <div className="flex items-start gap-4">
                 <span className="flex w-[84px] shrink-0 flex-col items-center gap-1">
                     <span style={stencil}>{board.class}</span>
