@@ -227,11 +227,12 @@ return {
             Jitter = 0.15,
         },
 
-        -- Grid size, picked at random per race. BaseRegistered is a cosmetic head
-        -- start on the registered counter so a brand new board does not read 0/16
-        -- on every row; set both to 0 for an honest count.
+        -- Grid size, picked at random per race. BaseRegistered pads the registered
+        -- counter with racers who do not exist, so a new board does not read 0/16 on
+        -- every row. Off by default: the count players read is the count that joined.
+        -- Raising it only dresses the number, never the grid, so the seats stay open.
         MaxRacers      = { min = 6, max = 16 },
-        BaseRegistered = { min = 0, max = 6  },
+        BaseRegistered = { min = 0, max = 0  },
 
         -- Event names are built as "<Prefix> <Suffix>". Add your own for local
         -- flavour; the two lists are combined freely, so a handful of each already
