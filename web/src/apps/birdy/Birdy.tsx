@@ -317,22 +317,29 @@ export function Birdy({ onClose }: { onClose: () => void }) {
     }
 
     const postOverlay = openPostId ? (
-        <Push onClose={() => setOpenPostId(null)} z={postOverProfile ? 30 : 20} top={54} animateIn={animateNav}>
-            {close => openPost
-                ? (
-                    <PostDetail
-                        post={openPost}
-                        me={me}
-                        onBack={close}
-                        onToggleLike={() => toggleLike(openPost.id)}
-                        onToggleRepost={() => toggleRepost(openPost.id)}
-                        onToggleReplyLike={rid => toggleLike(rid)}
-                        onOpenAuthor={openProfile}
-                        onReply={(b, imgs) => addReply(openPost.id, b, imgs)}
-                        onDelete={() => deletePost(openPost.id)}
-                    />
-                )
-                : <LoadingPane onBack={close} />}
+        <Push onClose={() => setOpenPostId(null)} z={postOverProfile ? 30 : 20} animateIn={animateNav}>
+            {close => (
+                <div className="flex h-full flex-col">
+                    <div className="h-[54px] shrink-0" aria-hidden />
+                    <div className="min-h-0 flex-1">
+                        {openPost
+                            ? (
+                                <PostDetail
+                                    post={openPost}
+                                    me={me}
+                                    onBack={close}
+                                    onToggleLike={() => toggleLike(openPost.id)}
+                                    onToggleRepost={() => toggleRepost(openPost.id)}
+                                    onToggleReplyLike={rid => toggleLike(rid)}
+                                    onOpenAuthor={openProfile}
+                                    onReply={(b, imgs) => addReply(openPost.id, b, imgs)}
+                                    onDelete={() => deletePost(openPost.id)}
+                                />
+                            )
+                            : <LoadingPane onBack={close} />}
+                    </div>
+                </div>
+            )}
         </Push>
     ) : null;
 
@@ -584,10 +591,10 @@ function NavButton({ active, onClick, children, badge = 0 }: { active: boolean; 
     );
 }
 
-function Push({ onClose, z, top = 0, children, animateIn = true }: { onClose: () => void; z: number; top?: number; children: (close: () => void) => React.ReactNode; animateIn?: boolean }) {
+function Push({ onClose, z, children, animateIn = true }: { onClose: () => void; z: number; children: (close: () => void) => React.ReactNode; animateIn?: boolean }) {
     const { goBack, pageStyle } = useIosPush(onClose, animateIn);
     return (
-        <div className="absolute inset-x-0 bottom-0" style={{ ...pageStyle, top, zIndex: z, background: BG }}>
+        <div className="absolute inset-0" style={{ ...pageStyle, zIndex: z, background: BG }}>
             {children(goBack)}
         </div>
     );
