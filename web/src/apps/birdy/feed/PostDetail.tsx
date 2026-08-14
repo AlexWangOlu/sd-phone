@@ -3,6 +3,7 @@ import { ArrowLeft, Heart, Image as ImageIcon, MessageCircle, Repeat2, Trash2, X
 
 import { t } from '@/i18n';
 import { AlertDialog } from '@/ui/AlertDialog';
+import { EmptyState } from '@/ui/EmptyState';
 import { MediaPickerSheet } from '@/shared/MediaPickerSheet';
 import { GifPickerSheet } from '@/shared/chat/GifPickerSheet';
 import { absoluteTime, BG, BLUE, LIKE, MAX_POST_LENGTH, META, PILL, REPOST, type BirdyAuthor, type BirdyPost } from '../data';
@@ -106,10 +107,20 @@ export function PostDetail({ post, me, onBack, onToggleLike, onToggleRepost, onT
                     </button>
                 </div>
 
-                {(post.thread?.length ?? 0) > 0 && (
+                {(post.thread?.length ?? 0) > 0 ? (
                     <p className="border-t border-hairline/10 px-4 pt-3 text-[14px] font-semibold uppercase tracking-wide" style={{ color: META }}>
                         {t('squawk.replies', 'Replies')}
                     </p>
+                ) : (
+                    <div className="border-t border-hairline/10 pb-10">
+                        <EmptyState
+                            icon={<MessageCircle className="h-7 w-7" strokeWidth={1.8} />}
+                            circleClassName="bg-hairline/[0.06] text-label/35"
+                            title={t('squawk.noRepliesYet', 'No replies yet')}
+                            subtitle={t('squawk.repliesEmptySubtitle', 'When someone replies to this post, it will show up here.')}
+                            subtitleClassName="text-ios-gray"
+                        />
+                    </div>
                 )}
                 {post.thread?.map(r => (
                     <PostCard
