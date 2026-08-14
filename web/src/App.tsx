@@ -1331,12 +1331,16 @@ function AppContent() {
             if (k && prefixes.some(p => k.startsWith(p))) doomed.push(k);
         }
         for (const k of doomed) window.localStorage.removeItem(k);
+        // Both scopes clear the stored settings row: without it setup_done stays set server-side
+        // and the next hydrate puts the phone straight back the way it was.
+        void fetchNui('sd-phone:settings:factoryReset', { scope })
+            .then(() => useThemeStore.getState().hydrate())
+            .catch(() => {});
         if (scope === 'erase') {
             resetAuth();
             clearCustomInstalled();
             useMusicLibrary.getState().reset();
             useLocaleStore.getState().hydrate();
-            void fetchNui('sd-phone:settings:factoryReset');
             setInstalledApps(new Set());
             setSavedLayout(null);
         }

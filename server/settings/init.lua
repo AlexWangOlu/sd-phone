@@ -625,19 +625,27 @@ lib.callback.register('sd-phone:server:settings:tones:remove', function(source, 
     return { success = true }
 end)
 
----Factory reset (Settings > Erase All Content): uninstalls every downloadable app, clears the
----saved home layout, and signs the caller out of all app accounts and mailboxes.
+---Factory reset, for both Settings > Reset All Settings (`scope = 'settings'`) and
+---Settings > Erase All Content (`scope = 'erase'`).
+---
+---Both wipe the stored settings row, which is what actually re-arms the first-run wizard: the
+---client re-arming it locally is undone by the very next settings:get if setup_done is still
+---set server-side. Erase additionally drops the installed apps and signs the caller out of every
+---app account and mailbox.
 lib.callback.register('sd-phone:server:settings:factoryReset', function(source, payload)
     local cid = player.getIdentifier(source)
     if not cid then return { success = false, message = 'Player not found' } end
+    payload = type(payload) == 'table' and payload or {}
+    local eraseAll = payload.scope ~= 'settings'
     -- Two unindexed mail scans plus a badge recompute, and a character erases their phone once
     -- at most; a repeat inside the window has nothing left to erase anyway.
     if not util.cooldown(cid, 'settings:factoryReset', 30000) then
         return { success = false, message = 'Please wait a moment before trying again' }
     end
-    store.setInstalledApps(cid, {}, deviceOf(payload))
-    store.setHomeLayout(cid, '')
-    accounts.signOutEverywhere(cid)
+    store.resetSettings(cid, deviceOf(payload), not eraseAll)
+    if eraseAll then
+        accounts.signOutEverywhere(cid)
+    end
     badges.push(source)
     return { success = true }
 end)

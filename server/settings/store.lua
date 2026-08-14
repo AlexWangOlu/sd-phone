@@ -422,6 +422,33 @@ function store.setHomeLayout(citizenid, layout)
     ]], { citizenid, 'phone', layout })
 end
 
+---Factory-resets one profile's settings row: every preference, including the first-run setup
+---flag, the passcode and the home layout, goes back to unset.
+---
+---The row is DELETED and re-created rather than each column being nulled by name. Naming them
+---would silently miss every column added afterwards - the reset would quietly stop covering new
+---settings, which is exactly how the old reset came to do nothing at all.
+---
+---The phone NUMBER is always carried across: it is identity, not a preference, and dropping it
+---would strand the character's contacts, call history and anyone who has them saved.
+---@param citizenid string framework per-character id
+---@param device string|nil device key, defaults to 'phone'
+---@param keepApps boolean|nil carry the installed-app list over (Reset All Settings keeps apps)
+function store.resetSettings(citizenid, device, keepApps)
+    device = device or 'phone'
+    if not citizenid or citizenid == '' then return end
+    local row = MySQL.single.await(
+        'SELECT phone_number, installed_apps FROM phone_settings WHERE citizenid = ? AND device = ?',
+        { citizenid, device })
+    if not row then return end
+    MySQL.update.await('DELETE FROM phone_settings WHERE citizenid = ? AND device = ?', { citizenid, device })
+    local apps = keepApps and row.installed_apps or nil
+    if row.phone_number == nil and apps == nil then return end
+    MySQL.update.await(
+        'INSERT INTO phone_settings (citizenid, device, phone_number, installed_apps) VALUES (?, ?, ?, ?)',
+        { citizenid, device, row.phone_number, apps })
+end
+
 ---Reads a player's phone number, or nil if not yet assigned. Read-only.
 ---@param citizenid string framework per-character id
 ---@return string|nil number raw-digit phone number
