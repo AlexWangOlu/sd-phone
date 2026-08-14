@@ -471,6 +471,9 @@ function store.resetSettings(citizenid, device, scope)
     MySQL.update.await(
         'INSERT INTO phone_settings (' .. table.concat(cols, ', ') .. ') VALUES (' .. table.concat(marks, ', ') .. ')',
         vals)
+
+    -- airplane_mode is read through a write-through cache; the row rewrite above bypasses it.
+    store.forgetAirplane(citizenid, device)
 end
 
 ---Reads a player's phone number, or nil if not yet assigned. Read-only.
@@ -1321,6 +1324,25 @@ function store.setAirplane(citizenid, on, device)
         INSERT INTO phone_settings (citizenid, device, airplane_mode) VALUES (?, ?, ?)
         ON DUPLICATE KEY UPDATE airplane_mode = VALUES(airplane_mode)
     ]], { citizenid, device, on and 1 or 0 })
+end
+
+---Drops a character's cached airplane state, so the next read reloads from the row. Anything
+---that writes airplane_mode WITHOUT going through setAirplane - the settings reset rewrites the
+---whole row - has to call this, or the server keeps answering from the stale cache and calls
+---stay blocked on a phone whose airplane toggle reads off.
+---@param citizenid string framework per-character id
+---@param device string|nil device key, defaults to 'phone'
+function store.forgetAirplane(citizenid, device)
+    if not citizenid or citizenid == '' then return end
+    airplaneCache[airplaneKey(citizenid, device or 'phone')] = nil
+end
+
+---Clears a character's per-app notification preferences, so every app goes back to its default
+---of notifying. These live in their own table, so wiping the settings row does not touch them.
+---@param citizenid string framework per-character id
+function store.resetNotifPrefs(citizenid)
+    if not citizenid or citizenid == '' then return end
+    MySQL.update.await('DELETE FROM phone_notif_prefs WHERE citizenid = ?', { citizenid })
 end
 
 ---The server default 24-hour preference for a player who has never toggled it

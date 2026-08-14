@@ -645,6 +645,13 @@ lib.callback.register('sd-phone:server:settings:factoryReset', function(source, 
         return { success = false, message = 'Please wait a moment before trying again' }
     end
     store.resetSettings(cid, deviceOf(payload), eraseAll and 'erase' or 'settings')
+    -- Settings that live outside the settings row. Wiping only phone_settings left per-app
+    -- notification switches, per-job prefs and saved networks exactly as the player left them,
+    -- which is most of what "Reset All Settings" is expected to cover.
+    store.resetNotifPrefs(cid)
+    require('server.services.store').resetFor(cid)
+    require('server.wifi.store').resetFor(cid)
+    require('server.bluetooth.store').resetFor(cid)
     if eraseAll then
         accounts.signOutEverywhere(cid)
     end

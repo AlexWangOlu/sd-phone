@@ -1338,7 +1338,10 @@ function AppContent() {
         }
         for (const k of doomed) window.localStorage.removeItem(k);
         void fetchNui('sd-phone:settings:factoryReset', { scope })
-            .then(() => useThemeStore.getState().hydrate())
+            .then(() => {
+                useThemeStore.getState().hydrate();
+                void useNotifPrefsStore.getState().hydrate();
+            })
             .catch(() => {});
         if (scope === 'erase') {
             resetAuth();
