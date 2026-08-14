@@ -86,6 +86,8 @@ function store.ensureSchema()
             open_anim          VARCHAR(12) NULL,
             wallpaper_parallax TINYINT(1)  NULL,
             hour24             TINYINT(1)   NULL,
+            caller_id          TINYINT(1)   NULL,
+            streamer_mode      TINYINT(1)   NULL,
             reopen_app         TINYINT(1)   NULL,
             setup_done         TINYINT(1)   NULL,
             theme              VARCHAR(8)   NULL,
@@ -1312,6 +1314,50 @@ function store.setSetupDone(citizenid, device)
     ]], { citizenid, device })
 end
 
+---Returns true when a player's number may be shown to whoever they call, defaulting to true
+---when the caller_id column is NULL (an unset preference is not a withheld one). Read-only.
+---@param citizenid string framework per-character id
+---@return boolean showCallerId
+function store.getCallerId(citizenid)
+    if not citizenid or citizenid == '' then return true end
+    local row = MySQL.single.await('SELECT caller_id FROM phone_settings WHERE citizenid = ?', { citizenid })
+    if row and row.caller_id ~= nil then
+        return row.caller_id == true or tonumber(row.caller_id) == 1
+    end
+    return true
+end
+
+---Persists whether this player's number is shown to whoever they call (upsert).
+---@param citizenid string framework per-character id
+---@param on boolean show my number on outgoing calls
+function store.setCallerId(citizenid, on)
+    if not citizenid or citizenid == '' then return end
+    MySQL.update.await([[
+        INSERT INTO phone_settings (citizenid, caller_id) VALUES (?, ?)
+        ON DUPLICATE KEY UPDATE caller_id = VALUES(caller_id)
+    ]], { citizenid, on == true and 1 or 0 })
+end
+
+---Returns true when a player has Streamer Mode on, defaulting to false. Read-only.
+---@param citizenid string framework per-character id
+---@return boolean streamerMode
+function store.getStreamerMode(citizenid)
+    if not citizenid or citizenid == '' then return false end
+    local row = MySQL.single.await('SELECT streamer_mode FROM phone_settings WHERE citizenid = ?', { citizenid })
+    return row ~= nil and (row.streamer_mode == true or tonumber(row.streamer_mode) == 1)
+end
+
+---Persists a player's Streamer Mode preference (upsert), coerced to a strict boolean.
+---@param citizenid string framework per-character id
+---@param on boolean hide money figures on screen
+function store.setStreamerMode(citizenid, on)
+    if not citizenid or citizenid == '' then return end
+    MySQL.update.await([[
+        INSERT INTO phone_settings (citizenid, streamer_mode) VALUES (?, ?)
+        ON DUPLICATE KEY UPDATE streamer_mode = VALUES(streamer_mode)
+    ]], { citizenid, on == true and 1 or 0 })
+end
+
 ---Persists a player's 24-hour time preference (upsert), coerced to a strict boolean.
 ---@param citizenid string framework per-character id
 ---@param on boolean prefer 24-hour time
@@ -2227,6 +2273,10 @@ function store.snapshot(citizenid, device)
         notificationTone = row and row.notification_tone or nil,
         airplaneMode     = airplane,
         hour24           = hour24,
+        -- Explicit if, for the reason hour24 above spells out: caller ID defaults ON, so a stored
+        -- 0 has to survive as false rather than collapsing back to the default on the next hydrate.
+        callerId         = (row == nil or row.caller_id == nil) and true or isTruthy(row.caller_id),
+        streamerMode     = row ~= nil and isTruthy(row.streamer_mode) or false,
         reopenApp        = row ~= nil and (row.reopen_app == true or tonumber(row.reopen_app) == 1),
         setupDone        = row ~= nil and (row.setup_done == true or tonumber(row.setup_done) == 1),
         theme            = (row and row.theme == 'dark') and 'dark' or 'light',

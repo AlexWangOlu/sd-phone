@@ -381,6 +381,28 @@ lib.callback.register('sd-phone:server:settings:setHour24', function(source, pay
     return { success = true }
 end)
 
+---Persists whether the caller's number is shown to whoever they dial. Enforced server-side at
+---dial time, so a patched client cannot reveal a number the player chose to withhold - nor hide
+---one, which would otherwise be a way past a callee's block list.
+lib.callback.register('sd-phone:server:settings:setCallerId', function(source, payload)
+    local cid = player.getIdentifier(source)
+    if not cid then return { success = false, message = 'Player not found' } end
+    if not writeAllowed(cid, 'callerId') then return BUSY end
+    payload = type(payload) == 'table' and payload or {}
+    store.setCallerId(cid, payload.on == true)
+    return { success = true }
+end)
+
+---Persists the caller's Streamer Mode preference, coerced to a strict boolean.
+lib.callback.register('sd-phone:server:settings:setStreamerMode', function(source, payload)
+    local cid = player.getIdentifier(source)
+    if not cid then return { success = false, message = 'Player not found' } end
+    if not writeAllowed(cid, 'streamerMode') then return BUSY end
+    payload = type(payload) == 'table' and payload or {}
+    store.setStreamerMode(cid, payload.on == true)
+    return { success = true }
+end)
+
 ---Marks the caller's profile as having completed first-run setup (one-way; the wipe path
 ---deletes the whole settings row, which is what un-sets it).
 lib.callback.register('sd-phone:server:settings:setSetupDone', function(source, payload)

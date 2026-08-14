@@ -376,6 +376,10 @@ interface ThemeState {
     setAirplaneMode:   (on: boolean) => void;
     hour24:            boolean;
     setHour24:         (on: boolean) => void;
+    callerId:          boolean;
+    setCallerId:       (on: boolean) => void;
+    streamerMode:      boolean;
+    setStreamerMode:   (on: boolean) => void;
     gameTime:          boolean;
     setGameTime:       (on: boolean) => void;
     reopenLastApp:     boolean;
@@ -495,6 +499,8 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     callVol: 60,
     airplaneMode: false,
     hour24: false,
+    callerId: true,
+    streamerMode: false,
     gameTime: isFiveM ? false : loadGameTimeLocal(),
     reopenLastApp: false,
     ringtone: DEFAULT_RINGTONE,
@@ -738,6 +744,14 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
         void fetchNui('sd-phone:settings:setAirplane', { on }).catch(() => {});
     },
 
+    setCallerId: (on) => {
+        set({ callerId: on });
+        void fetchNui('sd-phone:settings:setCallerId', { on }).catch(() => {});
+    },
+    setStreamerMode: (on) => {
+        set({ streamerMode: on });
+        void fetchNui('sd-phone:settings:setStreamerMode', { on }).catch(() => {});
+    },
     setHour24: (on) => {
         set({ hour24: on });
         void fetchNui('sd-phone:settings:setHour24', { on }).catch(() => {});
@@ -854,7 +868,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
             }
         };
         const keyAtRequest = wallpaperProfileKey;
-        void fetchNui<{ data?: { ringtone?: string; notificationTone?: string; customRingtones?: CustomTone[]; customNotificationTones?: CustomTone[]; airplaneMode?: boolean; hour24?: boolean; gameTime?: boolean; reopenApp?: boolean; setupDone?: boolean; lockClock?: Partial<LockClock>; passcode?: string | null; faceId?: boolean; wallpaper?: string; wallpaperHome?: string; blurLock?: boolean; blurHome?: boolean; islandPet?: string; customWallpapers?: string[]; chatTextScale?: number; motion?: number; boldText?: boolean; textScale?: number; homeDensity?: string; appLabels?: Record<string, string>; phoneScale?: number; brightness?: number; phoneAlign?: string; phoneTilt?: { turn?: number; lean?: number }; dockStyle?: string; openAnim?: string; wallpaperParallax?: boolean; ringtoneVol?: number; callVol?: number; theme?: string; darkTheme?: string; lightTheme?: string; accent?: string; shell?: string; shellChoice?: boolean; shellsAllowed?: unknown[]; customPalettes?: unknown; iconTheme?: string; showAppNames?: boolean; customIconThemes?: unknown } }>('sd-phone:settings:get')
+        void fetchNui<{ data?: { ringtone?: string; notificationTone?: string; customRingtones?: CustomTone[]; customNotificationTones?: CustomTone[]; airplaneMode?: boolean; hour24?: boolean; callerId?: boolean; streamerMode?: boolean; gameTime?: boolean; reopenApp?: boolean; setupDone?: boolean; lockClock?: Partial<LockClock>; passcode?: string | null; faceId?: boolean; wallpaper?: string; wallpaperHome?: string; blurLock?: boolean; blurHome?: boolean; islandPet?: string; customWallpapers?: string[]; chatTextScale?: number; motion?: number; boldText?: boolean; textScale?: number; homeDensity?: string; appLabels?: Record<string, string>; phoneScale?: number; brightness?: number; phoneAlign?: string; phoneTilt?: { turn?: number; lean?: number }; dockStyle?: string; openAnim?: string; wallpaperParallax?: boolean; ringtoneVol?: number; callVol?: number; theme?: string; darkTheme?: string; lightTheme?: string; accent?: string; shell?: string; shellChoice?: boolean; shellsAllowed?: unknown[]; customPalettes?: unknown; iconTheme?: string; showAppNames?: boolean; customIconThemes?: unknown } }>('sd-phone:settings:get')
             .then(res => {
                 if (!res?.data) { retry(); return; }
                 const d = res.data;
@@ -877,6 +891,8 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
                 if (d.notificationTone) patch.notificationTone = d.notificationTone;
                 if (typeof d.airplaneMode === 'boolean') patch.airplaneMode = d.airplaneMode;
                 if (typeof d.hour24 === 'boolean') patch.hour24 = d.hour24;
+                if (typeof d.callerId === 'boolean') patch.callerId = d.callerId;
+                if (typeof d.streamerMode === 'boolean') patch.streamerMode = d.streamerMode;
                 if (typeof d.gameTime === 'boolean') patch.gameTime = d.gameTime;
                 if (typeof d.reopenApp === 'boolean') patch.reopenLastApp = d.reopenApp;
                 // Always assigned (true/false, never left null) - the per-profile answer is
