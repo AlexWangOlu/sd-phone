@@ -12,7 +12,7 @@ export function ResetPhonePage({ onBack }: { onBack: () => void }) {
     return (
         <>
             <SubPage title={t('settings.resetPhone', 'Reset Phone')} onBack={onBack}>
-                <ListGroup footer={t('settings.resetAllFooter', 'Resetting all settings clears your setup, theme and folder layout but keeps health data and app history.')}>
+                <ListGroup footer={t('settings.resetAllFooter', 'Resetting puts every setting back to default. It does not sign you out or remove anything you have installed.')}>
                     <ListRow
                         label={t('settings.resetAllSettings', 'Reset All Settings')}
                         destructive
@@ -32,7 +32,7 @@ export function ResetPhonePage({ onBack }: { onBack: () => void }) {
             {confirm === 'reset' && (
                 <AlertDialog
                     title={t('settings.resetAllTitle', 'Reset All Settings?')}
-                    message={t('settings.resetAllMessage', "Your phone setup, theme and layout preferences will reset. You'll be guided through setup again on next open.")}
+                    message={t('settings.resetAllMessage', 'Your theme, wallpaper, Home Screen layout and other preferences go back to default. Your apps, accounts, passcode and contact card are kept.')}
                     confirmLabel={t('settings.resetConfirm', 'Reset')}
                     destructive
                     onCancel={() => setConfirm(null)}

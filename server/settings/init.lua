@@ -625,13 +625,15 @@ lib.callback.register('sd-phone:server:settings:tones:remove', function(source, 
     return { success = true }
 end)
 
----Factory reset, for both Settings > Reset All Settings (`scope = 'settings'`) and
----Settings > Erase All Content (`scope = 'erase'`).
+---Settings > Reset All Settings (`scope = 'settings'`) and Settings > Erase All Content
+---(`scope = 'erase'`).
 ---
----Both wipe the stored settings row, which is what actually re-arms the first-run wizard: the
----client re-arming it locally is undone by the very next settings:get if setup_done is still
----set server-side. Erase additionally drops the installed apps and signs the caller out of every
----app account and mailbox.
+---Reset puts the preferences back to default and leaves the character otherwise intact: still
+---set up, still holding their apps, accounts, lock and contact card. Erase clears the row down
+---to the phone number and signs the caller out of every app account and mailbox.
+---
+---Erase HAS to clear setup_done server-side: the client re-arming the wizard locally is undone
+---by the very next settings:get while the stored flag still reads done.
 lib.callback.register('sd-phone:server:settings:factoryReset', function(source, payload)
     local cid = player.getIdentifier(source)
     if not cid then return { success = false, message = 'Player not found' } end
@@ -642,7 +644,7 @@ lib.callback.register('sd-phone:server:settings:factoryReset', function(source, 
     if not util.cooldown(cid, 'settings:factoryReset', 30000) then
         return { success = false, message = 'Please wait a moment before trying again' }
     end
-    store.resetSettings(cid, deviceOf(payload), not eraseAll)
+    store.resetSettings(cid, deviceOf(payload), eraseAll and 'erase' or 'settings')
     if eraseAll then
         accounts.signOutEverywhere(cid)
     end

@@ -422,31 +422,55 @@ function store.setHomeLayout(citizenid, layout)
     ]], { citizenid, 'phone', layout })
 end
 
----Factory-resets one profile's settings row: every preference, including the first-run setup
----flag, the passcode and the home layout, goes back to unset.
+---@type string[] Columns a Reset All Settings carries across. Everything NOT listed is a
+---preference and goes back to its default. What survives is the three things a preference reset
+---has no business touching: identity (the number), what you signed up to (setup state, your
+---installed apps, your group, your lock) and content you authored (contact card, uploaded
+---wallpapers, custom palettes and icon themes).
+local RESET_KEEP = {
+    'phone_number', 'setup_done', 'installed_apps', 'active_group_id',
+    'card_name', 'card_avatar', 'card_email', 'card_address',
+    'custom_wallpapers', 'palette_custom', 'icon_custom',
+    'passcode', 'face_id',
+}
+
+---@type string[] An Erase keeps only what the character cannot function without. Losing the
+---number would strand their contacts, call history and anyone who has them saved.
+local ERASE_KEEP = { 'phone_number' }
+
+---Resets one profile's settings row.
 ---
----The row is DELETED and re-created rather than each column being nulled by name. Naming them
----would silently miss every column added afterwards - the reset would quietly stop covering new
----settings, which is exactly how the old reset came to do nothing at all.
----
----The phone NUMBER is always carried across: it is identity, not a preference, and dropping it
----would strand the character's contacts, call history and anyone who has them saved.
+---The row is DELETED and re-created from a KEEP list rather than having each preference nulled
+---by name. Naming the columns to clear would silently miss every column added afterwards - the
+---reset would quietly stop covering new settings, which is exactly how the old one came to do
+---nothing at all. Inverted, a new column resets by default, which is the safe direction.
 ---@param citizenid string framework per-character id
 ---@param device string|nil device key, defaults to 'phone'
----@param keepApps boolean|nil carry the installed-app list over (Reset All Settings keeps apps)
-function store.resetSettings(citizenid, device, keepApps)
+---@param scope string|nil 'settings' (preferences only) or 'erase' (factory), defaults to erase
+function store.resetSettings(citizenid, device, scope)
     device = device or 'phone'
     if not citizenid or citizenid == '' then return end
+    local keep = scope == 'settings' and RESET_KEEP or ERASE_KEEP
     local row = MySQL.single.await(
-        'SELECT phone_number, installed_apps FROM phone_settings WHERE citizenid = ? AND device = ?',
+        'SELECT ' .. table.concat(keep, ', ') .. ' FROM phone_settings WHERE citizenid = ? AND device = ?',
         { citizenid, device })
     if not row then return end
+
     MySQL.update.await('DELETE FROM phone_settings WHERE citizenid = ? AND device = ?', { citizenid, device })
-    local apps = keepApps and row.installed_apps or nil
-    if row.phone_number == nil and apps == nil then return end
+
+    local cols, marks, vals = { 'citizenid', 'device' }, { '?', '?' }, { citizenid, device }
+    for _, col in ipairs(keep) do
+        local v = row[col]
+        if v ~= nil then
+            if type(v) == 'boolean' then v = v and 1 or 0 end
+            cols[#cols + 1]  = col
+            marks[#marks + 1] = '?'
+            vals[#vals + 1]  = v
+        end
+    end
     MySQL.update.await(
-        'INSERT INTO phone_settings (citizenid, device, phone_number, installed_apps) VALUES (?, ?, ?, ?)',
-        { citizenid, device, row.phone_number, apps })
+        'INSERT INTO phone_settings (' .. table.concat(cols, ', ') .. ') VALUES (' .. table.concat(marks, ', ') .. ')',
+        vals)
 end
 
 ---Reads a player's phone number, or nil if not yet assigned. Read-only.

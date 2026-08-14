@@ -76,6 +76,10 @@ import { isRepeating } from '@/apps/clock/data';
 import type { AlarmDef } from '@/apps/clock/data';
 
 
+// Local counterparts of the server's RESET_KEEP: what a Reset All Settings must NOT throw away.
+// Setup state, app logins, and content the player owns (music library, game saves).
+const RESET_KEEPS_LOCAL = ['sd-phone:setup:', 'sd-phone:auth:', 'sd-phone:music:lib', 'sd-phone:cookie:'];
+
 const SETUP_KEY_BASE = 'sd-phone:setup:v1';
 
 // Unique-phones mode: setup completion is a per-PROFILE fact, keyed by the active SIM number,
@@ -1322,17 +1326,17 @@ function AppContent() {
     useEffect(() => {
         if (!resetNonce) return;
         const scope = usePhoneReset.getState().scope;
-        const prefixes = scope === 'erase'
-            ? ['sd-phone:']
-            : ['sd-phone:setup:', 'sd-phone:mail:folderOrder', 'sd-phone:mail:activeAccount'];
+        // Both scopes sweep the whole sd-phone: namespace and Reset spares a keep-list, rather
+        // than Reset naming the keys to clear. Listing what to clear silently misses every
+        // preference added later; listing what to spare makes a new one reset by default.
         const doomed: string[] = [];
         for (let i = 0; i < window.localStorage.length; i++) {
             const k = window.localStorage.key(i);
-            if (k && prefixes.some(p => k.startsWith(p))) doomed.push(k);
+            if (!k || !k.startsWith('sd-phone:')) continue;
+            if (scope === 'settings' && RESET_KEEPS_LOCAL.some(p => k.startsWith(p))) continue;
+            doomed.push(k);
         }
         for (const k of doomed) window.localStorage.removeItem(k);
-        // Both scopes clear the stored settings row: without it setup_done stays set server-side
-        // and the next hydrate puts the phone straight back the way it was.
         void fetchNui('sd-phone:settings:factoryReset', { scope })
             .then(() => useThemeStore.getState().hydrate())
             .catch(() => {});
@@ -1357,10 +1361,13 @@ function AppContent() {
         setHomeEditing(false);
         setCcOpen(false);
         setFinishingSetup(false);
-        setSetupHello(true);
         setLocked(false);
-        // A factory reset re-arms the wizard; a device that has none stays complete.
-        setSetup({ completed: !device.setup });
+        // Only an Erase re-arms the wizard. Reset All Settings puts preferences back to default
+        // and leaves the character set up, so sending them through Hello again would be wrong.
+        if (scope === 'erase') {
+            setSetupHello(true);
+            setSetup({ completed: !device.setup });
+        }
     }, [resetNonce]);
 
     // The keep-alive deck is rendered ABOVE the shell (in both the closed and open
