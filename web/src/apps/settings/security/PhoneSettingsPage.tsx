@@ -5,7 +5,8 @@ import { t } from '@/i18n';
 import { formatPhone } from '@/lib/phone';
 import { useContacts } from '@/stores/contactsStore';
 import { useIosPush } from '@/hooks/useIosPush';
-import { ListGroup } from '@/ui/ListGroup';
+import { ListGroup, ToggleRow } from '@/ui/ListGroup';
+import { useTheme } from '@/stores/themeStore';
 import { SubPage } from '../SettingsSubPage';
 
 
@@ -13,6 +14,7 @@ export function PhoneSettingsPage({ onBack }: { onBack: () => void }) {
     const { myNumber, load } = useContacts('myNumber', 'load');
     useEffect(() => { void load(); }, [load]);
     const number = myNumber ? formatPhone(myNumber) : '—';
+    const { callerId, setCallerId } = useTheme('callerId', 'setCallerId');
     const [copied,       setCopied]       = useState(false);
     const [showBlocked,  setShowBlocked]  = useState(false);
 
@@ -50,7 +52,15 @@ export function PhoneSettingsPage({ onBack }: { onBack: () => void }) {
                 </div>
             </ListGroup>
 
-            <ListGroup>
+            <ListGroup footer={callerId
+                ? undefined
+                : t('settings.callerIdOffFooter', 'People you call will see Unknown instead of your number, and cannot call you back from their recents.')}>
+                <ToggleRow
+                    label={t('settings.showCallerId', 'Show Caller ID')}
+                    on={callerId}
+                    onToggle={() => setCallerId(!callerId)}
+                    divider
+                />
                 <button
                     type="button"
                     onClick={() => setShowBlocked(true)}
