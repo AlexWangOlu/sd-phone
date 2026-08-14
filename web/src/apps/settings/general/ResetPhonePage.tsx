@@ -50,9 +50,9 @@ export function ResetPhonePage({ onBack }: { onBack: () => void }) {
         requestPhoneReset(scope);
     }
 
-    function subFor(scope: PhoneResetScope, idle?: string): string | undefined {
+    function subFor(scope: PhoneResetScope): string | undefined {
         const secs = leftFor(scope);
-        return secs > 0 ? t('settings.resetAvailableIn', 'Available again in {n}s', { n: secs }) : idle;
+        return secs > 0 ? t('settings.resetAvailableIn', 'Available again in {n}s', { n: secs }) : undefined;
     }
 
     return (
@@ -71,7 +71,7 @@ export function ResetPhonePage({ onBack }: { onBack: () => void }) {
                 <ListGroup footer={t('settings.eraseAllFooter', 'Erases everything on this phone and takes you back through setup. Your saved passwords stay in the Passwords app, so you can sign back into your accounts. This cannot be undone.')}>
                     <ListRow
                         label={t('settings.eraseAllContent', 'Reset Phone Fully')}
-                        sub={subFor('erase', t('settings.eraseAllSub', 'Puts you back through setup'))}
+                        sub={subFor('erase')}
                         destructive
                         disabled={leftFor('erase') > 0}
                         onPress={() => setConfirm('erase')}
