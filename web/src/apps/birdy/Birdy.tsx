@@ -306,23 +306,7 @@ export function Birdy({ onClose }: { onClose: () => void }) {
     const animateNav = useDidEnter(authed && (!openConvoId || !!openConvo));
 
     let content: React.ReactNode;
-    if (profileOpen) {
-        content = (
-            <Profile
-                profile={profile}
-                me={me}
-                handle={profileTarget ?? undefined}
-                onBack={closeProfile}
-                onEdit={() => setEditingProfile(true)}
-                onOpenPost={openPostById}
-                onToggleLike={toggleLike}
-                onToggleRepost={toggleRepost}
-                onToggleFollow={toggleFollow}
-                onMessage={openDmWith}
-                onOpenAuthor={openProfile}
-            />
-        );
-    } else if (tab === 'home') {
+    if (tab === 'home') {
         content = <Feed posts={posts} me={me} feed={feed} onFeedChange={switchFeed} onRefresh={refreshNow} onToggleLike={toggleLike} onToggleRepost={toggleRepost} onOpenPost={openPostById} onOpenProfile={openProfile} onOpenAuthor={openProfile} />;
     } else if (tab === 'search') {
         content = <Search me={me} onOpenProfile={openProfile} onOpenPost={openPostById} onToggleLike={toggleLike} onToggleRepost={toggleRepost} />;
@@ -333,7 +317,7 @@ export function Birdy({ onClose }: { onClose: () => void }) {
     }
 
     const postOverlay = openPostId ? (
-        <PostPush onClose={() => setOpenPostId(null)} animateIn={animateNav}>
+        <Push onClose={() => setOpenPostId(null)} z={postOverProfile ? 30 : 20} top={54} animateIn={animateNav}>
             {close => openPost
                 ? (
                     <PostDetail
@@ -349,11 +333,28 @@ export function Birdy({ onClose }: { onClose: () => void }) {
                     />
                 )
                 : <LoadingPane onBack={close} />}
-        </PostPush>
+        </Push>
     ) : null;
 
-    const showPost = openPostId != null && (postOverProfile || !profileOpen);
-    const contentKey = profileOpen ? `profile:${profileTarget ?? 'me'}` : tab;
+    const profileOverlay = profileOpen ? (
+        <Push onClose={closeProfile} z={postOverProfile ? 20 : 30} animateIn={animateNav}>
+            {close => (
+                <Profile
+                    profile={profile}
+                    me={me}
+                    handle={profileTarget ?? undefined}
+                    onBack={close}
+                    onEdit={() => setEditingProfile(true)}
+                    onOpenPost={openPostById}
+                    onToggleLike={toggleLike}
+                    onToggleRepost={toggleRepost}
+                    onToggleFollow={toggleFollow}
+                    onMessage={openDmWith}
+                    onOpenAuthor={openProfile}
+                />
+            )}
+        </Push>
+    ) : null;
 
     const showComposeFab = tab === 'home' && !profileOpen;
 
@@ -411,10 +412,8 @@ export function Birdy({ onClose }: { onClose: () => void }) {
 
     return (
         <div className={`absolute inset-0 z-10 flex flex-col text-label ${justAuthed ? 'animate-swipe-in-left' : ''}`} style={{ background: BG }}>
-            <div className="h-[54px] shrink-0" aria-hidden />
-
             <div className="relative z-0 min-h-0 flex-1 overflow-hidden">
-                <div key={contentKey} className="absolute inset-0 animate-swipe-in-left">
+                <div key={tab} className="absolute inset-0 pt-[54px] animate-swipe-in-left">
                     {content}
                     {showComposeFab && (
                         <FabButton onClick={() => setComposing(true)} label={t('squawk.newPost', 'New post')} className="bottom-[9px] right-5 z-10">
@@ -422,7 +421,8 @@ export function Birdy({ onClose }: { onClose: () => void }) {
                         </FabButton>
                     )}
                 </div>
-                {postOverlay && <div className={showPost ? 'contents' : 'hidden'}>{postOverlay}</div>}
+                {profileOverlay}
+                {postOverlay}
             </div>
 
             <nav className="shrink-0 border-t border-hairline/10 px-2 pb-12 pt-4" style={{ background: BG }}>
@@ -584,8 +584,12 @@ function NavButton({ active, onClick, children, badge = 0 }: { active: boolean; 
     );
 }
 
-function PostPush({ onClose, children, animateIn = true }: { onClose: () => void; children: (close: () => void) => React.ReactNode; animateIn?: boolean }) {
+function Push({ onClose, z, top = 0, children, animateIn = true }: { onClose: () => void; z: number; top?: number; children: (close: () => void) => React.ReactNode; animateIn?: boolean }) {
     const { goBack, pageStyle } = useIosPush(onClose, animateIn);
-    return <div className="absolute inset-0 z-20" style={{ ...pageStyle, background: BG }}>{children(goBack)}</div>;
+    return (
+        <div className="absolute inset-x-0 bottom-0" style={{ ...pageStyle, top, zIndex: z, background: BG }}>
+            {children(goBack)}
+        </div>
+    );
 }
 
