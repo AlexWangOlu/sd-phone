@@ -271,7 +271,7 @@ export function ChatView({ conv, totalUnread, contacts, myNumber, onBack, onSend
     const receivedBg    = isDark ? 'rgb(var(--elevated))' : '#c6c6c6';
     const sentBg        = '#0977e5';
     const actionBarBg   = isDark ? 'rgb(var(--surface))' : 'rgb(var(--base))';
-    const composerBdr   = isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)';
+    const composerBdr   = 'rgb(var(--control))';
     const actionBtnBg   = isDark ? 'rgb(var(--elevated))' : '#fff';
 
     return (
@@ -353,7 +353,7 @@ export function ChatView({ conv, totalUnread, contacts, myNumber, onBack, onSend
                         )}
                     </div>
                 </div>
-                <div className="mx-[6%] h-[0.5px] bg-black/15 dark:bg-white/15" />
+                <div className="mx-[6%] h-[0.5px] bg-ios-gray4 dark:bg-control" />
             </div>
 
             <div ref={listRef} className="imsg-list min-h-0 flex-1 overflow-y-auto no-scrollbar px-4 py-2">
@@ -468,7 +468,7 @@ export function ChatView({ conv, totalUnread, contacts, myNumber, onBack, onSend
 
                 <div className="px-3 pb-2 pt-1.5">
                     <div
-                        className={`flex items-center gap-1 rounded-[22px] bg-base py-[9px] pl-4 dark:bg-surface ${draft.trim() || attachments.length ? 'pr-[5px]' : 'pr-4'}`}
+                        className={`flex items-center gap-1 rounded-[22px] bg-base py-[9px] pl-4 ring-1 ring-inset ring-ios-gray4 dark:bg-surface dark:ring-control ${draft.trim() || attachments.length ? 'pr-[5px]' : 'pr-4'}`}
                     >
                         <input
                             ref={inputRef}
