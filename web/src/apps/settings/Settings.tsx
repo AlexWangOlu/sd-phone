@@ -10,7 +10,6 @@ import { AccessibilityPage } from './general/AccessibilityPage';
 import { GeneralPage } from './general/GeneralPage';
 import { NotificationsPage } from './notifications/NotificationsPage';
 import { PhoneSettingsPage } from './security/PhoneSettingsPage';
-import { PrivacySecurityPage } from './security/PrivacySecurityPage';
 import { ProfileCard } from './account/ProfileCard';
 import { SoundHapticsPage } from './sound/SoundHapticsPage';
 import { SearchBar } from '@/ui/SearchBar';
@@ -29,7 +28,7 @@ import { shellFor } from '@/shell/shells';
 import { useTheme } from '@/stores/themeStore';
 import { useBluetoothConfigured } from '@/stores/bluetoothStore';
 
-type SubPage = 'general' | 'accessibility' | 'display' | 'island-pet' | 'wallpaper' | 'app-icons' | 'home-density' | 'notifications' | 'sound-haptics' | 'face-unlock' | 'phone' | 'privacy' | 'sim' | 'wifi' | 'bluetooth' | null;
+type SubPage = 'general' | 'accessibility' | 'display' | 'island-pet' | 'wallpaper' | 'app-icons' | 'home-density' | 'notifications' | 'sound-haptics' | 'face-unlock' | 'phone' | 'sim' | 'wifi' | 'bluetooth' | null;
 
 export function Settings({ onClose }: { onClose: () => void }) {
     const [subPage, setSubPage] = useSessionState<SubPage>('settings:subPage', null);
@@ -88,7 +87,6 @@ export function Settings({ onClose }: { onClose: () => void }) {
         if (id === 'sound-haptics') setSubPage('sound-haptics');
         if (id === 'face-unlock')   setSubPage('face-unlock');
         if (id === 'phone')         setSubPage('phone');
-        if (id === 'privacy')       setSubPage('privacy');
         if (id === 'sim')           setSubPage('sim');
         if (id === 'wifi')          setSubPage('wifi');
         if (id === 'bluetooth')     setSubPage('bluetooth');
@@ -106,7 +104,6 @@ export function Settings({ onClose }: { onClose: () => void }) {
         : subPage === 'sound-haptics' ? <SoundHapticsPage      onBack={handleBack} />
         : subPage === 'face-unlock'   ? <FaceUnlockPage        onBack={handleBack} />
         : subPage === 'phone'         ? <PhoneSettingsPage     onBack={handleBack} />
-        : subPage === 'privacy'       ? <PrivacySecurityPage   onBack={handleBack} onOpenFaceUnlock={() => setSubPage('face-unlock')} />
         : subPage === 'sim'           ? <SimBackupPage         onBack={handleBack} />
         : subPage === 'wifi'          ? <WifiPage              onBack={handleBack} />
         : subPage === 'bluetooth'     ? <BluetoothPage         onBack={handleBack} />

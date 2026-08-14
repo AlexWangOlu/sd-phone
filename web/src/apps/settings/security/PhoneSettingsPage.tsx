@@ -5,7 +5,7 @@ import { t } from '@/i18n';
 import { formatPhone } from '@/lib/phone';
 import { useContacts } from '@/stores/contactsStore';
 import { useIosPush } from '@/hooks/useIosPush';
-import { ListGroup, ToggleRow } from '@/ui/ListGroup';
+import { ListGroup } from '@/ui/ListGroup';
 import { SubPage } from '../SettingsSubPage';
 
 
@@ -13,7 +13,6 @@ export function PhoneSettingsPage({ onBack }: { onBack: () => void }) {
     const { myNumber, load } = useContacts('myNumber', 'load');
     useEffect(() => { void load(); }, [load]);
     const number = myNumber ? formatPhone(myNumber) : '—';
-    const [showCallerId] = useState(true);
     const [copied,       setCopied]       = useState(false);
     const [showBlocked,  setShowBlocked]  = useState(false);
 
@@ -52,11 +51,6 @@ export function PhoneSettingsPage({ onBack }: { onBack: () => void }) {
             </ListGroup>
 
             <ListGroup>
-                <ToggleRow
-                    label={t('settings.showCallerId', 'Show Caller ID')}
-                    defaultOn={showCallerId}
-                    divider
-                />
                 <button
                     type="button"
                     onClick={() => setShowBlocked(true)}

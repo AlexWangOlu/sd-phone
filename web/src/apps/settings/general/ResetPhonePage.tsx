@@ -17,12 +17,7 @@ export function ResetPhonePage({ onBack }: { onBack: () => void }) {
                         label={t('settings.resetAllSettings', 'Reset All Settings')}
                         destructive
                         onPress={() => setConfirm('reset')}
-                        divider
                     />
-                    <ListRow label={t('settings.resetNetworkSettings', 'Reset Network Settings')}         destructive divider />
-                    <ListRow label={t('settings.resetKeyboardDictionary', 'Reset Keyboard Dictionary')}      destructive divider />
-                    <ListRow label={t('settings.resetHomeScreenLayout', 'Reset Home Screen Layout')}       destructive divider />
-                    <ListRow label={t('settings.resetLocationPrivacy', 'Reset Location & Privacy')}       destructive />
                 </ListGroup>
 
                 <ListGroup footer={t('settings.eraseAllFooter', 'This will permanently erase all content and settings. This action cannot be undone.')}>

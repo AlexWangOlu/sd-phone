@@ -3,8 +3,8 @@ import {
     ChevronRight, Compass, CreditCard, Fingerprint, Gamepad2, Grid2x2, Hourglass,
     Image as ImageIcon, Key, Languages, LayoutGrid, ListTodo, Lock, Mail,
     MapPin, MessageCircle, Mic, Moon, Newspaper, PawPrint, Phone, Plane, Search,
-    Settings2, ShieldCheck, ShoppingBag, Siren, SlidersHorizontal,
-    Sparkles, StickyNote, Sun, User, Video, Volume2, Wifi, Zap,
+    Settings2, ShoppingBag, Siren, SlidersHorizontal,
+    Sparkles, StickyNote, Sun, User, Volume2, Wifi, Zap,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -15,9 +15,9 @@ import { useTheme } from '@/stores/themeStore';
 const ICONS: Record<IconName, LucideIcon> = {
     Plane, Wifi, Bluetooth, Antenna, Key, Bell, Volume2, Moon, Hourglass,
     Settings2, SlidersHorizontal, Sun, LayoutGrid, Accessibility, Search,
-    Image: ImageIcon, Sparkles, Fingerprint, Siren, ShieldCheck,
+    Image: ImageIcon, Sparkles, Fingerprint, Siren,
     ShoppingBag, CreditCard, Gamepad2, Lock, Mail, User, Calendar, StickyNote,
-    ListTodo, Mic, Phone, MessageCircle, Video, Compass, Newspaper, Languages,
+    ListTodo, Mic, Phone, MessageCircle, Compass, Newspaper, Languages,
     MapPin, Zap, PawPrint, Grid2x2,
 };
 
@@ -62,10 +62,8 @@ export function SettingsRow({ row, divider, onPress }: { row: SettingsRowDef; di
                 )}
             </div>
 
-            {row.toggle !== undefined ? (
-                row.id === 'airplane'
-                    ? <Toggle on={airplaneMode} onChange={setAirplaneMode} />
-                    : <Toggle defaultOn={row.toggle} />
+            {row.id === 'airplane' ? (
+                <Toggle on={airplaneMode} onChange={setAirplaneMode} />
             ) : (
                 <>
                     {row.status && (
