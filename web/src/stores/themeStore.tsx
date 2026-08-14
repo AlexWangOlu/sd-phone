@@ -18,7 +18,8 @@ import { DEFAULT_LOCK_CLOCK, loadLockClockLocal, saveLockClockLocal, type LockCl
 import { DEFAULT_PHONE_TILT, loadPhoneTiltLocal, normalizeTilt, savePhoneTiltLocal, type PhoneTilt } from '@/shell/phoneTilt';
 import { DEFAULT_SHELL_LOOK, isDockStyle, isOpenAnim, loadShellLookLocal, saveShellLookLocal, type DockStyle, type OpenAnim } from '@/shell/shellLook';
 import { DEFAULT_NOTIFICATION, DEFAULT_RINGTONE } from '@/apps/settings/tones';
-import { normalizeStreamerHide, STREAMER_HIDE_ALL, type StreamerHide, type StreamerHideKey } from '@/shell/streamerMode';
+import { HIDDEN_TEXT, normalizeStreamerHide, STREAMER_HIDE_ALL, type StreamerHide, type StreamerHideKey } from '@/shell/streamerMode';
+import { formatPhone } from '@/lib/phone';
 import type { CustomTone, ToneKind } from '@/apps/settings/tones';
 import { warmYouTube } from '@/apps/settings/tonePlayer';
 import { clampRecipe, isCustomPaletteId, MAX_CUSTOM_PALETTES, PALETTE_NAME_MAX } from '@/apps/settings/appearance/paletteRamp';
@@ -997,6 +998,14 @@ export function useTheme(...keys: (keyof ThemeState)[]): unknown {
 // consumer goes through here so "what does Streamer Mode cover" lives in exactly one place.
 export function useStreamerHidden(key: StreamerHideKey): boolean {
     return useThemeStore(s => s.streamerMode && s.streamerHide[key] !== false);
+}
+
+// Phone-number formatter that blanks the number while Streamer Mode hides them. Display sites
+// call this instead of formatPhone directly; anything that needs the real digits (dialling,
+// autofill values, lookups) keeps using formatPhone.
+export function useMaskedPhone(): (n: string | null | undefined) => string {
+    const hidden = useStreamerHidden('number');
+    return (n) => (hidden ? HIDDEN_TEXT : formatPhone(n ?? ''));
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {

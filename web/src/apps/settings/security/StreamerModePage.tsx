@@ -10,7 +10,7 @@ function labelFor(key: StreamerHideKey): string {
         case 'transactions': return t('settings.streamerHideTransactions', 'Transaction Amounts');
         case 'card':         return t('settings.streamerHideCard', 'Card Number');
         case 'investments':  return t('settings.streamerHideInvestments', 'Investments');
-        case 'number':       return t('settings.streamerHideNumber', 'Phone Number');
+        case 'number':       return t('settings.streamerHideNumber', 'Phone Numbers');
         case 'previews':     return t('settings.streamerHidePreviews', 'Notification Previews');
     }
 }

@@ -8,7 +8,7 @@ import { useNuiEvent } from '@/hooks/useNuiEvent';
 import { fetchNui } from '@/core/nui';
 import { useContacts } from '@/stores/contactsStore';
 import { acceptCall, addToCall, declineCall, getCurrentCall, hangupCall } from './callsApi';
-import { formatPhone } from './data';
+import { useMaskedPhone } from '@/stores/themeStore';
 import { playDtmf } from './keypad/dtmf';
 import { startRing } from './calls/ringtone';
 import { startRingtone } from '@/apps/settings/tonePlayer';
@@ -27,6 +27,7 @@ function fmtElapsed(seconds: number): string {
 const KEYPAD_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
 
 export function CallLayer({ wallpaper }: { wallpaper?: string }) {
+    const phoneFmt  = useMaskedPhone();
     const phase     = useCallStore(s => s.phase);
     const channel   = useCallStore(s => s.channel);
     const name      = useCallStore(s => s.name);
@@ -146,7 +147,7 @@ export function CallLayer({ wallpaper }: { wallpaper?: string }) {
 
     if (!phase) return dropNotice;
 
-    const title    = name || formatPhone(number) || t('phone.unknown','Unknown');
+    const title    = name || phoneFmt(number) || t('phone.unknown','Unknown');
     const elapsed  = startedAt ? Math.max(0, Math.floor((now - startedAt) / 1000)) : 0;
     const subtitle = phase === 'active'
         ? fmtElapsed(elapsed)
@@ -182,12 +183,12 @@ export function CallLayer({ wallpaper }: { wallpaper?: string }) {
                         <div className="mt-3 flex w-full flex-col items-center gap-1">
                             {others.map(p => (
                                 <div key={p.number} className="text-[16px] font-medium text-white/85">
-                                    {p.name || formatPhone(p.number)}
+                                    {p.name || phoneFmt(p.number)}
                                 </div>
                             ))}
                             {pending && (
                                 <div className="text-[16px] font-light text-white/45">
-                                    {t('phone.addingParty','Calling {name}…',{ name: pending.name || formatPhone(pending.number) })}
+                                    {t('phone.addingParty','Calling {name}…',{ name: pending.name || phoneFmt(pending.number) })}
                                 </div>
                             )}
                         </div>
@@ -389,7 +390,7 @@ export function CallLayer({ wallpaper }: { wallpaper?: string }) {
                                     className="block w-full border-b border-white/[0.08] py-3 text-left active:opacity-60"
                                 >
                                     <div className="text-[17px] font-medium text-white">{c.name}</div>
-                                    <div className="text-[14px] tabular-nums text-white/55">{formatPhone(c.phone)}</div>
+                                    <div className="text-[14px] tabular-nums text-white/55">{phoneFmt(c.phone)}</div>
                                 </button>
                             ))}
                         </div>
@@ -416,7 +417,7 @@ export function CallLayer({ wallpaper }: { wallpaper?: string }) {
                         {contactList.map(c => (
                             <div key={c.id} className="border-b border-white/[0.08] py-3">
                                 <div className="text-[17px] font-medium text-white">{c.name}</div>
-                                <div className="text-[14px] tabular-nums text-white/55">{formatPhone(c.phone)}</div>
+                                <div className="text-[14px] tabular-nums text-white/55">{phoneFmt(c.phone)}</div>
                             </div>
                         ))}
                     </div>

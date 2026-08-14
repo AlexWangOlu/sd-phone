@@ -8,7 +8,8 @@ import { SegmentedControl } from '@/ui/SegmentedControl';
 import { AddContact } from '../contacts/AddContact';
 import { CallDetail } from './CallDetail';
 import { ContactDetail } from '../contacts/ContactDetail';
-import { formatPhone, type CallEntry, type Contact } from '../data';
+import { type CallEntry, type Contact } from '../data';
+import { useMaskedPhone } from '@/stores/themeStore';
 import { t } from '@/i18n';
 
 type Filter = 'all' | 'missed';
@@ -113,8 +114,9 @@ function CallRow({ entry, onBody, onInfo }: {
     onBody: (e: CallEntry) => void;
     onInfo: (e: CallEntry) => void;
 }) {
-    const primary   = entry.contact ? entry.contact.name : entry.noCallerId ? t('phone.noCallerId','No Caller ID') : formatPhone(entry.number);
-    const secondary = entry.contact ? formatPhone(entry.contact.phone) : t('phone.unknown','Unknown');
+    const phone     = useMaskedPhone();
+    const primary   = entry.contact ? entry.contact.name : entry.noCallerId ? t('phone.noCallerId','No Caller ID') : phone(entry.number);
+    const secondary = entry.contact ? phone(entry.contact.phone) : t('phone.unknown','Unknown');
 
     return (
         <div className="flex w-full items-center px-3.5 py-3.5">
@@ -144,6 +146,7 @@ function CallRow({ entry, onBody, onInfo }: {
 }
 
 function RecentAvatar({ entry }: { entry: CallEntry }) {
+    const phone = useMaskedPhone();
     const size = 56;
     if (entry.contact) {
         return <ContactAvatar contact={entry.contact} size={size} />;
@@ -153,7 +156,7 @@ function RecentAvatar({ entry }: { entry: CallEntry }) {
     }
     return (
         <ContactAvatar
-            contact={{ id: entry.number, name: formatPhone(entry.number), initials: '', color: '#8e8e93' }}
+            contact={{ id: entry.number, name: phone(entry.number), initials: '', color: '#8e8e93' }}
             size={size}
         />
     );

@@ -3,7 +3,8 @@ import type { ReactNode } from 'react';
 import { ChevronLeft, MessageSquare, Phone, Share, Video } from 'lucide-react';
 
 import { ContactAvatar, PlaceholderAvatar } from '@/shared/ContactAvatar';
-import { formatPhone, type CallEntry } from '../data';
+import { type CallEntry } from '../data';
+import { useMaskedPhone } from '@/stores/themeStore';
 import { t } from '@/i18n';
 
 export function CallDetail({ entry, onBack, onAddToContacts }: {
@@ -12,6 +13,7 @@ export function CallDetail({ entry, onBack, onAddToContacts }: {
     onAddToContacts: () => void;
 }) {
     const [shown, setShown] = useState(false);
+    const phone = useMaskedPhone();
     useEffect(() => {
         const id = requestAnimationFrame(() => setShown(true));
         return () => cancelAnimationFrame(id);
@@ -19,7 +21,7 @@ export function CallDetail({ entry, onBack, onAddToContacts }: {
 
     const title = entry.contact ? entry.contact.name
         : entry.noCallerId ? t('phone.noCallerId','No Caller ID')
-        : formatPhone(entry.number);
+        : phone(entry.number);
 
     return (
         <div
@@ -63,7 +65,7 @@ export function CallDetail({ entry, onBack, onAddToContacts }: {
                     <>
                         <div className="mb-4 rounded-[10px] bg-surface px-4 py-3">
                             <div className="text-[13px] text-black/50 dark:text-white/50">{t('phone.phoneLabel','phone')}</div>
-                            <div className="text-[19px] text-ios-blue">{formatPhone(entry.number)}</div>
+                            <div className="text-[19px] text-ios-blue">{phone(entry.number)}</div>
                         </div>
                         {!entry.contact && (
                             <button

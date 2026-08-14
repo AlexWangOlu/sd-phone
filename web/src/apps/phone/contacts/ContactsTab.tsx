@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { ChevronRight, Plus } from 'lucide-react';
 
 import { ContactAvatar } from '@/shared/ContactAvatar';
-import { useStreamerHidden } from '@/stores/themeStore';
+import { useMaskedPhone, useStreamerHidden } from '@/stores/themeStore';
 import { HIDDEN_TEXT } from '@/shell/streamerMode';
 import { useSessionState } from '@/hooks/useSessionState';
 import { useDidEnter } from '@/hooks/useDidEnter';
@@ -162,6 +162,7 @@ export function ContactsTab({ contacts, myNumber, myName, card, onRequestCall, o
 }
 
 function ContactRow({ contact, divider, onOpen }: { contact: Contact; divider: boolean; onOpen: (c: Contact) => void }) {
+    const phone = useMaskedPhone();
     return (
         <>
             {/* Off-screen rows skip style, layout and avatar decode. The deck re-parents this
@@ -179,7 +180,7 @@ function ContactRow({ contact, divider, onOpen }: { contact: Contact; divider: b
                 <ContactAvatar contact={contact} size={56} />
                 <div className="min-w-0 flex-1">
                     <div className="truncate text-[20px] font-semibold text-black dark:text-white">{contact.name}</div>
-                    <div className="truncate text-[17px] font-medium text-black/60 dark:text-white/60">{formatPhone(contact.phone)}</div>
+                    <div className="truncate text-[17px] font-medium text-black/60 dark:text-white/60">{phone(contact.phone)}</div>
                 </div>
             </button>
             {divider && (

@@ -17,7 +17,7 @@ import { portalToPhoneScreen } from '@/ui/portal';
 import { MessageBubble } from '@/shared/chat/MessageBubble';
 import { useAutoScrollToEnd } from '@/shared/chat/useAutoScrollToEnd';
 import type { Message } from '@/shared/chat/data';
-import { formatPhone } from '@/apps/phone/data';
+import { useMaskedPhone } from '@/stores/themeStore';
 import { decodeWaypoint } from '@/lib/waypointCode';
 import { apiSavePhotoFromUrl } from '@/core/photosApi';
 import { ServiceAvatar } from './ServiceAvatar';
@@ -107,7 +107,8 @@ export function ServiceMessagesTab({ inbox, loaded, onInboxChange, onMarkRead }:
 }
 
 function ThreadRow({ thread, scope, onOpen }: { thread: InboxThread; scope: Scope; onOpen: () => void }) {
-    const title  = scope === 'job' ? formatPhone(thread.key) : thread.name;
+    const phone  = useMaskedPhone();
+    const title  = scope === 'job' ? phone(thread.key) : thread.name;
     const unread = (thread.unread ?? 0) > 0;
     return (
         <button type="button" onClick={onOpen} className="flex w-full items-center gap-4 px-4 py-4 text-left active:bg-black/5 dark:active:bg-white/5">
@@ -151,6 +152,7 @@ function Conversation({ scope, thread, onBack, onSent }: {
     onSent: (inbox: Inbox) => void;
 }) {
     const { theme } = useTheme('theme');
+    const phone = useMaskedPhone();
     const isDark = theme === 'dark';
     const [sending, setSending]   = useState(false);
     const [locSheet, setLocSheet] = useState<InboxMessage | null>(null);
@@ -206,7 +208,7 @@ function Conversation({ scope, thread, onBack, onSent }: {
                 </div>
                 <div className="flex min-w-0 flex-col items-center gap-1.5">
                     <ServiceAvatar color={thread.color} emoji={thread.emoji} size={64} />
-                    <span className="max-w-[200px] truncate text-[18px] font-semibold leading-none text-black dark:text-white">{scope === 'job' ? formatPhone(thread.key) : thread.name}</span>
+                    <span className="max-w-[200px] truncate text-[18px] font-semibold leading-none text-black dark:text-white">{scope === 'job' ? phone(thread.key) : thread.name}</span>
                 </div>
                 <div className="flex-1" />
             </div>
