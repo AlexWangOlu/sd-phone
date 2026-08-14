@@ -464,7 +464,7 @@ export function Birdy({ onClose }: { onClose: () => void }) {
                                 onMessage={openDmWith}
                                 onOpenAuthor={openProfile}
                             />
-                            {hostForPost === 'profile' && (
+                            {hostForPost === 'profile' && postOverlay && (
                                 <div className="absolute inset-0" style={{ background: BG }}>
                                     <div className="absolute bottom-0 left-0 right-0 top-[54px]">{postOverlay}</div>
                                 </div>
