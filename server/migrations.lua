@@ -24,6 +24,7 @@ local COLUMNS = {
         game_time         = 'game_time TINYINT(1) NULL',
         caller_id         = 'caller_id TINYINT(1) NULL',
         streamer_mode     = 'streamer_mode TINYINT(1) NULL',
+        streamer_hide     = 'streamer_hide VARCHAR(255) NULL',
         reopen_app        = 'reopen_app TINYINT(1) NULL',
         setup_done        = 'setup_done TINYINT(1) NULL',
         custom_wallpapers = 'custom_wallpapers TEXT NULL',

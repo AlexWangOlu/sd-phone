@@ -23,6 +23,7 @@ writeCallback('sd-phone:settings:setAirplane',  'sd-phone:server:settings:setAir
 writeCallback('sd-phone:settings:setHour24',    'sd-phone:server:settings:setHour24')
 writeCallback('sd-phone:settings:setCallerId',  'sd-phone:server:settings:setCallerId')
 writeCallback('sd-phone:settings:setStreamerMode', 'sd-phone:server:settings:setStreamerMode')
+writeCallback('sd-phone:settings:setStreamerHide', 'sd-phone:server:settings:setStreamerHide')
 writeCallback('sd-phone:settings:setReopenApp', 'sd-phone:server:settings:setReopenApp')
 writeCallback('sd-phone:settings:setSetupDone', 'sd-phone:server:settings:setSetupDone')
 writeCallback('sd-phone:settings:setTheme',     'sd-phone:server:settings:setTheme')

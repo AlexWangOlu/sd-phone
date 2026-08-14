@@ -88,6 +88,7 @@ function store.ensureSchema()
             hour24             TINYINT(1)   NULL,
             caller_id          TINYINT(1)   NULL,
             streamer_mode      TINYINT(1)   NULL,
+            streamer_hide      VARCHAR(255) NULL,
             reopen_app         TINYINT(1)   NULL,
             setup_done         TINYINT(1)   NULL,
             theme              VARCHAR(8)   NULL,
@@ -1347,6 +1348,43 @@ function store.getStreamerMode(citizenid)
     return row ~= nil and (row.streamer_mode == true or tonumber(row.streamer_mode) == 1)
 end
 
+---@type table<string, true> The categories Streamer Mode can hide. A key absent from a stored
+---config means "hide it": the master switch is opt-out per category, so a config written by an
+---older client keeps hiding anything it did not know about rather than silently exposing it.
+local STREAMER_KEYS = {
+    balance = true, transactions = true, card = true,
+    investments = true, number = true, previews = true,
+}
+
+---Returns a player's per-category Streamer Mode config, or nil when they have never tuned it
+---(which the client reads as "hide everything"). Read-only.
+---@param citizenid string framework per-character id
+---@return table<string, boolean>|nil
+function store.getStreamerHide(citizenid)
+    if not citizenid or citizenid == '' then return nil end
+    local row = MySQL.single.await('SELECT streamer_hide FROM phone_settings WHERE citizenid = ?', { citizenid })
+    if not row or not row.streamer_hide or row.streamer_hide == '' then return nil end
+    local ok, decoded = pcall(json.decode, row.streamer_hide)
+    if not ok or type(decoded) ~= 'table' then return nil end
+    return decoded
+end
+
+---Persists a player's per-category Streamer Mode config, rebuilding the stored JSON from only
+---the known keys so a patched client cannot grow the column without bound.
+---@param citizenid string framework per-character id
+---@param cfg table<string, boolean>
+function store.setStreamerHide(citizenid, cfg)
+    if not citizenid or citizenid == '' or type(cfg) ~= 'table' then return end
+    local clean = {}
+    for key in pairs(STREAMER_KEYS) do
+        clean[key] = cfg[key] ~= false
+    end
+    MySQL.update.await([[
+        INSERT INTO phone_settings (citizenid, streamer_hide) VALUES (?, ?)
+        ON DUPLICATE KEY UPDATE streamer_hide = VALUES(streamer_hide)
+    ]], { citizenid, json.encode(clean) })
+end
+
 ---Persists a player's Streamer Mode preference (upsert), coerced to a strict boolean.
 ---@param citizenid string framework per-character id
 ---@param on boolean hide money figures on screen
@@ -2277,6 +2315,7 @@ function store.snapshot(citizenid, device)
         -- 0 has to survive as false rather than collapsing back to the default on the next hydrate.
         callerId         = (row == nil or row.caller_id == nil) and true or isTruthy(row.caller_id),
         streamerMode     = row ~= nil and isTruthy(row.streamer_mode) or false,
+        streamerHide     = row and decodeColumn(row.streamer_hide, nil) or nil,
         reopenApp        = row ~= nil and (row.reopen_app == true or tonumber(row.reopen_app) == 1),
         setupDone        = row ~= nil and (row.setup_done == true or tonumber(row.setup_done) == 1),
         theme            = (row and row.theme == 'dark') and 'dark' or 'light',

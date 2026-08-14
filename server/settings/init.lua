@@ -403,6 +403,17 @@ lib.callback.register('sd-phone:server:settings:setStreamerMode', function(sourc
     return { success = true }
 end)
 
+---Persists which categories Streamer Mode hides. The store rebuilds the row from its own key
+---whitelist, so an unknown key is dropped rather than stored.
+lib.callback.register('sd-phone:server:settings:setStreamerHide', function(source, payload)
+    local cid = player.getIdentifier(source)
+    if not cid then return { success = false, message = 'Player not found' } end
+    if not writeAllowed(cid, 'streamerHide') then return BUSY end
+    payload = type(payload) == 'table' and payload or {}
+    store.setStreamerHide(cid, type(payload.hide) == 'table' and payload.hide or {})
+    return { success = true }
+end)
+
 ---Marks the caller's profile as having completed first-run setup (one-way; the wipe path
 ---deletes the whole settings row, which is what un-sets it).
 lib.callback.register('sd-phone:server:settings:setSetupDone', function(source, payload)

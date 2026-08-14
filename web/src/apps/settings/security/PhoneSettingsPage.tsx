@@ -6,14 +6,16 @@ import { formatPhone } from '@/lib/phone';
 import { useContacts } from '@/stores/contactsStore';
 import { useIosPush } from '@/hooks/useIosPush';
 import { ListGroup, ToggleRow } from '@/ui/ListGroup';
-import { useTheme } from '@/stores/themeStore';
+import { useStreamerHidden, useTheme } from '@/stores/themeStore';
+import { HIDDEN_TEXT } from '@/shell/streamerMode';
 import { SubPage } from '../SettingsSubPage';
 
 
 export function PhoneSettingsPage({ onBack }: { onBack: () => void }) {
     const { myNumber, load } = useContacts('myNumber', 'load');
     useEffect(() => { void load(); }, [load]);
-    const number = myNumber ? formatPhone(myNumber) : '—';
+    const hideNumber = useStreamerHidden('number');
+    const number = hideNumber ? HIDDEN_TEXT : (myNumber ? formatPhone(myNumber) : '—');
     const { callerId, setCallerId } = useTheme('callerId', 'setCallerId');
     const [copied,       setCopied]       = useState(false);
     const [showBlocked,  setShowBlocked]  = useState(false);

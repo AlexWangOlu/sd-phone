@@ -24,8 +24,7 @@ const ICONS: Record<IconName, LucideIcon> = {
 export function SettingsRow({ row, divider, onPress }: { row: SettingsRowDef; divider: boolean; onPress?: () => void }) {
     const Icon = ICONS[row.icon];
     const hasSubtitle = Boolean(row.subtitle);
-    const { airplaneMode, setAirplaneMode, streamerMode, setStreamerMode } =
-        useTheme('airplaneMode', 'setAirplaneMode', 'streamerMode', 'setStreamerMode');
+    const { airplaneMode, setAirplaneMode } = useTheme('airplaneMode', 'setAirplaneMode');
     return (
         <button
             type="button"
@@ -65,8 +64,6 @@ export function SettingsRow({ row, divider, onPress }: { row: SettingsRowDef; di
 
             {row.id === 'airplane' ? (
                 <Toggle on={airplaneMode} onChange={setAirplaneMode} />
-            ) : row.id === 'streamer' ? (
-                <Toggle on={streamerMode} onChange={setStreamerMode} />
             ) : (
                 <>
                     {row.status && (

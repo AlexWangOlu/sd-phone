@@ -145,8 +145,6 @@ export const TRANSACTIONS: Transaction[] = [
 ];
 
 
-export const HIDDEN_FIGURE = '••••';
-
 export function formatMoney(amount: number, opts: { showSign?: boolean; whole?: boolean } = {}): string {
     const absVal = opts.whole ? Math.floor(Math.abs(amount)) : Math.abs(amount);
     const abs = absVal.toLocaleString('en-US', {
