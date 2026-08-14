@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Heart, MessageCircle, MoreHorizontal, Repeat2 } from 'lucide-react';
+import { Heart, MessageCircle, Repeat2 } from 'lucide-react';
 
 import { t } from '@/i18n';
 import { AlertDialog } from '@/ui/AlertDialog';
@@ -8,14 +8,13 @@ import { compactCount } from '../polish/format';
 import { HeartBurst } from '../polish/HeartBurst';
 import { Avatar, PostImages, RichText, VerifiedBadge } from '../ui';
 
-export function PostCard({ post, isOwn, onToggleLike, onToggleRepost, onOpen, onOpenAuthor, onDelete }: {
+export function PostCard({ post, isOwn, onToggleLike, onToggleRepost, onOpen, onOpenAuthor }: {
     post:          BirdyPost;
     isOwn:         boolean;
     onToggleLike:  () => void;
     onToggleRepost?: () => void;
     onOpen?:       () => void;
     onOpenAuthor?: (handle: string) => void;
-    onDelete?:     () => void;
 }) {
     const openAuthor = (e: React.MouseEvent) => {
         if (!onOpenAuthor) return;
@@ -32,7 +31,6 @@ export function PostCard({ post, isOwn, onToggleLike, onToggleRepost, onOpen, on
     // Server truth; the parent applies the optimistic flip.
     const reposted = post.reposted === true;
     const [confirmRepost, setConfirmRepost] = useState(false);
-    const [menuOpen, setMenuOpen] = useState(false);
     const repostCount = post.reposts;
 
     return (
@@ -41,20 +39,6 @@ export function PostCard({ post, isOwn, onToggleLike, onToggleRepost, onOpen, on
             onClick={onOpen}
             className={`relative border-b border-hairline/10 px-4 py-[18px] ${onOpen ? 'cursor-pointer transition-colors hover:bg-hairline/[0.04]' : ''}`}
         >
-            {isOwn && onDelete && (
-                // Absolute, not in the header row: as a flex sibling it stole width from the
-                // handle and timestamp, so a post gaining this button visibly shifted its own text.
-                <button
-                    type="button"
-                    onClick={e => { e.stopPropagation(); setMenuOpen(true); }}
-                    className="absolute right-2 top-3 p-2 active:opacity-60"
-                    aria-label={t('squawk.more', 'More')}
-                    style={{ color: META }}
-                >
-                    <MoreHorizontal className="h-[22px] w-[22px]" />
-                </button>
-            )}
-
             {post.repostedBy && (
                 <div className="mb-2 flex items-center gap-4 text-[14px] font-semibold" style={{ color: META }}>
                     <span className="flex w-[60px] shrink-0 justify-end"><Repeat2 className="h-[18px] w-[18px]" strokeWidth={2.4} /></span>
@@ -132,17 +116,6 @@ export function PostCard({ post, isOwn, onToggleLike, onToggleRepost, onOpen, on
             </div>
             </div>
         </article>
-
-        {menuOpen && (
-            <AlertDialog
-                title={t('squawk.deletePost', 'Delete post?')}
-                message={t('squawk.deletePostMessage', 'This removes the post and its replies for everyone. This cannot be undone.')}
-                confirmLabel={t('squawk.delete', 'Delete')}
-                destructive
-                onCancel={() => setMenuOpen(false)}
-                onConfirm={() => { setMenuOpen(false); onDelete?.(); }}
-            />
-        )}
 
         {confirmRepost && (
             <AlertDialog

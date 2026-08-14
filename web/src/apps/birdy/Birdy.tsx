@@ -295,7 +295,7 @@ export function Birdy({ onClose }: { onClose: () => void }) {
 
     let content: React.ReactNode;
     if (tab === 'home') {
-        content = <Feed posts={posts} me={me} feed={feed} onFeedChange={switchFeed} onRefresh={refreshNow} onToggleLike={toggleLike} onToggleRepost={toggleRepost} onOpenPost={setOpenPostId} onOpenProfile={openProfile} onOpenAuthor={openProfile} onDeletePost={deletePost} />;
+        content = <Feed posts={posts} me={me} feed={feed} onFeedChange={switchFeed} onRefresh={refreshNow} onToggleLike={toggleLike} onToggleRepost={toggleRepost} onOpenPost={setOpenPostId} onOpenProfile={openProfile} onOpenAuthor={openProfile} />;
     } else if (tab === 'search') {
         content = <Search me={me} onOpenProfile={openProfile} onOpenPost={setOpenPostId} onToggleLike={toggleLike} onToggleRepost={toggleRepost} />;
     } else if (tab === 'notifications') {
@@ -317,6 +317,7 @@ export function Birdy({ onClose }: { onClose: () => void }) {
                         onToggleReplyLike={rid => toggleLike(rid)}
                         onOpenAuthor={openProfile}
                         onReply={(b, imgs) => addReply(openPost.id, b, imgs)}
+                        onDelete={() => deletePost(openPost.id)}
                     />
                 )
                 : <LoadingPane onBack={close} />}
