@@ -59,15 +59,15 @@ export function PostCard({ post, isOwn, onToggleLike, onToggleRepost, onOpen, on
             </button>
 
             <div className="min-w-0 flex-1">
-                <div className="flex items-baseline gap-1 pr-7 leading-tight">
+                <div className="flex items-baseline gap-1 leading-tight">
                     <button type="button" onClick={openAuthor} className="flex min-w-0 items-baseline gap-1 text-left">
-                        <span className="truncate text-[19px] font-bold text-label" style={{ flexShrink: 1 }}>{post.author.name}</span>
+                        <span className="min-w-0 truncate text-[19px] font-bold text-label">{post.author.name}</span>
                         {post.author.verified && (
                             <span className="shrink-0 self-center"><VerifiedBadge size={18} type={post.author.verifiedType} /></span>
                         )}
-                        <span className="min-w-0 truncate text-[15px]" style={{ color: META, flexShrink: 999 }}>@{post.author.handle}</span>
+                        <span className="max-w-[16ch] shrink-0 truncate text-[15px]" style={{ color: META }}>@{post.author.handle}</span>
                     </button>
-                    <span className="shrink-0 text-[15px]" style={{ color: META }}>· {relativeTime(post.createdAt)}</span>
+                    <span className="ml-auto shrink-0 pl-2 text-[15px]" style={{ color: META }}>{relativeTime(post.createdAt)}</span>
                 </div>
 
                 {post.body && (
