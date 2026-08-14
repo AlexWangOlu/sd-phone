@@ -1363,6 +1363,11 @@ function AppContent() {
             clearCustomInstalled();
             useMusicLibrary.getState().reset();
             useLocaleStore.getState().hydrate();
+            resetContacts();
+            setNotifs([]);
+            setLockNotifs([]);
+            setPeekNotif(null);
+            useBadgeStore.getState().setServer({});
             setInstalledApps(new Set());
             setSavedLayout(null);
         }

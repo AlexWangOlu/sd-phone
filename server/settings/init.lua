@@ -662,8 +662,10 @@ end)
 ---(`scope = 'erase'`).
 ---
 ---Reset puts the preferences back to default and leaves the character otherwise intact: still
----set up, still holding their apps, accounts, lock and contact card. Erase clears the row down
----to the phone number and signs the caller out of every app account and mailbox.
+---set up, still holding their apps, accounts, lock, contact card and everything on the phone.
+---Erase clears the row down to the phone number, deletes the content the phone owns (contacts,
+---messages, photos and the rest, per server.admin.wipe.wipeDeviceContent) and signs the caller
+---out of every app account and mailbox.
 ---
 ---Erase HAS to clear setup_done server-side: the client re-arming the wizard locally is undone
 ---by the very next settings:get while the stored flag still reads done.
@@ -687,6 +689,7 @@ lib.callback.register('sd-phone:server:settings:factoryReset', function(source, 
     require('server.wifi.store').resetFor(cid)
     require('server.bluetooth.store').resetFor(cid)
     if eraseAll then
+        require('server.admin.wipe').wipeDeviceContent(cid)
         accounts.signOutEverywhere(cid)
     end
     badges.push(source)
