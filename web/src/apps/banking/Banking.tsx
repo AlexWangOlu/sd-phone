@@ -9,7 +9,8 @@ import { useNuiEvent } from '@/hooks/useNuiEvent';
 import { useSessionState } from '@/hooks/useSessionState';
 import { t } from '@/i18n';
 import { ActionSheet } from '@/ui/ActionSheet';
-import { formatMoney } from './data';
+import { formatMoney, HIDDEN_FIGURE } from './data';
+import { useTheme } from '@/stores/themeStore';
 import { fetchOverview, type BankOverview, type BankTx } from './bankingApi';
 import { fetchReceivedInvoices } from '@/apps/services/servicesApi';
 import { AllTransactions } from './AllTransactions';
@@ -37,6 +38,7 @@ export function Banking({ onClose: _onClose }: { onClose: () => void }) {
     // instantly from cached data, and the pending count feeds the Invoices tab badge.
     const { data: receivedInv, loading: receivedLoading, refetch: refetchReceived } = useAsyncData(loadReceived, []);
 
+    const { streamerMode } = useTheme('streamerMode');
     const [tab,      setTab]      = useSessionState<BankingTab>('banking:tab', 'home');
     const [showAll,  setShowAll]  = useSessionState('banking:showAll', false);
     const [sending,  setSending]  = useSessionState('banking:sending', false);
@@ -98,12 +100,14 @@ export function Banking({ onClose: _onClose }: { onClose: () => void }) {
             <div className="px-5 pb-2 pt-0.5 text-[34px] font-bold tracking-tight">{t('banking.wallet', 'Wallet')}</div>
 
             <div className="flex-1 overflow-y-auto no-scrollbar px-4 pb-10 pt-3">
-                <FleecaCard holder={holder} last4={last4} expiry={CARD_EXPIRY} />
+                <FleecaCard holder={holder} last4={streamerMode ? HIDDEN_FIGURE : last4} expiry={CARD_EXPIRY} />
 
                 <div className="mt-5 flex items-center justify-between rounded-[16px] bg-surface px-5 py-3">
                     <div>
                         <div className="text-[17px] font-semibold text-black dark:text-white">{t('banking.balance', 'Balance')}</div>
-                        <div className="mt-0.5 text-[26px] font-bold tabular-nums tracking-tight text-black dark:text-white">{formatMoney(balance, { whole: true })}</div>
+                        <div className="mt-0.5 text-[26px] font-bold tabular-nums tracking-tight text-black dark:text-white">
+                            {streamerMode ? HIDDEN_FIGURE : formatMoney(balance, { whole: true })}
+                        </div>
                     </div>
                     <button
                         type="button"

@@ -4,7 +4,7 @@ import {
     Image as ImageIcon, Key, Languages, LayoutGrid, ListTodo, Lock, Mail,
     MapPin, MessageCircle, Mic, Moon, Newspaper, PawPrint, Phone, Plane, Search,
     Settings2, ShoppingBag, Siren, SlidersHorizontal,
-    Sparkles, StickyNote, Sun, User, Volume2, Wifi, Zap,
+    Sparkles, StickyNote, Sun, User, Video, Volume2, Wifi, Zap,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -17,14 +17,15 @@ const ICONS: Record<IconName, LucideIcon> = {
     Settings2, SlidersHorizontal, Sun, LayoutGrid, Accessibility, Search,
     Image: ImageIcon, Sparkles, Fingerprint, Siren,
     ShoppingBag, CreditCard, Gamepad2, Lock, Mail, User, Calendar, StickyNote,
-    ListTodo, Mic, Phone, MessageCircle, Compass, Newspaper, Languages,
+    ListTodo, Mic, Phone, MessageCircle, Video, Compass, Newspaper, Languages,
     MapPin, Zap, PawPrint, Grid2x2,
 };
 
 export function SettingsRow({ row, divider, onPress }: { row: SettingsRowDef; divider: boolean; onPress?: () => void }) {
     const Icon = ICONS[row.icon];
     const hasSubtitle = Boolean(row.subtitle);
-    const { airplaneMode, setAirplaneMode } = useTheme('airplaneMode', 'setAirplaneMode');
+    const { airplaneMode, setAirplaneMode, streamerMode, setStreamerMode } =
+        useTheme('airplaneMode', 'setAirplaneMode', 'streamerMode', 'setStreamerMode');
     return (
         <button
             type="button"
@@ -64,6 +65,8 @@ export function SettingsRow({ row, divider, onPress }: { row: SettingsRowDef; di
 
             {row.id === 'airplane' ? (
                 <Toggle on={airplaneMode} onChange={setAirplaneMode} />
+            ) : row.id === 'streamer' ? (
+                <Toggle on={streamerMode} onChange={setStreamerMode} />
             ) : (
                 <>
                     {row.status && (
