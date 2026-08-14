@@ -168,9 +168,15 @@ const RETAIN_CAP = RECENTS_CAP;
 const ALARM_TEST_ID = '__alarm_test__';
 
 // Anything that swallows a keystroke as text rather than as a shortcut.
+const NON_TEXT_INPUT_TYPES = new Set([
+    'range', 'checkbox', 'radio', 'button', 'submit', 'reset', 'file', 'color', 'image',
+]);
+
 function isTextEntry(el: EventTarget | null): boolean {
     const t = el as HTMLElement | null;
-    return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+    if (!t) return false;
+    if (t.tagName === 'INPUT') return !NON_TEXT_INPUT_TYPES.has((t as HTMLInputElement).type);
+    return t.tagName === 'TEXTAREA' || t.isContentEditable;
 }
 
 export function App() {
