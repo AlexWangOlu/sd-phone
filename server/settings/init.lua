@@ -107,6 +107,19 @@ local function coalesce(cid, key, fn)
     end
 end
 
+---Drops every queued trailing write for one character, so a reset is not undone a moment later
+---by a value the player changed just before pressing it. The timer still fires; it finds nothing
+---pending and does nothing. Anything that rewrites the whole settings row has to call this first,
+---or the twelve coalesced settings (brightness, phone scale, island pet, app labels, ...) each
+---get up to WRITE_GAP to come back from the dead.
+---@param cid string framework per-character id
+local function dropPendingWrites(cid)
+    local prefix = cid .. '\0'
+    for k, w in pairs(writes) do
+        if k:sub(1, #prefix) == prefix then w.pending = nil end
+    end
+end
+
 -- A pending timer holds its own state by upvalue, so a trailing write still lands for a player
 -- who disconnects mid-gesture; only the idle rows go.
 util.onCleanup(function(_, cid)
@@ -644,6 +657,9 @@ lib.callback.register('sd-phone:server:settings:factoryReset', function(source, 
     if not util.cooldown(cid, 'settings:factoryReset', 30000) then
         return { success = false, message = 'Please wait a moment before trying again' }
     end
+    -- Before anything is written: a queued trailing write would otherwise either race the row
+    -- rewrite or land just after it and restore the setting the player asked to reset.
+    dropPendingWrites(cid)
     store.resetSettings(cid, deviceOf(payload), eraseAll and 'erase' or 'settings')
     -- Settings that live outside the settings row. Wiping only phone_settings left per-app
     -- notification switches, per-job prefs and saved networks exactly as the player left them,

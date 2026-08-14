@@ -456,8 +456,6 @@ function store.resetSettings(citizenid, device, scope)
         { citizenid, device })
     if not row then return end
 
-    MySQL.update.await('DELETE FROM phone_settings WHERE citizenid = ? AND device = ?', { citizenid, device })
-
     local cols, marks, vals = { 'citizenid', 'device' }, { '?', '?' }, { citizenid, device }
     for _, col in ipairs(keep) do
         local v = row[col]
@@ -468,9 +466,21 @@ function store.resetSettings(citizenid, device, scope)
             vals[#vals + 1]  = v
         end
     end
-    MySQL.update.await(
-        'INSERT INTO phone_settings (' .. table.concat(cols, ', ') .. ') VALUES (' .. table.concat(marks, ', ') .. ')',
-        vals)
+
+    -- One transaction, and an upsert rather than a plain insert. Every await yields, and a
+    -- trailing coalesced write landing between the delete and the insert would re-create the row
+    -- holding only its own column - the insert then died on the duplicate key and left a profile
+    -- with no setup flag and, worse, no phone number.
+    local sets = {}
+    for _, col in ipairs(cols) do sets[#sets + 1] = col .. ' = VALUES(' .. col .. ')' end
+    MySQL.transaction.await({
+        { query = 'DELETE FROM phone_settings WHERE citizenid = ? AND device = ?', values = { citizenid, device } },
+        {
+            query = 'INSERT INTO phone_settings (' .. table.concat(cols, ', ') .. ') VALUES ('
+                .. table.concat(marks, ', ') .. ') ON DUPLICATE KEY UPDATE ' .. table.concat(sets, ', '),
+            values = vals,
+        },
+    })
 
     -- airplane_mode is read through a write-through cache; the row rewrite above bypasses it.
     store.forgetAirplane(citizenid, device)
