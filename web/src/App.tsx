@@ -43,7 +43,7 @@ import type { SetupResult } from '@/shell/SetupFlow';
 import { isKeyboardCaptured } from '@/hooks/useKeyboardCapture';
 import { useNuiEvent } from '@/hooks/useNuiEvent';
 import { isGameClock, useGameClockStore } from '@/stores/gameClockStore';
-import { seedSessionState } from '@/hooks/useSessionState';
+import { clearSessionState, seedSessionState } from '@/hooks/useSessionState';
 import { onOpenMail, onOpenMaps, onOpenMessages, requestOpenMail } from '@/shell/deeplink';
 import { fetchNui, isFiveM } from '@/core/nui';
 import { usePhoneReset, type PhoneResetScope } from '@/core/phoneReset';
@@ -76,9 +76,9 @@ import { isRepeating } from '@/apps/clock/data';
 import type { AlarmDef } from '@/apps/clock/data';
 
 
-// Local counterparts of the server's RESET_KEEP: what a Reset All Settings must NOT throw away.
-// Setup state, app logins, and content the player owns (music library, game saves).
 const RESET_KEEPS_LOCAL = ['sd-phone:setup:', 'sd-phone:auth:', 'sd-phone:music:lib', 'sd-phone:cookie:'];
+
+const APP_CLOSE_MS = 300;
 
 const SETUP_KEY_BASE = 'sd-phone:setup:v1';
 
@@ -1326,23 +1326,20 @@ function AppContent() {
     useEffect(() => {
         if (!resetNonce) return;
         const scope = usePhoneReset.getState().scope;
-        // Nothing is torn down until the server confirms. It refuses a reset that lands inside
-        // the cooldown, and clearing the client anyway left the phone stripped locally while the
-        // stored settings were untouched.
         let cancelled = false;
         void (async () => {
             const res = await fetchNui<{ success?: boolean }>('sd-phone:settings:factoryReset', { scope })
                 .catch(() => null);
             if (cancelled || (isFiveM && res?.success !== true)) return;
+            setIsClosing(true);
+            await new Promise(resolve => window.setTimeout(resolve, APP_CLOSE_MS));
+            if (cancelled) return;
             applyLocalReset(scope);
         })();
         return () => { cancelled = true; };
     }, [resetNonce]);
 
     function applyLocalReset(scope: PhoneResetScope) {
-        // Both scopes sweep the whole sd-phone: namespace and Reset spares a keep-list, rather
-        // than Reset naming the keys to clear. Listing what to clear silently misses every
-        // preference added later; listing what to spare makes a new one reset by default.
         const doomed: string[] = [];
         for (let i = 0; i < window.localStorage.length; i++) {
             const k = window.localStorage.key(i);
@@ -1351,6 +1348,7 @@ function AppContent() {
             doomed.push(k);
         }
         for (const k of doomed) window.localStorage.removeItem(k);
+        clearSessionState(scope === 'erase' ? '' : 'settings:');
         useThemeStore.getState().resetToDefaults(scope === 'erase');
         useThemeStore.getState().hydrate();
         void useNotifPrefsStore.getState().hydrate();
@@ -1376,8 +1374,6 @@ function AppContent() {
         setCcOpen(false);
         setFinishingSetup(false);
         setLocked(false);
-        // Only an Erase re-arms the wizard. Reset All Settings puts preferences back to default
-        // and leaves the character set up, so sending them through Hello again would be wrong.
         if (scope === 'erase') {
             setSetupHello(true);
             setSetup({ completed: !device.setup });

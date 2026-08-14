@@ -34,7 +34,6 @@ export function Stocks({ onClose }: { onClose: () => void }) {
     const [openSymbol, setOpenSymbol] = useSessionState<string | null>('stocks:open', null);
     const [hiddenByUser, setHideBalance] = useSessionState('stocks:hideBalance', false);
     const forcedHidden = useStreamerHidden('investments');
-    // Streamer Mode forces it; the in-app eye still works on top for everyone else.
     const hideBalance = hiddenByUser || forcedHidden;
     const [showPortfolio, setShowPortfolio] = useSessionState('stocks:portfolio', false);
     const [trade, setTrade] = useState<{ mode: TradeMode; symbol?: string } | null>(null);

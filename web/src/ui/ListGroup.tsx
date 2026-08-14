@@ -73,7 +73,6 @@ export function ListRow({ label, sub, value, chevron, divider, destructive, disa
     chevron?:     boolean;
     divider?:     boolean;
     destructive?: boolean;
-    /** Greys the row and ignores presses - a row that is temporarily unavailable. */
     disabled?:    boolean;
     selected?:    boolean;
     /** Roomier variant: taller row, 18px label, 14px sub - list-browsing apps (Files). */

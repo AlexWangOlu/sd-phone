@@ -50,9 +50,9 @@ export function ResetPhonePage({ onBack }: { onBack: () => void }) {
         requestPhoneReset(scope);
     }
 
-    function subFor(scope: PhoneResetScope): string | undefined {
+    function subFor(scope: PhoneResetScope, idle?: string): string | undefined {
         const secs = leftFor(scope);
-        return secs > 0 ? t('settings.resetAvailableIn', 'Available again in {n}s', { n: secs }) : undefined;
+        return secs > 0 ? t('settings.resetAvailableIn', 'Available again in {n}s', { n: secs }) : idle;
     }
 
     return (
@@ -70,8 +70,8 @@ export function ResetPhonePage({ onBack }: { onBack: () => void }) {
 
                 <ListGroup footer={t('settings.eraseAllFooter', 'Erases everything on this phone and takes you back through setup. Your saved passwords stay in the Passwords app, so you can sign back into your accounts. This cannot be undone.')}>
                     <ListRow
-                        label={t('settings.eraseAllContent', 'Erase All Content and Settings')}
-                        sub={subFor('erase')}
+                        label={t('settings.eraseAllContent', 'Reset Phone Fully')}
+                        sub={subFor('erase', t('settings.eraseAllSub', 'Puts you back through setup'))}
                         destructive
                         disabled={leftFor('erase') > 0}
                         onPress={() => setConfirm('erase')}
@@ -92,9 +92,9 @@ export function ResetPhonePage({ onBack }: { onBack: () => void }) {
 
             {confirm === 'erase' && (
                 <AlertDialog
-                    title={t('settings.eraseAllTitle', 'Erase All Content and Settings?')}
+                    title={t('settings.eraseAllTitle', 'Reset Phone Fully?')}
                     message={t('settings.eraseAllMessage', 'Your phone is wiped back to factory defaults and you will be taken through setup again. Your saved passwords stay in the Passwords app, so you can sign back into your accounts. Server-side data such as mail accounts and group memberships is preserved.')}
-                    confirmLabel={t('settings.eraseConfirm', 'Erase')}
+                    confirmLabel={t('settings.eraseConfirm', 'Reset')}
                     destructive
                     onCancel={() => setConfirm(null)}
                     onConfirm={() => run('erase', 30000)}

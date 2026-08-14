@@ -415,7 +415,6 @@ interface ThemeState {
     resetProfileVisuals: () => void;
     applyWallpaperProfile: (key: string | null) => void;
     hydrate: (attempt?: number) => void;
-    /** Factory defaults, applied now. `full` also drops the lock and player-authored content. */
     resetToDefaults: (full: boolean) => void;
 }
 
@@ -837,9 +836,6 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     },
 
     resetToDefaults: (full) => {
-        // hydrate() only assigns fields the server actually has, so a reset profile - whose
-        // columns are all NULL - hydrates to nothing and leaves the old values on screen until
-        // the next mount. The defaults have to be applied here instead.
         setDensity('default');
         setExtraRow(DEFAULT_SHELL_LOOK.dockStyle === 'hidden');
         const stock = isFiveM ? lockscreenAsset : devDefaultAsset;
@@ -1052,15 +1048,10 @@ export function useTheme(...keys: (keyof ThemeState)[]): unknown {
     );
 }
 
-// True when Streamer Mode is on AND this category is still one of the things it hides. Every
-// consumer goes through here so "what does Streamer Mode cover" lives in exactly one place.
 export function useStreamerHidden(key: StreamerHideKey): boolean {
     return useThemeStore(s => s.streamerMode && s.streamerHide[key] !== false);
 }
 
-// Phone-number formatter that blanks the number while Streamer Mode hides them. Display sites
-// call this instead of formatPhone directly; anything that needs the real digits (dialling,
-// autofill values, lookups) keeps using formatPhone.
 export function useMaskedPhone(): (n: string | null | undefined) => string {
     const hidden = useStreamerHidden('number');
     return (n) => (hidden ? HIDDEN_TEXT : formatPhone(n ?? ''));
