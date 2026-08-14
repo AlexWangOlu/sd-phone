@@ -68,7 +68,7 @@ export function ResetPhonePage({ onBack }: { onBack: () => void }) {
                     />
                 </ListGroup>
 
-                <ListGroup footer={t('settings.eraseAllFooter', 'This will permanently erase all content and settings. This action cannot be undone.')}>
+                <ListGroup footer={t('settings.eraseAllFooter', 'Erases everything on this phone and takes you back through setup. Your saved passwords stay in the Passwords app, so you can sign back into your accounts. This cannot be undone.')}>
                     <ListRow
                         label={t('settings.eraseAllContent', 'Erase All Content and Settings')}
                         sub={subFor('erase')}
@@ -93,7 +93,7 @@ export function ResetPhonePage({ onBack }: { onBack: () => void }) {
             {confirm === 'erase' && (
                 <AlertDialog
                     title={t('settings.eraseAllTitle', 'Erase All Content and Settings?')}
-                    message={t('settings.eraseAllMessage', 'Your phone will be wiped back to factory defaults. Server-side data such as mail accounts and group memberships is preserved, so sign out or leave those first if you want a complete reset.')}
+                    message={t('settings.eraseAllMessage', 'Your phone is wiped back to factory defaults and you will be taken through setup again. Your saved passwords stay in the Passwords app, so you can sign back into your accounts. Server-side data such as mail accounts and group memberships is preserved.')}
                     confirmLabel={t('settings.eraseConfirm', 'Erase')}
                     destructive
                     onCancel={() => setConfirm(null)}
