@@ -1395,13 +1395,19 @@ end
 
 ---Returns true when a player's number may be shown to whoever they call, defaulting to true
 ---when the caller_id column is NULL (an unset preference is not a withheld one). Read-only.
+---
+---The IS NULL flag is not decoration: oxmysql maps a TINYINT(1) to a Lua boolean, and a NULL
+---one arrives as `false` rather than nil, so an unset column is indistinguishable from a stored
+---0 unless the query says so. Reading it directly defaulted every phone to withholding.
 ---@param citizenid string framework per-character id
 ---@return boolean showCallerId
 function store.getCallerId(citizenid)
     if not citizenid or citizenid == '' then return true end
-    local row = MySQL.single.await('SELECT caller_id FROM phone_settings WHERE citizenid = ?', { citizenid })
-    if row and row.caller_id ~= nil then
-        return row.caller_id == true or tonumber(row.caller_id) == 1
+    local row = MySQL.single.await(
+        'SELECT caller_id, caller_id IS NULL AS caller_id_unset FROM phone_settings WHERE citizenid = ?',
+        { citizenid })
+    if row and not isTruthy(row.caller_id_unset) then
+        return isTruthy(row.caller_id)
     end
     return true
 end
@@ -2328,7 +2334,13 @@ end
 function store.snapshot(citizenid, device)
     device = device or 'phone'
     if not citizenid or citizenid == '' then return {} end
-    local row = MySQL.single.await('SELECT * FROM phone_settings WHERE citizenid = ? AND device = ?', { citizenid, device })
+    local row = MySQL.single.await([[
+        SELECT *,
+               hour24             IS NULL AS hour24_unset,
+               wallpaper_parallax IS NULL AS parallax_unset,
+               caller_id          IS NULL AS caller_id_unset
+        FROM phone_settings WHERE citizenid = ? AND device = ?
+    ]], { citizenid, device })
 
     -- Uploaded wallpapers and player-designed icon packs are a library, not this device's look, so
     -- they live on the phone's row and both devices read the same one. Which wallpaper and which
@@ -2349,8 +2361,8 @@ function store.snapshot(citizenid, device)
     -- false collapses through the `or` and silently reports the configured default instead of the
     -- player's choice. store.getHour24 above already spells it out this way.
     local hour24
-    if row and row.hour24 ~= nil then
-        hour24 = row.hour24 == true or tonumber(row.hour24) == 1
+    if row and not isTruthy(row.hour24_unset) then
+        hour24 = isTruthy(row.hour24)
     else
         hour24 = defaultHour24()
     end
@@ -2359,7 +2371,7 @@ function store.snapshot(citizenid, device)
     -- default) while a stored 0 has to survive as false. Collapsing both to false would make the
     -- toggle impossible to turn off - the next hydrate would put it straight back.
     local parallax
-    if row and row.wallpaper_parallax ~= nil then parallax = isTruthy(row.wallpaper_parallax) end
+    if row and not isTruthy(row.parallax_unset) then parallax = isTruthy(row.wallpaper_parallax) end
 
     local dark = row and row.dark_theme
     if type(dark) ~= 'string' or not (DARK_THEMES[dark] or isCustomPaletteId(dark)) then dark = 'graphite' end
@@ -2389,7 +2401,7 @@ function store.snapshot(citizenid, device)
         notificationTone = row and row.notification_tone or nil,
         airplaneMode     = airplane,
         hour24           = hour24,
-        callerId         = (row == nil or row.caller_id == nil) and true or isTruthy(row.caller_id),
+        callerId         = (row == nil or isTruthy(row.caller_id_unset)) and true or isTruthy(row.caller_id),
         streamerMode     = row ~= nil and isTruthy(row.streamer_mode) or false,
         streamerHide     = row and decodeColumn(row.streamer_hide, nil) or nil,
         reopenApp        = row ~= nil and (row.reopen_app == true or tonumber(row.reopen_app) == 1),
