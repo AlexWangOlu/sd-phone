@@ -49,6 +49,7 @@ export function Birdy({ onClose }: { onClose: () => void }) {
     const [openConvo,   setOpenConvo]   = useState<BirdyConversation | null>(null);
     const [profileOpen,    setProfileOpen]    = useSessionState('birdy:profileOpen', false);
     const [profileTarget,  setProfileTarget]  = useSessionState<string | null>('birdy:profileTarget', null);
+    const [postHost,       setPostHost]       = useSessionState<'tab' | 'profile'>('birdy:postHost', 'tab');
     const [editingProfile, setEditingProfile] = useState(false);
     const [switching,      setSwitching]      = useState(false);
     const [adding,         setAdding]         = useState(false);
@@ -272,11 +273,17 @@ export function Birdy({ onClose }: { onClose: () => void }) {
         setEditingProfile(false);
     }
 
+    function openPostById(id: string) {
+        setPostHost(profileOpen ? 'profile' : 'tab');
+        setOpenPostId(id);
+    }
+
     function openProfile(handle?: string) {
         const target = typeof handle === 'string' ? handle : undefined;
         setProfile(null);
         setProfileTarget(target ?? null);
         setProfileOpen(true);
+        setPostHost('tab');
     }
 
     function toggleFollow(handle: string) {
@@ -295,11 +302,11 @@ export function Birdy({ onClose }: { onClose: () => void }) {
 
     let content: React.ReactNode;
     if (tab === 'home') {
-        content = <Feed posts={posts} me={me} feed={feed} onFeedChange={switchFeed} onRefresh={refreshNow} onToggleLike={toggleLike} onToggleRepost={toggleRepost} onOpenPost={setOpenPostId} onOpenProfile={openProfile} onOpenAuthor={openProfile} />;
+        content = <Feed posts={posts} me={me} feed={feed} onFeedChange={switchFeed} onRefresh={refreshNow} onToggleLike={toggleLike} onToggleRepost={toggleRepost} onOpenPost={openPostById} onOpenProfile={openProfile} onOpenAuthor={openProfile} />;
     } else if (tab === 'search') {
-        content = <Search me={me} onOpenProfile={openProfile} onOpenPost={setOpenPostId} onToggleLike={toggleLike} onToggleRepost={toggleRepost} />;
+        content = <Search me={me} onOpenProfile={openProfile} onOpenPost={openPostById} onToggleLike={toggleLike} onToggleRepost={toggleRepost} />;
     } else if (tab === 'notifications') {
-        content = <Notifications me={me} onOpenProfile={openProfile} onOpenPost={setOpenPostId} />;
+        content = <Notifications me={me} onOpenProfile={openProfile} onOpenPost={openPostById} />;
     } else {
         content = <MessagesList me={me} conversations={convos} onOpen={setOpenConvoId} onOpenProfile={openProfile} onCompose={openDmWith} />;
     }
@@ -323,6 +330,9 @@ export function Birdy({ onClose }: { onClose: () => void }) {
                 : <LoadingPane onBack={close} />}
         </PostPush>
     ) : null;
+
+    const profileMounted = profileOpen && !openConvoId;
+    const hostForPost = postHost === 'profile' && profileMounted ? 'profile' : 'tab';
 
     const showComposeFab = tab === 'home' && !profileOpen;
 
@@ -389,7 +399,7 @@ export function Birdy({ onClose }: { onClose: () => void }) {
                         <Pen className="h-6 w-6 text-white" strokeWidth={2} />
                     </FabButton>
                 )}
-                {postOverlay}
+                {hostForPost === 'tab' && postOverlay}
             </div>
 
             <nav className="shrink-0 border-t border-hairline/10 px-2 pb-12 pt-4" style={{ background: BG }}>
@@ -440,19 +450,26 @@ export function Birdy({ onClose }: { onClose: () => void }) {
             {profileOpen && !openConvoId && (
                 <SlideOver onClose={() => { setProfileOpen(false); setProfileTarget(null); }} animateIn={animateNav}>
                     {close => (
-                        <Profile
-                            profile={profile}
-                            me={me}
-                            handle={profileTarget ?? undefined}
-                            onBack={close}
-                            onEdit={() => setEditingProfile(true)}
-                            onOpenPost={setOpenPostId}
-                            onToggleLike={toggleLike}
-                            onToggleRepost={toggleRepost}
-                            onToggleFollow={toggleFollow}
-                            onMessage={openDmWith}
-                            onOpenAuthor={openProfile}
-                        />
+                        <>
+                            <Profile
+                                profile={profile}
+                                me={me}
+                                handle={profileTarget ?? undefined}
+                                onBack={close}
+                                onEdit={() => setEditingProfile(true)}
+                                onOpenPost={openPostById}
+                                onToggleLike={toggleLike}
+                                onToggleRepost={toggleRepost}
+                                onToggleFollow={toggleFollow}
+                                onMessage={openDmWith}
+                                onOpenAuthor={openProfile}
+                            />
+                            {hostForPost === 'profile' && (
+                                <div className="absolute inset-0" style={{ background: BG }}>
+                                    <div className="absolute bottom-0 left-0 right-0 top-[54px]">{postOverlay}</div>
+                                </div>
+                            )}
+                        </>
                     )}
                 </SlideOver>
             )}
