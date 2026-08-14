@@ -638,6 +638,26 @@ lib.callback.register('sd-phone:server:settings:tones:remove', function(source, 
     return { success = true }
 end)
 
+---@type table<string, { key: string, window: integer }> Cooldown budget per reset scope. The two
+---cost wildly different amounts: an erase runs two unindexed mail scans and a badge recompute, a
+---settings reset is a handful of small deletes. Separate keys, so one never blocks the other.
+local RESET_LIMITS = {
+    settings = { key = 'settings:reset',        window = 2000 },
+    erase    = { key = 'settings:factoryReset', window = 30000 },
+}
+
+---Milliseconds left on each reset's cooldown, so the Reset Phone page can grey the row out and
+---count down instead of letting the player press a button that will be refused. Read-only.
+lib.callback.register('sd-phone:server:settings:resetCooldown', function(source)
+    local cid = player.getIdentifier(source)
+    if not cid then return { success = false, message = 'Player not found' } end
+    local data = {}
+    for scope, limit in pairs(RESET_LIMITS) do
+        data[scope] = util.cooldownLeft(cid, limit.key, limit.window)
+    end
+    return { success = true, data = data }
+end)
+
 ---Settings > Reset All Settings (`scope = 'settings'`) and Settings > Erase All Content
 ---(`scope = 'erase'`).
 ---
@@ -652,18 +672,16 @@ lib.callback.register('sd-phone:server:settings:factoryReset', function(source, 
     if not cid then return { success = false, message = 'Player not found' } end
     payload = type(payload) == 'table' and payload or {}
     local eraseAll = payload.scope ~= 'settings'
-    -- Two unindexed mail scans plus a badge recompute, and a character erases their phone once
-    -- at most; a repeat inside the window has nothing left to erase anyway.
-    if not util.cooldown(cid, 'settings:factoryReset', 30000) then
-        return { success = false, message = 'Please wait a moment before trying again' }
+    local limit = RESET_LIMITS[eraseAll and 'erase' or 'settings']
+    if not util.cooldown(cid, limit.key, limit.window) then
+        return {
+            success = false,
+            message = 'Please wait a moment before trying again',
+            retryIn = util.cooldownLeft(cid, limit.key, limit.window),
+        }
     end
-    -- Before anything is written: a queued trailing write would otherwise either race the row
-    -- rewrite or land just after it and restore the setting the player asked to reset.
     dropPendingWrites(cid)
     store.resetSettings(cid, deviceOf(payload), eraseAll and 'erase' or 'settings')
-    -- Settings that live outside the settings row. Wiping only phone_settings left per-app
-    -- notification switches, per-job prefs and saved networks exactly as the player left them,
-    -- which is most of what "Reset All Settings" is expected to cover.
     store.resetNotifPrefs(cid)
     require('server.services.store').resetFor(cid)
     require('server.wifi.store').resetFor(cid)

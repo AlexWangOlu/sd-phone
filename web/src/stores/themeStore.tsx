@@ -415,6 +415,8 @@ interface ThemeState {
     resetProfileVisuals: () => void;
     applyWallpaperProfile: (key: string | null) => void;
     hydrate: (attempt?: number) => void;
+    /** Factory defaults, applied now. `full` also drops the lock and player-authored content. */
+    resetToDefaults: (full: boolean) => void;
 }
 
 const initialSecurity = isFiveM ? { passcode: null, faceId: false } : loadSecurityLocal();
@@ -832,6 +834,62 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
         const finalFace = pin === null ? false : face;
         set({ passcode: pin, faceId: finalFace });
         persistSecurity(pin, finalFace);
+    },
+
+    resetToDefaults: (full) => {
+        // hydrate() only assigns fields the server actually has, so a reset profile - whose
+        // columns are all NULL - hydrates to nothing and leaves the old values on screen until
+        // the next mount. The defaults have to be applied here instead.
+        setDensity('default');
+        setExtraRow(DEFAULT_SHELL_LOOK.dockStyle === 'hidden');
+        const stock = isFiveM ? lockscreenAsset : devDefaultAsset;
+        set({
+            theme: 'light',
+            darkTheme: 'graphite',
+            lightTheme: 'silver',
+            accent: DEFAULT_ACCENT,
+            shell: DEFAULT_SHELL,
+            wallpaperLock: stock,
+            wallpaperHome: stock,
+            blurLock: false,
+            blurHome: false,
+            islandPet: 'none',
+            brightness: 100,
+            phoneScale: device.defaultScale,
+            chatTextScale: 1,
+            motion: 'full' as MotionLevel,
+            boldText: false,
+            textScale: 1,
+            homeDensity: 'default',
+            appLabels: {},
+            phoneTilt: DEFAULT_PHONE_TILT,
+            dockStyle: DEFAULT_SHELL_LOOK.dockStyle,
+            openAnim: DEFAULT_SHELL_LOOK.openAnim,
+            wallpaperParallax: DEFAULT_SHELL_LOOK.wallpaperParallax,
+            ringtoneVol: 40,
+            callVol: 60,
+            airplaneMode: false,
+            hour24: false,
+            callerId: true,
+            streamerMode: false,
+            streamerHide: { ...STREAMER_HIDE_ALL },
+            gameTime: false,
+            reopenLastApp: false,
+            ringtone: DEFAULT_RINGTONE,
+            notificationTone: isDemo ? 'chime' : DEFAULT_NOTIFICATION,
+            lockClock: DEFAULT_LOCK_CLOCK,
+            ...(full
+                ? {
+                    customWallpapers: [],
+                    customPalettes: [],
+                    customRingtones: [],
+                    customNotificationTones: [],
+                    passcode: null,
+                    faceId: false,
+                    setupDone: null,
+                }
+                : {}),
+        });
     },
 
     resetProfileVisuals: () => {

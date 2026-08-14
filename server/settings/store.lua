@@ -467,10 +467,6 @@ function store.resetSettings(citizenid, device, scope)
         end
     end
 
-    -- One transaction, and an upsert rather than a plain insert. Every await yields, and a
-    -- trailing coalesced write landing between the delete and the insert would re-create the row
-    -- holding only its own column - the insert then died on the duplicate key and left a profile
-    -- with no setup flag and, worse, no phone number.
     local sets = {}
     for _, col in ipairs(cols) do sets[#sets + 1] = col .. ' = VALUES(' .. col .. ')' end
     MySQL.transaction.await({
@@ -482,7 +478,6 @@ function store.resetSettings(citizenid, device, scope)
         },
     })
 
-    -- airplane_mode is read through a write-through cache; the row rewrite above bypasses it.
     store.forgetAirplane(citizenid, device)
 end
 
@@ -2394,8 +2389,6 @@ function store.snapshot(citizenid, device)
         notificationTone = row and row.notification_tone or nil,
         airplaneMode     = airplane,
         hour24           = hour24,
-        -- Explicit if, for the reason hour24 above spells out: caller ID defaults ON, so a stored
-        -- 0 has to survive as false rather than collapsing back to the default on the next hydrate.
         callerId         = (row == nil or row.caller_id == nil) and true or isTruthy(row.caller_id),
         streamerMode     = row ~= nil and isTruthy(row.streamer_mode) or false,
         streamerHide     = row and decodeColumn(row.streamer_hide, nil) or nil,

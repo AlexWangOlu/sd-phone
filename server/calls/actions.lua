@@ -613,10 +613,6 @@ function actions.dial(source, payload)
     -- picture straight away rather than asking a second time.
     local wantsVideo = payload.video == true
 
-    -- Withheld caller ID hides the caller from the CALLEE only, and only in what is pushed: the
-    -- session keeps the real number so the block check above, the lifecycle events and the
-    -- caller's own screen are all unaffected. Hiding the number must never become a way past a
-    -- block list.
     local withheld = not settings.getCallerId(cid)
 
     sessions[channel] = {
@@ -635,8 +631,6 @@ function actions.dial(source, payload)
         number  = dialed,
         video   = wantsVideo,
     })
-    -- The NAME is withheld too, not just the number: contactNameFor resolves against the CALLEE's
-    -- contacts, so sending it would still announce "Dave" to anyone who has the caller saved.
     TriggerClientEvent('sd-phone:client:call:incoming', targetSrc, {
         channel  = channel,
         name     = withheld and '' or contactNameFor(targetCid, sessions[channel].caller.number),

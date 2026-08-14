@@ -46,7 +46,7 @@ import { isGameClock, useGameClockStore } from '@/stores/gameClockStore';
 import { seedSessionState } from '@/hooks/useSessionState';
 import { onOpenMail, onOpenMaps, onOpenMessages, requestOpenMail } from '@/shell/deeplink';
 import { fetchNui, isFiveM } from '@/core/nui';
-import { usePhoneReset } from '@/core/phoneReset';
+import { usePhoneReset, type PhoneResetScope } from '@/core/phoneReset';
 import { resetAuth } from '@/stores/authStore';
 import { setMailDomain } from '@/core/accountsApi';
 import { setMusicSources } from '@/apps/music/data';
@@ -1326,6 +1326,20 @@ function AppContent() {
     useEffect(() => {
         if (!resetNonce) return;
         const scope = usePhoneReset.getState().scope;
+        // Nothing is torn down until the server confirms. It refuses a reset that lands inside
+        // the cooldown, and clearing the client anyway left the phone stripped locally while the
+        // stored settings were untouched.
+        let cancelled = false;
+        void (async () => {
+            const res = await fetchNui<{ success?: boolean }>('sd-phone:settings:factoryReset', { scope })
+                .catch(() => null);
+            if (cancelled || (isFiveM && res?.success !== true)) return;
+            applyLocalReset(scope);
+        })();
+        return () => { cancelled = true; };
+    }, [resetNonce]);
+
+    function applyLocalReset(scope: PhoneResetScope) {
         // Both scopes sweep the whole sd-phone: namespace and Reset spares a keep-list, rather
         // than Reset naming the keys to clear. Listing what to clear silently misses every
         // preference added later; listing what to spare makes a new one reset by default.
@@ -1337,12 +1351,9 @@ function AppContent() {
             doomed.push(k);
         }
         for (const k of doomed) window.localStorage.removeItem(k);
-        void fetchNui('sd-phone:settings:factoryReset', { scope })
-            .then(() => {
-                useThemeStore.getState().hydrate();
-                void useNotifPrefsStore.getState().hydrate();
-            })
-            .catch(() => {});
+        useThemeStore.getState().resetToDefaults(scope === 'erase');
+        useThemeStore.getState().hydrate();
+        void useNotifPrefsStore.getState().hydrate();
         if (scope === 'erase') {
             resetAuth();
             clearCustomInstalled();
@@ -1371,7 +1382,7 @@ function AppContent() {
             setSetupHello(true);
             setSetup({ completed: !device.setup });
         }
-    }, [resetNonce]);
+    }
 
     // The keep-alive deck is rendered ABOVE the shell (in both the closed and open
     // branches, under a stable key) so it is never unmounted by a holster/lock/locale
