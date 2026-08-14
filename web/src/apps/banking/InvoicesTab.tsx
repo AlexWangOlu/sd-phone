@@ -18,6 +18,8 @@ import { formatPhone } from '@/lib/phone';
 import type { ReceivedInvoice } from '@/apps/services/servicesApi';
 import { cancelPersonalInvoice, fetchPersonalSent, type PersonalInvoice } from './bankingApi';
 import { formatMoney } from './data';
+import { useStreamerHidden } from '@/stores/themeStore';
+import { HIDDEN_TEXT } from '@/shell/streamerMode';
 import { NewInvoicePage } from './NewInvoicePage';
 import { ReceivedInvoices } from './ReceivedInvoices';
 
@@ -29,6 +31,7 @@ export function InvoicesTab({ received, receivedLoading, onRefetchReceived, onPa
     onRefetchReceived: () => void;
     onPaid:            () => void;
 }) {
+    const hideAmounts = useStreamerHidden('transactions');
     const [segment,    setSegment]    = useSessionState<Segment>('banking:invoicesSegment', 'received');
     const [composing,  setComposing]  = useState(false);
     const [cancelling, setCancelling] = useState<PersonalInvoice | null>(null);
@@ -129,7 +132,7 @@ export function InvoicesTab({ received, receivedLoading, onRefetchReceived, onPa
                                         )}
                                     </div>
                                     <div className="flex shrink-0 flex-col items-end gap-1.5">
-                                        <span className="text-[18px] font-bold tabular-nums text-black dark:text-white">{formatMoney(inv.amount, { whole: true })}</span>
+                                        <span className="text-[18px] font-bold tabular-nums text-black dark:text-white">{hideAmounts ? HIDDEN_TEXT : formatMoney(inv.amount, { whole: true })}</span>
                                         {inv.status === 'pending' ? (
                                             <button
                                                 type="button"

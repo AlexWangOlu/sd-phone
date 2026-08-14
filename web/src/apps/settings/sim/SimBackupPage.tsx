@@ -3,6 +3,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { t } from '@/i18n';
 import { fetchNui, isFiveM } from '@/core/nui';
 import { formatPhone } from '@/lib/phone';
+import { useStreamerHidden } from '@/stores/themeStore';
+import { HIDDEN_TEXT } from '@/shell/streamerMode';
 import { useNuiEvent } from '@/hooks/useNuiEvent';
 import { AlertDialog } from '@/ui/AlertDialog';
 import { PromptDialog } from '@/ui/PromptDialog';
@@ -180,7 +182,8 @@ export function SimBackupPage({ onBack }: { onBack: () => void }) {
         void load();
     }
 
-    const number = info?.number ? formatPhone(info.number) : '—';
+    const hideNumber = useStreamerHidden('number');
+    const number = hideNumber ? HIDDEN_TEXT : (info?.number ? formatPhone(info.number) : '—');
     const extraSims = info?.sims.filter(s => !s.active) ?? [];
 
     return (
