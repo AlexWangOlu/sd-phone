@@ -158,7 +158,7 @@ export function ContactDetail({ contact, onBack, backLabel = t('phone.contacts',
                         />
                         <Divider />
                         <ActionRow
-                            label={blocked ? t('phone.allowThisNumber','Allow This Number') : t('phone.stopCallsFromNumber','Stop Calls From This Number')}
+                            label={blocked ? t('phone.unblockContact','Unblock Contact') : t('phone.blockContact','Block Contact')}
                             tone="red"
                             onClick={onBlockRow}
                         />
@@ -203,7 +203,7 @@ export function ContactDetail({ contact, onBack, backLabel = t('phone.contacts',
 
             {confirmBlock && (
                 <AlertDialog
-                    title={blocked ? t('phone.allowThisNumber','Allow This Number') : t('phone.stopCallsFromNumber','Stop Calls From This Number')}
+                    title={blocked ? t('phone.unblockContact','Unblock Contact') : t('phone.blockContact','Block Contact')}
                     message={blocked
                         ? t('phone.unblockMessage','{name} will be able to call and message you again.',{ name: current.name })
                         : t('phone.blockMessage','{name} will no longer be able to call or message you.',{ name: current.name })}

@@ -8,6 +8,7 @@ import { useContacts } from '@/stores/contactsStore';
 import { useAsyncData } from '@/hooks/useAsyncData';
 import { useIosPush } from '@/hooks/useIosPush';
 import { blockedListApi, setBlockedApi } from '@/apps/phone/contactsApi';
+import { AlertDialog } from '@/ui/AlertDialog';
 import { ListGroup, ToggleRow } from '@/ui/ListGroup';
 import { PromptDialog } from '@/ui/PromptDialog';
 import { useMaskedPhone, useStreamerHidden, useTheme } from '@/stores/themeStore';
@@ -89,6 +90,7 @@ function BlockedContactsPage({ onBack }: { onBack: () => void }) {
     const { contacts } = useContacts('contacts');
     const phone = useMaskedPhone();
     const [adding, setAdding] = useState(false);
+    const [unblocking, setUnblocking] = useState<string | null>(null);
 
     const { data, refetch } = useAsyncData(blockedListApi, []);
     const blocked = data ?? [];
@@ -112,7 +114,12 @@ function BlockedContactsPage({ onBack }: { onBack: () => void }) {
         return null;
     }
 
-    function remove(number: string) {
+    function labelFor(number: string): string {
+        return nameByNumber.get(number) ?? phone(number);
+    }
+
+    function unblock(number: string) {
+        setUnblocking(null);
         void setBlockedApi(number, false).then(() => refetch());
     }
 
@@ -149,11 +156,11 @@ function BlockedContactsPage({ onBack }: { onBack: () => void }) {
                                 className="relative flex items-center px-4 py-3"
                             >
                                 <span className="min-w-0 flex-1 truncate text-[17px] font-normal text-black dark:text-white">
-                                    {nameByNumber.get(b.number) ?? phone(b.number)}
+                                    {labelFor(b.number)}
                                 </span>
                                 <button
                                     type="button"
-                                    onClick={() => remove(b.number)}
+                                    onClick={() => setUnblocking(b.number)}
                                     className="flex h-7 w-7 items-center justify-center rounded-full bg-ios-red/10 active:bg-ios-red/20"
                                 >
                                     <Trash2 className="h-[14px] w-[14px] text-ios-red" strokeWidth={2} />
@@ -199,6 +206,16 @@ function BlockedContactsPage({ onBack }: { onBack: () => void }) {
                     confirmLabel={t('settings.blockConfirm', 'Block')}
                     onCancel={() => setAdding(false)}
                     onConfirm={addNumber}
+                />
+            )}
+
+            {unblocking !== null && (
+                <AlertDialog
+                    title={t('phone.unblockContact', 'Unblock Contact')}
+                    message={t('phone.unblockMessage', '{name} will be able to call and message you again.', { name: labelFor(unblocking) })}
+                    confirmLabel={t('phone.unblock', 'Unblock')}
+                    onCancel={() => setUnblocking(null)}
+                    onConfirm={() => unblock(unblocking)}
                 />
             )}
         </div>
