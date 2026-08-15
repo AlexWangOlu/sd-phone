@@ -545,6 +545,7 @@ export function PhoneShell({ children, cameraActive = false, entering = false, l
                         width:  W,
                         height: stageH,
                         zoom: scale,
+                        ...({ '--hairline-w': `${1 / scale}px` } as React.CSSProperties),
                         animation: motionAnimation,
                         transform: !motionAnimation && landscape ? landscapeTransform : undefined,
                         transformOrigin: 'center',

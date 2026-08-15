@@ -127,7 +127,7 @@ export function ConversationList({ conversations, onOpen, onCompose, onMarkRead,
                                     onToggleSelect={toggleSelect}
                                 />
                                 {i < filtered.length - 1 && (
-                                    <div className="pointer-events-none mx-[6%] h-[0.5px] bg-ios-gray4 dark:bg-control" />
+                                    <div className="hairline-y pointer-events-none mx-[6%] bg-hairline/20" />
                                 )}
                             </div>
                         ))}
