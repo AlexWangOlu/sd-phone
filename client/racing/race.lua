@@ -65,6 +65,10 @@ local GATES_AHEAD <const> = math.max(1, math.floor(tonumber(raceCfg.GatesAhead) 
 ---@type integer Sectors a lap is split into for the HUD's split times.
 local SECTOR_COUNT <const> = 4
 
+---@type number Metres from the start line a trial may be opened within, shared with the lineup
+---check a race start makes, so both devices agree on what counts as being at the line.
+local TRIAL_START_RADIUS <const> = tonumber(raceCfg.LineupRadius) or 40.0
+
 ---@type integer Follow-cam view mode for first person.
 local CAM_FIRST_PERSON <const> = 4
 ---@type integer Follow-cam view mode for the close third-person chase.
@@ -505,6 +509,8 @@ local function pushState(state)
         bestLapMs         = state.bestLapMs,
         lapStartElapsedMs = state.lapStartedAt - state.startedAt,
         sectors           = sectors,
+        pbSectors         = state.pbSectors,
+        pbLapMs           = state.pbLapMs,
     } })
 end
 
@@ -574,6 +580,39 @@ function race.stop(finished)
     end
 end
 
+---Closes a trial with the server and tells the racer where the lap landed. The time reported back
+---is the server's, not the one the HUD has been showing: the HUD clock starts a frame or two before
+---the server hears about it, and the board only ever holds the server's figure.
+---@param state table live race state
+local function finishTrial(state)
+    local res = lib.callback.await('sd-phone:server:racing:trialFinish', false, {
+        bestLapMs = state.bestLapMs,
+        sectors   = state.bestLapSectors,
+        modelHash = race.currentModelHash(),
+    })
+
+    local data = type(res) == 'table' and res.success and res.data or nil
+    if not data then
+        lib.notify({
+            title = 'Time trial',
+            description = (type(res) == 'table' and res.message) or 'That run could not be recorded.',
+            type = 'error',
+        })
+        return
+    end
+
+    local line
+    if not data.personalBest then
+        line = ('%s · your first time here'):format(raceClock(data.timeMs))
+    elseif data.improved then
+        line = ('%s · personal best by %s'):format(raceClock(data.timeMs), raceClock(data.personalBest - data.bestLapMs))
+    else
+        line = ('%s · %s off your best'):format(raceClock(data.timeMs), raceClock(data.bestLapMs - data.personalBest))
+    end
+
+    lib.notify({ title = 'Time trial', description = line, type = data.improved and 'success' or 'inform' })
+end
+
 ---The progression loop: one gate at a time, 2D distance to its midpoint, everything else follows.
 ---@param state table live race state
 local function runLoop(state)
@@ -603,16 +642,27 @@ local function runLoop(state)
                     end
                 end
 
-                TriggerServerEvent('sd-phone:server:racing:checkpoint', state.id, state.doneCount, tick - state.startedAt)
+                if not state.trial then
+                    TriggerServerEvent('sd-phone:server:racing:checkpoint', state.id, state.doneCount, tick - state.startedAt)
+                end
 
                 if cur >= state.cpPerLap then
                     if state.bestLapMs == 0 or lapElapsed < state.bestLapMs then
                         state.bestLapMs = lapElapsed
+                        -- Kept beside the time: the splits are only worth storing for the lap that
+                        -- actually stands as the best, and state.sectors is about to be cleared.
+                        local keep = {}
+                        for k = 1, SECTOR_COUNT do keep[k] = state.sectors[k] end
+                        state.bestLapSectors = keep
                     end
 
                     if state.lap >= state.totalLaps then
                         pushState(state)
-                        TriggerServerEvent('sd-phone:server:racing:finish', state.id, race.currentModelHash(), tick - state.startedAt)
+                        if state.trial then
+                            finishTrial(state)
+                        else
+                            TriggerServerEvent('sd-phone:server:racing:finish', state.id, race.currentModelHash(), tick - state.startedAt)
+                        end
                         race.stop(true)
                         break
                     end
@@ -652,11 +702,15 @@ function race.begin(data)
         -- is not lined up never sees the countdown at all, rather than sitting through a 3-2-1 they
         -- were never going to be allowed to race. The board module owns the test, so what pulls you
         -- out here is exactly the hint the board has been showing you.
-        local why = boards().ineligible(data.id)
-        if why then
-            lib.notify({ title = 'Racing', description = NOT_LINED_UP[why] or NOT_LINED_UP.default, type = 'error' })
-            lib.callback.await('sd-phone:server:racing:notStarted', false, { raceId = data.id })
-            return
+        -- A trial has no board to be lined up at and no grid to be pulled off: the racer already
+        -- proved they were at the start line before the clock was opened.
+        if not data.trial then
+            local why = boards().ineligible(data.id)
+            if why then
+                lib.notify({ title = 'Racing', description = NOT_LINED_UP[why] or NOT_LINED_UP.default, type = 'error' })
+                lib.callback.await('sd-phone:server:racing:notStarted', false, { raceId = data.id })
+                return
+            end
         end
 
         local ped     = cache.ped
@@ -679,9 +733,14 @@ function race.begin(data)
         -- The route is a server round trip and the gates are a model stream, so both are done while
         -- the grid is still frozen. Waiting until the green light would have the field driving into
         -- unblipped gates for the first second of the race.
-        local points  = fetchRoute(data.trackId)
+        local points  = data.points or fetchRoute(data.trackId)
         local targets = {}
         for i = 2, #points do targets[#targets + 1] = points[i] end
+
+        -- The lap to chase. Fetched here rather than at the finish so the HUD has it from the
+        -- first sector, and left nil when the racer has never set one on this track.
+        local pb = lib.callback.await('sd-phone:server:racing:personalBest', false, { trackId = data.trackId })
+        local best = type(pb) == 'table' and pb.success and pb.data or nil
 
         if epoch ~= mine then return end
 
@@ -706,6 +765,25 @@ function race.begin(data)
             return
         end
 
+        -- The trial's clock is opened HERE, at the green light, rather than when the racer pressed
+        -- the button: the server times the run, and a clock started before the countdown would put
+        -- three seconds into every trial on a board it shares with races.
+        if data.trial then
+            local started = lib.callback.await('sd-phone:server:racing:trialStart', false, { trackId = data.trackId })
+            if type(started) ~= 'table' or not started.success then
+                discard(ownBlips, ownProps)
+                FreezeEntityPosition(held, false)
+                countdownFrozen = nil
+                SendNUIMessage({ action = 'sd-phone:racing:hud:hide' })
+                lib.notify({
+                    title = 'Racing',
+                    description = (type(started) == 'table' and started.message) or 'That run could not be started.',
+                    type = 'error',
+                })
+                return
+            end
+        end
+
         FreezeEntityPosition(held, false)
         countdownFrozen = nil
         blips, props    = ownBlips, ownProps
@@ -725,6 +803,7 @@ function race.begin(data)
         active = {
             id           = data.id,
             trackId      = data.trackId,
+            trial        = data.trial == true,
             targets      = targets,
             current      = 1,
             cpPerLap     = cpPerLap,
@@ -736,6 +815,8 @@ function race.begin(data)
             bestLapMs    = 0,
             sectors      = {},
             sectorBounds = sectorBounds,
+            pbLapMs      = best and best.lapMs or nil,
+            pbSectors    = best and best.sectors or nil,
         }
 
         startForcedCamera(data.camera)
@@ -744,6 +825,52 @@ function race.begin(data)
 
         startPhasing(data)
         runLoop(active)
+    end)
+end
+
+---Starts a solo run against the clock from the app. The racer has to be sitting at the start line
+---in the driver's seat, because a trial is a lap of the track rather than a drive to it - being
+---anywhere else sets a waypoint instead, which is the thing they actually needed.
+---@param trackId integer|string track to run
+---@param laps integer|nil laps to run, defaulting to one
+function race.beginTrial(trackId, laps)
+    if not ENABLED then return end
+    if active then
+        lib.notify({ title = 'Time trial', description = 'You are already on a run.', type = 'error' })
+        return
+    end
+
+    CreateThread(function()
+        local points = fetchRoute(trackId)
+        if #points < 2 then
+            lib.notify({ title = 'Time trial', description = 'That track has no checkpoints to race.', type = 'error' })
+            return
+        end
+
+        local ped     = cache.ped
+        local start   = points[1]
+        local coords  = GetEntityCoords(ped)
+        local dx, dy  = coords.x - start[1], coords.y - start[2]
+
+        if math.sqrt(dx * dx + dy * dy) > TRIAL_START_RADIUS then
+            SetNewWaypoint(start[1] + 0.0, start[2] + 0.0)
+            lib.notify({ title = 'Time trial', description = 'Waypoint set to the start line.', type = 'inform' })
+            return
+        end
+
+        local vehicle = GetVehiclePedIsIn(ped, false)
+        if vehicle == 0 or GetPedInVehicleSeat(vehicle, -1) ~= ped then
+            lib.notify({ title = 'Time trial', description = 'Get in the driver\'s seat to start the clock.', type = 'error' })
+            return
+        end
+
+        race.begin({
+            id      = 'trial:' .. tostring(trackId),
+            trackId = trackId,
+            laps    = math.max(1, math.floor(tonumber(laps) or 1)),
+            trial   = true,
+            points  = points,
+        })
     end)
 end
 
