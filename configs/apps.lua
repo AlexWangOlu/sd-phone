@@ -30,6 +30,13 @@ return {
     -- looked up from there.
     Dock = { 'phone', 'messages', 'camera', 'photos' },
 
+    -- Apps seeded onto page one of a BRAND-NEW phone before the rest spill onto page two. Once a
+    -- player has arranged their own home screen theirs wins, so this only decides first impressions.
+    -- 0 fills the page, and a value larger than the grid is clamped to it: a page holds 24 icons at
+    -- the default icon size, 35 at the small one and 15 at the large, which each player picks in
+    -- Settings, so the clamp is what keeps this honest across all three.
+    FirstPageApps = 0,
+
     -- All apps. The homescreen renders every app whose `id` doesn't appear in
     -- `Dock` in a 4-column grid, in the order defined below. `route` is the SPA
     -- path the React app navigates to when the icon is tapped.
