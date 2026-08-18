@@ -10,7 +10,7 @@ local genNumber = util.randomNumber
 
 ---Creates the SIM registry and cloud-backup tables.
 function store.ensureSchema()
-    MySQL.query.await([[
+    util.ensureTable('phone_sim_cards', 'identity', [[
         CREATE TABLE IF NOT EXISTS phone_sim_cards (
             number     VARCHAR(20) NOT NULL,
             identity   VARCHAR(64) NOT NULL,
