@@ -2,13 +2,13 @@
 local config = require 'configs.config'
 
 ---@type table MDT config (configs/mdt.lua).
-local MDT      = config.Mdt or {}
+local MDT = config.Mdt or {}
 ---@type table Ingest config (configs/mdt.lua Dispatch.Ingest): the switches this relay obeys too.
-local IN       = (MDT.Dispatch or {}).Ingest or {}
+local IN = (MDT.Dispatch or {}).Ingest or {}
 ---@type table<string, boolean> Per-system switches; a system runs unless it is explicitly false.
-local SYSTEMS  = type(IN.Systems) == 'table' and IN.Systems or {}
+local SYSTEMS = type(IN.Systems) == 'table' and IN.Systems or {}
 ---@type boolean Whether the relay runs at all.
-local ENABLED  = MDT.Enabled == true and IN.Enabled ~= false and SYSTEMS['aty_dispatchv2'] ~= false
+local ENABLED = MDT.Enabled == true and IN.Enabled ~= false and SYSTEMS['aty_dispatchv2'] ~= false
 ---@type integer Milliseconds this client refuses to relay the same alert again for. The server
 ---deduplicates across players; this only stops one client sending the same alert twice.
 local REPEAT_MS = 5000

@@ -1,11 +1,11 @@
 ---@type table sd-phone config root (configs/config.lua).
 local config = require 'configs.config'
 ---@type table Shared server helpers (server.util): string caps, finite(), the rolling rate limiter.
-local util   = require 'server.util'
+local util = require 'server.util'
 ---@type table Player identity (bridge.server.player): the citizenid every limiter is keyed on.
 local player = require 'bridge.server.player'
 ---@type table CAD (server.mdt.dispatch): createCall is the only way onto the call board.
-local mdt    = require 'server.mdt.dispatch'
+local mdt = require 'server.mdt.dispatch'
 
 ---@type table Dispatch ingest module; the table returned at end of file. Mirrors the alerts a
 ---third-party dispatch resource raises onto the MDT call board. One-way and read-only: nothing here
@@ -13,28 +13,28 @@ local mdt    = require 'server.mdt.dispatch'
 local ingest = {}
 
 ---@type table MDT config (configs/mdt.lua).
-local MDT      = config.Mdt or {}
+local MDT = config.Mdt or {}
 ---@type table Dispatch config (configs/mdt.lua Dispatch).
 local DISPATCH = MDT.Dispatch or {}
 ---@type table Ingest config (configs/mdt.lua Dispatch.Ingest): the switches and the guards.
-local IN       = DISPATCH.Ingest or {}
+local IN = DISPATCH.Ingest or {}
 
 ---@type boolean Whether alerts are mirrored at all. The terminal being off gates this too - with no
 ---board there is nothing to mirror onto.
-local ENABLED     = MDT.Enabled == true and IN.Enabled ~= false
+local ENABLED = MDT.Enabled == true and IN.Enabled ~= false
 ---@type table<string, boolean> Per-system switches; a system runs unless it is explicitly false.
-local SYSTEMS     = type(IN.Systems) == 'table' and IN.Systems or {}
+local SYSTEMS = type(IN.Systems) == 'table' and IN.Systems or {}
 ---@type integer Ceiling on the dedupe window. Config sets the length, but an operator typo of a
 ---value in hours would hold one key per alert for that long, and the table below is bounded.
 local MAX_DEDUPE_MS = 5 * 60 * 1000
 ---@type integer Milliseconds a repeat of the same alert is swallowed for.
-local DEDUPE_MS   = math.min(MAX_DEDUPE_MS, math.max(1000, math.floor(tonumber(IN.DedupeSeconds) or 45) * 1000))
+local DEDUPE_MS = math.min(MAX_DEDUPE_MS, math.max(1000, math.floor(tonumber(IN.DedupeSeconds) or 45) * 1000))
 ---@type integer Rolling rate-limit window, in milliseconds.
 local RATE_WINDOW = math.max(1000, math.floor(tonumber(IN.RateWindow) or 10000))
 ---@type integer Alerts one source may land on the board inside a window.
-local RATE_MAX    = math.max(1, math.floor(tonumber(IN.RateMax) or 12))
+local RATE_MAX = math.max(1, math.floor(tonumber(IN.RateMax) or 12))
 ---@type boolean Whether police and medical share one board (configs/mdt.lua Dispatch.Shared).
-local SHARED      = DISPATCH.Shared == true
+local SHARED = DISPATCH.Shared == true
 ---@type string Board an alert lands on when its job list names nothing this server runs.
 local DEFAULT_DOMAIN = IN.DefaultDomain == 'ems' and 'ems' or 'leo'
 ---@type integer Board priority for an alert whose payload ranks it as routine, or not at all.
@@ -53,7 +53,7 @@ local WORLD_LIMIT = 20000.0
 
 ---@type integer Seconds a board call lives (configs/mdt.lua Dispatch.CallTTL), read the same way
 ---server.mdt.dispatch reads it. Only the load-time warning uses it.
-local CALL_TTL  = math.max(30, math.floor(tonumber(DISPATCH.CallTTL) or 900))
+local CALL_TTL = math.max(30, math.floor(tonumber(DISPATCH.CallTTL) or 900))
 ---@type integer Calls the board holds at once (configs/mdt.lua Dispatch.MaxCalls).
 local MAX_CALLS = math.max(1, math.floor(tonumber(DISPATCH.MaxCalls) or 60))
 ---@type integer Live mirrored calls the board allows at once. The board OWNS this number and
@@ -191,7 +191,7 @@ end
 ---@return string|nil code radio code, nil when neither field held one
 ---@return string|nil kind headline
 local function codeAndType(rawCode, rawLabel)
-    local code  = text(rawCode, 200)
+    local code = text(rawCode, 200)
     local label = text(rawLabel, 64)
 
     -- '10-15 - Store Robbery' in one field: the half it splits into beats whatever the label field
@@ -366,7 +366,7 @@ end
 ---@type { key: string, event: string?, relay: boolean?, normalise: fun(payload: table): table? }[]
 local ADAPTERS = {
     {
-        key   = 'ps-dispatch',
+        key = 'ps-dispatch',
         event = 'ps-dispatch:server:notify',
         ---@param data table raw ps-dispatch alert
         ---@return table call
@@ -375,29 +375,29 @@ local ADAPTERS = {
             local slug = text(data.codeName, 32)
             slug = slug and slug:lower() or nil
             return {
-                code      = code,
+                code = code,
                 -- The slug is a config key ('shooting'), so it is only a headline once it reads as
                 -- one, and only when the alert carried no message to use instead.
-                type      = kind or (slug ~= 'none' and humanise(slug) or nil),
-                priority  = (slug and CRITICAL_CODES[slug]) and 1 or numericPriority(data.priority or 2),
-                location  = text(data.street, 120),
-                coords    = coordsOf(data.coords),
+                type = kind or (slug ~= 'none' and humanise(slug) or nil),
+                priority = (slug and CRITICAL_CODES[slug]) and 1 or numericPriority(data.priority or 2),
+                location = text(data.street, 120),
+                coords = coordsOf(data.coords),
                 direction = known(data.heading, 60),
                 -- `color` is the vehicle's paint here but the BLIP colour in CustomAlert's input, so
                 -- it is only read when it arrived as a string.
-                suspect   = detail(
+                suspect = detail(
                     genderText(data.gender), data.vehicle, plateOf(data.plate),
                     type(data.color) == 'string' and data.color or nil,
                     data.class, data.information
                 ),
-                weapon    = known(data.weapon, 60),
-                jobs      = jobList(data.jobs),
+                weapon = known(data.weapon, 60),
+                jobs = jobList(data.jobs),
             }
         end,
     },
 
     {
-        key   = 'qb-dispatch',
+        key = 'qb-dispatch',
         event = 'dispatch:server:notify',
         ---@param data table raw qb-dispatch alert
         ---@return table call
@@ -406,25 +406,25 @@ local ADAPTERS = {
             local slug = text(data.dispatchcodename, 32)
             slug = slug and slug:lower() or nil
             return {
-                code      = code,
-                type      = kind or humanise(slug),
-                priority  = (slug and CRITICAL_CODES[slug]) and 1 or numericPriority(data.priority or 2),
-                location  = text(data.firstStreet, 120),
-                coords    = coordsOf(data.origin),
+                code = code,
+                type = kind or humanise(slug),
+                priority = (slug and CRITICAL_CODES[slug]) and 1 or numericPriority(data.priority or 2),
+                location = text(data.firstStreet, 120),
+                coords = coordsOf(data.origin),
                 direction = known(data.heading, 60),
                 -- `gender` is a string from every shipped caller and the documented 0/1/2 digit from
                 -- third-party ones; genderText takes either rather than printing a bare digit.
-                suspect   = detail(
+                suspect = detail(
                     genderText(data.gender), data.model, plateOf(data.plate),
                     data.firstColor, data.information
                 ),
-                jobs      = jobList(data.job),
+                jobs = jobList(data.job),
             }
         end,
     },
 
     {
-        key   = 'cd_dispatch',
+        key = 'cd_dispatch',
         event = 'cd_dispatch:AddNotification',
         ---@param data table raw cd_dispatch alert
         ---@return table call
@@ -432,25 +432,25 @@ local ADAPTERS = {
             local blip = type(data.blip) == 'table' and data.blip or {}
             local code, kind = codeAndType(data.title, blip.text)
             return {
-                code     = code,
-                type     = kind,
+                code = code,
+                type = kind,
                 priority = cdPriority(data, blip),
-                coords   = coordsOf(data.coords),
+                coords = coordsOf(data.coords),
                 -- The street, the suspect and everything else are concatenated into `message` by each
                 -- caller in its own format, so it goes on the board whole rather than parsed.
-                suspect  = text(data.message, 120),
-                jobs     = jobList(data.job_table),
+                suspect = text(data.message, 120),
+                jobs = jobList(data.job_table),
             }
         end,
     },
 
     {
-        key   = 'qs-dispatch',
+        key = 'qs-dispatch',
         event = 'qs-dispatch:server:CreateDispatchCall',
         ---@param data table raw qs-dispatch alert
         ---@return table call
         normalise = function(data)
-            local cc   = type(data.callCode) == 'table' and data.callCode or {}
+            local cc = type(data.callCode) == 'table' and data.callCode or {}
             local blip = type(data.blip) == 'table' and data.blip or {}
             local code, kind = codeAndType(cc.code, cc.snippet)
             -- Its own callers set the flashing blip either on the payload or inside `blip`, and that
@@ -459,18 +459,18 @@ local ADAPTERS = {
             local urgent = data.flashes == true or tonumber(data.flashes) == 1
                 or blip.flashes == true or tonumber(blip.flashes) == 1
             return {
-                code     = code,
-                type     = kind or text(blip.text, 64),
+                code = code,
+                type = kind or text(blip.text, 64),
                 priority = urgent and 2 or DEFAULT_PRIORITY,
-                coords   = coordsOf(data.callLocation),
-                suspect  = text(data.message, 120),
-                jobs     = jobList(data.job),
+                coords = coordsOf(data.callLocation),
+                suspect = text(data.message, 120),
+                jobs = jobList(data.job),
             }
         end,
     },
 
     {
-        key   = 'rcore_dispatch',
+        key = 'rcore_dispatch',
         event = 'rcore_dispatch:server:sendAlert',
         ---@param data table raw rcore_dispatch alert
         ---@return table call
@@ -479,14 +479,14 @@ local ADAPTERS = {
             local code, kind = codeAndType(data.code, blip.text)
             local level = text(data.default_priority, 12)
             return {
-                code     = code,
+                code = code,
                 -- `type` on this payload is a statistics bucket ('alerts', 'car_robbery'), not a
                 -- headline, so it is deliberately not read as one.
-                type     = kind,
+                type = kind,
                 priority = (level and RCORE_PRIORITY[level:lower()]) or DEFAULT_PRIORITY,
-                coords   = coordsOf(data.coords),
-                suspect  = text(data.text, 120),
-                jobs     = jobList(data.job),
+                coords = coordsOf(data.coords),
+                suspect = text(data.text, 120),
+                jobs = jobList(data.job),
             }
         end,
     },
@@ -494,7 +494,7 @@ local ADAPTERS = {
     {
         -- No `event`: aty_dispatchv2 announces an alert to CLIENTS only, so the client half relays
         -- it and there is no server-side event of its own to listen for.
-        key   = 'aty_dispatchv2',
+        key = 'aty_dispatchv2',
         relay = true,
         ---@param data table raw aty_dispatchv2 alert
         ---@return table call
@@ -502,12 +502,12 @@ local ADAPTERS = {
             local info = type(data.information) == 'table' and data.information or {}
             local code, kind = codeAndType(data.code, data.title)
             return {
-                code     = code,
-                type     = kind,
+                code = code,
+                type = kind,
                 priority = data.urgent == true and 2 or DEFAULT_PRIORITY,
                 location = text(info.street, 120),
-                coords   = coordsOf(data.coords),
-                suspect  = detail(info.description, info.caller, genderText(info.gender), data.message),
+                coords = coordsOf(data.coords),
+                suspect = detail(info.description, info.caller, genderText(info.gender), data.message),
                 -- Deliberately no `jobs`: this payload only ever reaches here across a client that
                 -- rebuilt it field by field, so the job list it names is attacker-chosen. accept()
                 -- would ignore it anyway - the relay path always lands on DEFAULT_DOMAIN - and
@@ -543,17 +543,17 @@ local EXPORT_ADAPTER = {
         named = named and named:lower() or nil
 
         return {
-            code      = text(data.code, 12),
-            type      = text(data.type, 64),
-            priority  = p,
-            location  = text(data.location, 120),
-            coords    = coordsOf(data.coords),
+            code = text(data.code, 12),
+            type = text(data.type, 64),
+            priority = p,
+            location = text(data.location, 120),
+            coords = coordsOf(data.coords),
             direction = known(data.direction, 60),
-            suspect   = known(data.suspect, 120),
-            weapon    = known(data.weapon, 60),
+            suspect = known(data.suspect, 120),
+            weapon = known(data.weapon, 60),
             -- Deliberately no `ttl`: a mirrored call takes the board's own lifetime, so a forged
             -- payload cannot pin one of the mirrored slots for the six hours createCall would allow.
-            jobs      = (named == 'leo' or named == 'ems') and { named } or jobList(data.jobs or data.job),
+            jobs = (named == 'leo' or named == 'ems') and { named } or jobList(data.jobs or data.job),
         }
     end,
 }
