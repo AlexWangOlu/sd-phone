@@ -287,9 +287,11 @@ end
 ---Replaces the per-column probe-then-alter pattern: a table with twenty back-filled columns used
 ---to cost twenty information_schema queries on every boot, forever, including on fresh installs
 ---where the CREATE TABLE already declares them all. Self-correcting - no version stamp to drift.
+---A failing ALTER is recorded and skipped rather than raised, so a table sd-phone does not own
+---cannot abandon the tables its store declares after this one.
 ---@param tbl string table name
 ---@param defs table<string, string> column name -> full DDL fragment, e.g. `locale VARCHAR(8) NULL`
----@return boolean added true when at least one column was created
+---@return boolean added true when at least one column was created, false when none were or the ALTER failed
 function util.ensureColumns(tbl, defs)
     local rows = MySQL.query.await([[
         SELECT COLUMN_NAME AS name FROM information_schema.columns
@@ -314,12 +316,13 @@ function util.ensureColumns(tbl, defs)
 end
 
 ---Widens a VARCHAR column that is shorter than a new format needs. A no-op once the column is
----already wide enough, so it costs one information_schema read per boot.
+---already wide enough, so it costs one information_schema read per boot. A failing MODIFY is
+---recorded and skipped rather than raised, the same as the other schema helpers.
 ---@param tbl string table name
 ---@param col string column name
 ---@param ddl string full column definition to MODIFY to
 ---@param want integer minimum CHARACTER_MAXIMUM_LENGTH required
----@return boolean widened
+---@return boolean widened false when already wide enough or the MODIFY failed
 function util.ensureColumnWidth(tbl, col, ddl, want)
     local have = MySQL.scalar.await([[
         SELECT CHARACTER_MAXIMUM_LENGTH FROM information_schema.columns
@@ -456,7 +459,8 @@ end
 
 ---Converts a table to utf8mb4_unicode_ci when its collation differs. Newer MariaDB defaults to
 ---utf8mb4_uca1400_ai_ci, and a CREATE without an explicit COLLATE then can't be joined against
----the explicitly-collated tables. A no-op when the table is absent or already matches.
+---the explicitly-collated tables. A no-op when the table is absent or already matches, and a
+---failing conversion is recorded and skipped rather than raised.
 ---@param tbl string table name
 function util.ensureCollation(tbl)
     local collation = MySQL.scalar.await([[
