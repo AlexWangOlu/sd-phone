@@ -11,6 +11,7 @@ local config = {
     Debug  = false,
 
     -- Per-group settings (one file each).
+    Framework   = require 'configs.framework',    -- ox_core group type mapping (other frameworks need none)
     Phone       = require 'configs.phone',        -- open/close, keybind, safety blocks
     Lockscreen  = require 'configs.lockscreen',    -- wallpaper, clock format
     Apps        = require 'configs.apps',          -- dock, wallpaper, app catalog + enable flags
