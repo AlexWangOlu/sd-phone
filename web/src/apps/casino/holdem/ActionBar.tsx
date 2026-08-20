@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { t } from '@/i18n';
 import { Slider } from '@/ui/Slider';
 
-import { FELT, GOLD, GOLD_FRAME, SEAT, SURFACE, TABLE, fmtChips } from '../theme';
+import { FELT, GOLD, GOLD_FRAME, PAD_B, SEAT, SURFACE, TABLE, fmtChips } from '../theme';
 import type { HoldemAction, HoldemLegal } from './data';
 
 const QUICK: { key: string; label: () => string; fraction: number }[] = [
@@ -38,7 +38,7 @@ export function ActionBar({ legal, pot, heroCommitted, bb, waitingFor, onAct }: 
 
     if (!legal) {
         return (
-            <div className="flex h-[72px] shrink-0 items-center justify-center px-4">
+            <div className="flex shrink-0 items-center justify-center px-4 pt-2" style={{ paddingBottom: PAD_B }}>
                 <div
                     className="flex w-full items-center justify-center rounded-[16px] py-3 text-[14px] font-semibold"
                     style={{ background: SURFACE.sunken, color: 'rgba(255,255,255,0.6)' }}
@@ -64,7 +64,7 @@ export function ActionBar({ legal, pot, heroCommitted, bb, waitingFor, onAct }: 
     }
 
     return (
-        <div className="relative shrink-0">
+        <div className="relative shrink-0" style={{ paddingBottom: PAD_B }}>
             {tray && canRaise && (
                 <div
                     className="absolute inset-x-3 bottom-full z-10 mb-2 rounded-[18px] px-4 pb-3 pt-2.5"

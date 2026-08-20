@@ -3,13 +3,18 @@ import type { TransitionEvent } from 'react';
 import { GOLD, TABLE } from '@/apps/casino/theme';
 import { POCKET_ANGLE, WHEEL_ORDER, colorOf } from './wheel';
 
-export const WHEEL_SIZE = 248;
-export const BALL_TRACK_R = 108;
-export const BALL_REST_R  = 78;
+const VIEW = 248;
+
+export const WHEEL_SIZE = 330;
+
+const S = WHEEL_SIZE / VIEW;
+
+export const BALL_TRACK_R = 108 * S;
+export const BALL_REST_R  = 78 * S;
 export const WHEEL_TRANS  = 'transform 4200ms cubic-bezier(0.17, 0.67, 0.12, 1)';
 export const BALL_TRANS   = 'transform 1600ms cubic-bezier(0.4, 0, 0.2, 1) 2600ms';
 
-const C = WHEEL_SIZE / 2;
+const C = VIEW / 2;
 const R_RIM      = 120;
 const R_TRACK    = 115;
 const R_TRACK_IN = 110;
@@ -61,7 +66,7 @@ export function Wheel({ wheelDeg, ballDeg, ballR, ballSnap, onSettled }: {
     return (
         <div className="relative" style={{ width: WHEEL_SIZE, height: WHEEL_SIZE }}>
             <div className="absolute inset-0" style={{ transform: `rotate(${wheelDeg}deg)`, transition: WHEEL_TRANS, willChange: 'transform' }}>
-                <svg width={WHEEL_SIZE} height={WHEEL_SIZE} viewBox={`0 0 ${WHEEL_SIZE} ${WHEEL_SIZE}`} style={{ display: 'block' }} aria-hidden="true">
+                <svg width={WHEEL_SIZE} height={WHEEL_SIZE} viewBox={`0 0 ${VIEW} ${VIEW}`} style={{ display: 'block' }} aria-hidden="true">
                     <defs>
                         <linearGradient id="rl-gold" x1="0" y1="0" x2="0.55" y2="1">
                             <stop offset="0%" stopColor={GOLD.hi} />
@@ -124,7 +129,7 @@ export function Wheel({ wheelDeg, ballDeg, ballR, ballSnap, onSettled }: {
                 <div
                     className="absolute left-1/2 top-1/2 rounded-full"
                     style={{
-                        width: 11, height: 11,
+                        width: 11 * S, height: 11 * S,
                         background: 'radial-gradient(circle at 32% 28%, #FFFDF3 0%, #F4E3B0 42%, #C9A24A 100%)',
                         boxShadow: '0 1px 3px rgba(0,0,0,0.55)',
                         transform: `translate(-50%, -50%) translateY(${-ballR}px)`,

@@ -15,6 +15,9 @@ import { GameHeader } from '@/apps/_games/GameHeader';
 import { recordResultApi } from '@/apps/_games/statsApi';
 import { readJson, writeJson } from '@/lib/storage';
 import type { CasinoGameProps } from '../casinoApi';
+import { PAD_B } from '../theme';
+import { MuteButton } from '../MuteButton';
+import { playBigWin, playCardDeal, playCardFlip, playLose, playPush, playWin } from '../sfx';
 
 const GAME = 'blackjack';
 
@@ -69,6 +72,11 @@ export function Blackjack({ chips, onChips, onBack, onCashier }: CasinoGameProps
         setPayout(res.net ?? 0);
         if (res.chips !== undefined) onChips(res.chips);
         setPhase('result');
+        const net = res.net ?? 0;
+        if (res.outcome === 'blackjack') playBigWin();
+        else if (net > 0) playWin();
+        else if (net < 0) playLose();
+        else playPush();
         if (!isFiveM && res.outcome) void recordResultApi(GAME, 'cpu', statResultFor(res.outcome), res.net ?? 0);
     }
 
@@ -93,6 +101,7 @@ export function Blackjack({ chips, onChips, onBack, onCashier }: CasinoGameProps
     }
 
     async function deal() {
+        playCardDeal();
         if (acting.current) return;
         const wager = Math.min(bet, chipsRef.current); if (wager <= 0) return;
         acting.current = true;
@@ -106,6 +115,7 @@ export function Blackjack({ chips, onChips, onBack, onCashier }: CasinoGameProps
         if (res.phase === 'result') after(320, () => revealResolution(res));
     }
     async function hit() {
+        playCardFlip();
         if (acting.current || phase !== 'playing') return;
         acting.current = true;
         const res = await bjHit();
@@ -160,7 +170,7 @@ export function Blackjack({ chips, onChips, onBack, onCashier }: CasinoGameProps
                 @keyframes bj-net { 0% { transform: translateY(0); opacity: 0; } 25% { transform: translateY(-6px); opacity: 1; } 100% { transform: translateY(-26px); opacity: 0; } }
             `}</style>
 
-            <GameHeader title={t('blackjack.title', 'Blackjack')} accent={FELT.gold} onBack={guardedBack} />
+            <GameHeader title={t('blackjack.title', 'Blackjack')} accent={FELT.gold} onBack={guardedBack} right={<MuteButton accent={FELT.gold} />} />
 
             <button type="button" onClick={onCashier} className="flex shrink-0 items-center justify-center gap-1.5 pb-0.5 active:opacity-70">
                 <Coins className="h-[17px] w-[17px]" strokeWidth={2.5} style={{ color: FELT.gold }} />
@@ -216,7 +226,7 @@ function SoloTable({ phase, bet, chips, player, dealer, holeUp, outcome, payout,
                     <HandRow label={t('blackjack.you', 'You')} cards={player} hideHole={false} total={pVal} showTotal={player.length > 0} soft={handValue(player).soft} emphasize={isBlackjack(player)} />
                 </div>
             </div>
-            <div className="shrink-0 px-4" style={{ paddingBottom: 'calc(var(--safe-bottom) + 30px)' }}>
+            <div className="shrink-0 px-4" style={{ paddingBottom: PAD_B }}>
                 {phase === 'betting'
                     ? <BetControls bet={bet} chips={chips} onAdjust={onAdjust} onMax={onMax} onSet={onSet} onDeal={onDeal} onCashier={onCashier} />
                     : phase === 'playing'

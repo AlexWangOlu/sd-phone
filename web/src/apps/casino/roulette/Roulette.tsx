@@ -9,13 +9,15 @@ import { Sheet } from '@/ui/Sheet';
 import { GameHeader } from '@/apps/_games/GameHeader';
 import { useSessionState } from '@/hooks/useSessionState';
 import { readJson, writeJson } from '@/lib/storage';
-import { CARD_SHADOW, GOLD, GOLD_FRAME, SURFACE, TABLE, fmtChips } from '@/apps/casino/theme';
+import { CARD_SHADOW, GOLD, GOLD_FRAME, PAD_B, SURFACE, TABLE, fmtChips } from '@/apps/casino/theme';
+import { MuteButton } from '@/apps/casino/MuteButton';
+import { type SpinLoop, playBallDrop, playBigWin, playChipPlace, playLose, playWin, startWheelSpin } from '@/apps/casino/sfx';
 import type { CasinoGameProps } from '@/apps/casino/casinoApi';
 import { BetLayout } from './BetLayout';
 import { CHIP_DENOMS, Chip } from './Chip';
-import { BALL_REST_R, BALL_TRACK_R, Wheel } from './WheelFace';
+import { BALL_REST_R, BALL_TRACK_R, WHEEL_SIZE, Wheel } from './WheelFace';
 import { type PlacedBet, type RouletteResult, rouletteSpin } from './rouletteApi';
-import { mergeBets, stakeOf } from './bets';
+import { betInfo, mergeBets, stakeOf } from './bets';
 import { POCKET_ANGLE, colorOf } from './wheel';
 
 const TABLE_MAX  = 25000;
@@ -42,6 +44,20 @@ const PAYOUT_ROWS: { name: () => string; odds: number }[] = [
     { name: () => `${t('roulette.low', '1-18')} / ${t('roulette.high', '19-36')}`, odds: 1 },
 ];
 
+const KIND_LABEL: Record<string, () => string> = {
+    straight: () => t('roulette.straight', 'Straight'),
+    split:    () => t('roulette.split', 'Split'),
+    street:   () => t('roulette.street', 'Street'),
+    corner:   () => t('roulette.corner', 'Corner'),
+    basket:   () => t('roulette.basket', 'Basket'),
+    line:     () => t('roulette.line', 'Six line'),
+    column:   () => t('roulette.column', 'Column'),
+    dozen:    () => t('roulette.dozen', 'Dozen'),
+    color:    () => t('roulette.colorBet', 'Colour'),
+    parity:   () => t('roulette.parityBet', 'Odd / Even'),
+    half:     () => t('roulette.halfBet', 'Half'),
+};
+
 function initialDenom(): number {
     const stored = readJson<number>(CHIP_KEY);
     return stored !== null && CHIP_DENOMS.includes(stored) ? stored : CHIP_DENOMS[0];
@@ -66,6 +82,7 @@ export function Roulette({ chips, onChips, onBack, onCashier }: CasinoGameProps)
     const wheelRef  = useRef(0);
     const ballRef   = useRef(0);
     const spinning  = useRef(false);
+    const spinSfx   = useRef<SpinLoop | null>(null);
     const pending   = useRef<RouletteResult | null>(null);
     const spinTimers  = useRef<ReturnType<typeof setTimeout>[]>([]);
     const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -75,6 +92,7 @@ export function Roulette({ chips, onChips, onBack, onCashier }: CasinoGameProps)
     useEffect(() => () => {
         spinTimers.current.forEach(clearTimeout);
         if (noticeTimer.current) clearTimeout(noticeTimer.current);
+        spinSfx.current?.stop();
     }, []);
 
     useEffect(() => { writeJson(CHIP_KEY, denom); }, [denom]);
@@ -104,8 +122,12 @@ export function Roulette({ chips, onChips, onBack, onCashier }: CasinoGameProps)
         if (mergeBets(next).length > MAX_BETS) { flash(t('roulette.tooManyBets', 'Too many bets on the table')); return; }
         if (total > TABLE_MAX) { flash(t('roulette.tableMax', 'Table max {n}', { n: fmtChips(TABLE_MAX) })); return; }
         if (total > chipsRef.current) { setLowChips(true); return; }
-        setNotice(null);
         setPlacements(next);
+        playChipPlace();
+        const info = betInfo(id);
+        const label = info ? KIND_LABEL[info.kind]?.() : null;
+        if (label && info) flash(t('roulette.placedBet', '{name} pays {odds} to 1', { name: label, odds: info.odds }));
+        else setNotice(null);
     }
 
     function undo() {
@@ -128,13 +150,22 @@ export function Roulette({ chips, onChips, onBack, onCashier }: CasinoGameProps)
         spinning.current = false;
         setResult(data);
         setPhase('result');
+        setPlacements([]);
         onChips(data.chips);
+        spinSfx.current?.stop();
+        spinSfx.current = null;
+        playBallDrop();
+        if (data.win >= data.stake * 8) playBigWin();
+        else if (data.win > 0) playWin();
+        else playLose();
         setRecent(list => [data.pocket, ...list].slice(0, RECENT_MAX));
     }, [onChips]);
 
     function startSpin(index: number) {
         spinTimers.current.forEach(clearTimeout);
         spinTimers.current = [];
+        spinSfx.current?.stop();
+        spinSfx.current = startWheelSpin(SPIN_MS);
 
         const wheelEnd = wheelRef.current + 1080;
         const raw      = wheelEnd + index * POCKET_ANGLE;
@@ -190,7 +221,7 @@ export function Roulette({ chips, onChips, onBack, onCashier }: CasinoGameProps)
                 @keyframes rl-net { 0% { transform: scale(0.86) } 55% { transform: scale(1.07) } 100% { transform: scale(1) } }
             `}</style>
 
-            <GameHeader title={t('roulette.title', 'Roulette')} accent={TABLE.chip} onBack={onBack} />
+            <GameHeader title={t('roulette.title', 'Roulette')} accent={TABLE.chip} onBack={onBack} right={<MuteButton accent={TABLE.chip} />} />
 
             <div className="flex shrink-0 items-center gap-2 px-4 pb-1">
                 <button type="button" onClick={onCashier} className="flex items-center gap-1.5 active:opacity-70">
@@ -214,7 +245,7 @@ export function Roulette({ chips, onChips, onBack, onCashier }: CasinoGameProps)
                 </div>
             </div>
 
-            <div className="relative flex shrink-0 items-start justify-center" style={{ height: 268 }}>
+            <div className="relative flex shrink-0 items-start justify-center" style={{ height: WHEEL_SIZE + 20 }}>
                 <Wheel wheelDeg={wheelDeg} ballDeg={ballDeg} ballR={ballR} ballSnap={ballSnap} onSettled={settle} />
                 {result && phase === 'result' && (
                     <div
@@ -255,7 +286,7 @@ export function Roulette({ chips, onChips, onBack, onCashier }: CasinoGameProps)
                 </div>
             </Scroller>
 
-            <div className="shrink-0 px-4 pt-2" style={{ paddingBottom: 'calc(var(--safe-bottom) + 20px)' }}>
+            <div className="shrink-0 px-4 pt-2" style={{ paddingBottom: PAD_B }}>
                 <div className="mb-1 text-[12px] font-bold uppercase tracking-wide text-white/45">{t('roulette.chip', 'Chip')}</div>
                 <div className="flex items-center justify-between">
                     {CHIP_DENOMS.map(value => (

@@ -9,8 +9,11 @@ import { GameHeader } from '@/apps/_games/GameHeader';
 import { useNuiEvent } from '@/hooks/useNuiEvent';
 import { useSessionState } from '@/hooks/useSessionState';
 import { useDeckActive } from '@/shell/deckActive';
+import { isFiveM } from '@/core/nui';
 import type { CasinoGameProps } from '@/apps/casino/casinoApi';
-import { EMBER, GOLD, GOLD_FRAME, SURFACE, TABLE, WELL_SHADOW, fmtChips } from '@/apps/casino/theme';
+import { EMBER, GOLD, GOLD_FRAME, PAD_B, SURFACE, TABLE, WELL_SHADOW, fmtChips } from '@/apps/casino/theme';
+import { type CrashLoop, playBust, playCashout, playChipPlace, startCrashLoop } from '@/apps/casino/sfx';
+import { MuteButton } from '@/apps/casino/MuteButton';
 
 import type { CrashCashout, CrashMine, CrashPhase, CrashPlayerBet, CrashRound, CrashSnapshot } from './data';
 import { K, MAX_X100, MIN_X100, fmtMult, payoutAt } from './curve';
@@ -120,7 +123,9 @@ export function Crash({ chips, onChips, onBack, onCashier }: CasinoGameProps) {
     const [auto, setAuto]     = useSessionState<{ on: boolean; x100: number }>('casino:crashAuto', { on: false, x100: 200 });
 
     const clock    = useRef<CrashClock>({ offset: 0, startedAt: 0, serverMx: MIN_X100 });
+    const climbSfx = useRef<CrashLoop | null>(null);
     const phaseRef = useRef<CrashPhase>('idle');
+    const devTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const roundRef = useRef('');
     const cashing  = useRef(false);
 
@@ -151,6 +156,27 @@ export function Crash({ chips, onChips, onBack, onCashier }: CasinoGameProps) {
         void watchCrash(true).then(s => { if (live && s) applySnapshot(s); });
         return () => { live = false; void watchCrash(false); };
     }, [deckActive, applySnapshot]);
+
+    useEffect(() => {
+        if (phase !== 'run') return;
+        climbSfx.current?.stop();
+        const loop = startCrashLoop();
+        climbSfx.current = loop;
+        if (!loop) return;
+
+        const feed = window.setInterval(() => {
+            const c = clock.current;
+            const elapsed = Date.now() + c.offset - c.startedAt;
+            const x100 = elapsed > 0 ? Math.min(MAX_X100, Math.floor(100 * Math.exp(K * elapsed))) : MIN_X100;
+            loop.tick(Math.max(c.serverMx, x100) / 100);
+        }, 90);
+
+        return () => {
+            window.clearInterval(feed);
+            loop.stop();
+            climbSfx.current = null;
+        };
+    }, [phase]);
 
     useNuiEvent('sd-phone:crash:snapshot', d => { if (d) applySnapshot(d); });
 
@@ -194,6 +220,7 @@ export function Crash({ chips, onChips, onBack, onCashier }: CasinoGameProps) {
         phaseRef.current = 'bust';
         clock.current.serverMx = d.bust;
         setPhase('bust');
+        playBust();
         setBustAt(Date.now());
         setLast({ id: d.id, bust: d.bust, seed: d.seed, commit: d.commit });
         setHistory(prev => [{ id: d.id, bust: d.bust, seed: d.seed, commit: d.commit }, ...prev.filter(r => r.id !== d.id)].slice(0, RAIL_MAX));
@@ -205,10 +232,30 @@ export function Crash({ chips, onChips, onBack, onCashier }: CasinoGameProps) {
             ? { stake: d.stake, auto: null, settled: true, mx: d.mx, payout: d.payout }
             : { ...prev, settled: true, mx: d.mx, payout: d.payout }));
         onChips(d.chips);
+        if (d.payout > 0) playCashout();
     });
 
     const stake = clampBet(amount, chips);
     const canAfford = chips >= MIN_BET;
+
+    function devClimbTo50() {
+        if (devTimer.current) clearTimeout(devTimer.current);
+        void watchCrash(false);
+        const ms = Math.log(50) / K;
+        roundRef.current = 'devclimb';
+        setRoundId('devclimb');
+        clock.current.offset = 0;
+        clock.current.startedAt = Date.now();
+        clock.current.serverMx = MIN_X100;
+        phaseRef.current = 'run';
+        setPhase('run');
+        devTimer.current = setTimeout(() => {
+            clock.current.serverMx = 5000;
+            phaseRef.current = 'bust';
+            setPhase('bust');
+            playBust();
+        }, ms);
+    }
 
     async function submitBet() {
         if (busy || phase !== 'bet' || mine !== null) return;
@@ -225,6 +272,7 @@ export function Crash({ chips, onChips, onBack, onCashier }: CasinoGameProps) {
         setAmount(data.stake);
         setMine({ stake: data.stake, auto: data.auto, settled: false, mx: null, payout: 0 });
         onChips(data.chips);
+        playChipPlace();
     }
 
     async function cashOut() {
@@ -257,16 +305,35 @@ export function Crash({ chips, onChips, onBack, onCashier }: CasinoGameProps) {
             <style>{KEYFRAMES}</style>
 
             <div className="relative shrink-0">
-                <GameHeader title={t('crash.title', 'Crash')} accent={EMBER.mid} onBack={onBack} />
-                <button
-                    type="button"
-                    onClick={() => setFairOpen(true)}
-                    aria-label={t('crash.provablyFair', 'Provably fair')}
-                    className="absolute right-3 top-1 flex h-8 w-8 items-center justify-center rounded-full active:opacity-60"
-                    style={{ background: SURFACE.sunken }}
-                >
-                    <Info className="h-[17px] w-[17px] text-white/65" strokeWidth={2.3} />
-                </button>
+                <GameHeader
+                    title={t('crash.title', 'Crash')}
+                    accent={EMBER.mid}
+                    onBack={onBack}
+                    right={(
+                        <div className="flex items-center gap-1">
+                            {!isFiveM && (
+                                <button
+                                    type="button"
+                                    onClick={devClimbTo50}
+                                    className="flex h-8 items-center justify-center rounded-full px-2 text-[11px] font-extrabold active:opacity-60"
+                                    style={{ background: SURFACE.sunken, color: EMBER.hot }}
+                                >
+                                    50x
+                                </button>
+                            )}
+                            <MuteButton accent={EMBER.mid} />
+                            <button
+                                type="button"
+                                onClick={() => setFairOpen(true)}
+                                aria-label={t('crash.provablyFair', 'Provably fair')}
+                                className="flex h-8 w-8 items-center justify-center rounded-full active:opacity-60"
+                                style={{ background: SURFACE.sunken }}
+                            >
+                                <Info className="h-[17px] w-[17px] text-white/65" strokeWidth={2.3} />
+                            </button>
+                        </div>
+                    )}
+                />
             </div>
 
             <div className="flex shrink-0 justify-center px-4 pb-1 pt-1">
@@ -348,7 +415,7 @@ export function Crash({ chips, onChips, onBack, onCashier }: CasinoGameProps) {
                 </div>
             </div>
 
-            <div className="shrink-0 px-4 pt-2" style={{ paddingBottom: 'calc(var(--safe-bottom) + 14px)' }}>
+            <div className="shrink-0 px-4 pt-2" style={{ paddingBottom: PAD_B }}>
                 <div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto">
                     <span className="shrink-0 pr-0.5 text-[11px] font-bold uppercase tracking-wide text-white/35">
                         {t('crash.history', 'History')}

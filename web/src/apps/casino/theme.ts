@@ -4,6 +4,7 @@ export const TABLE = { red: '#C1272D', black: '#141414', green: '#0E7A46', chip:
 export const SURFACE = { panel: 'rgba(255,255,255,0.07)', soft: 'rgba(255,255,255,0.05)', sunken: 'rgba(0,0,0,0.30)', hair: 'rgba(255,255,255,0.10)' };
 export const ACCENT = '#1C8A4E';
 export const SB_H = 54;
+export const PAD_B = 'calc(var(--safe-bottom) + 30px)';
 export const APP_BG = `radial-gradient(120% 80% at 50% 0%, ${FELT.top} 0%, ${FELT.mid} 45%, ${FELT.bot} 100%)`;
 export const GOLD_FRAME = `linear-gradient(160deg, ${GOLD.top} 0%, ${GOLD.mid} 45%, ${GOLD.deep} 100%)`;
 export const CARD_SHADOW = '0 8px 20px rgba(0,0,0,0.45)';

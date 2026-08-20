@@ -5,6 +5,7 @@ import { useDeckActive } from '@/shell/deckActive';
 
 import type { HoldemAction, HoldemHandEnd, HoldemStatePush } from './data';
 import { actApi, leaveApi, sitApi, syncApi } from './holdemApi';
+import { playCheckRap, playChipStack, playDealFlop, playFoldSlide, playPotPush } from '../sfx';
 
 const SHOWDOWN_MS = 5200;
 
@@ -22,6 +23,7 @@ export interface HoldemTableCtl {
 export function useHoldemTable(tableId: string | null): HoldemTableCtl {
     const [state,   setState]   = useState<HoldemStatePush | null>(null);
     const [handEnd, setHandEnd] = useState<HoldemHandEnd | null>(null);
+    const lastStreet = useRef<string | null>(null);
     const [error,   setError]   = useState<string | null>(null);
     const [busy,    setBusy]    = useState(false);
 
@@ -40,12 +42,17 @@ export function useHoldemTable(tableId: string | null): HoldemTableCtl {
 
     useNuiEvent('sd-phone:holdem:state', data => {
         if (!data || (tableId && data.tableId !== tableId)) return;
+        if (data.street !== lastStreet.current) {
+            if (data.board.length > 0) playDealFlop();
+            lastStreet.current = data.street;
+        }
         setState(data);
     });
 
     useNuiEvent('sd-phone:holdem:hand', data => {
         if (!data || (tableId && data.tableId !== tableId)) return;
         setHandEnd(data);
+        playPotPush();
         clearEndTimer();
         endTimer.current = setTimeout(() => { setHandEnd(null); endTimer.current = null; }, SHOWDOWN_MS);
     });
@@ -92,6 +99,9 @@ export function useHoldemTable(tableId: string | null): HoldemTableCtl {
     }, [clearEndTimer]);
 
     const act = useCallback((action: HoldemAction, to = 0) => {
+        if (action === 'fold') playFoldSlide();
+        else if (action === 'check') playCheckRap();
+        else playChipStack();
         const live = stateRef.current;
         if (!live || !live.legal || acting.current) return;
         acting.current = true;

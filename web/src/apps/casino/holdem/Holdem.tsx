@@ -11,7 +11,8 @@ import { useSessionState } from '@/hooks/useSessionState';
 
 import type { CasinoGameProps } from '../casinoApi';
 import { GAME_ACCENT } from '../casinoApi';
-import { CARD_SHADOW, FELT, GOLD, GOLD_FRAME, SEAT, SURFACE, TABLE, fmtChips } from '../theme';
+import { CARD_SHADOW, FELT, GOLD, GOLD_FRAME, PAD_B, SEAT, SURFACE, TABLE, fmtChips } from '../theme';
+import { MuteButton } from '../MuteButton';
 
 import { ActionBar } from './ActionBar';
 import { HeroPanel } from './Seat';
@@ -69,7 +70,7 @@ export function Holdem({ chips, onChips, onBack, onCashier }: CasinoGameProps) {
         return (
             <>
                 <style>{KEYFRAMES}</style>
-                <GameHeader title={t('holdem.title', "Texas Hold'em")} accent={ACCENT} onBack={onBack} />
+                <GameHeader title={t('holdem.title', "Texas Hold'em")} accent={ACCENT} onBack={onBack} right={<MuteButton accent={ACCENT} />} />
                 <ChipsRow chips={chips} onCashier={onCashier} />
                 <TableList tables={tables} onPick={id => { setTableId(id); }} />
             </>
@@ -84,6 +85,7 @@ export function Holdem({ chips, onChips, onBack, onCashier }: CasinoGameProps) {
                     title={info ? info.name : t('holdem.title', "Texas Hold'em")}
                     accent={ACCENT}
                     onBack={() => setTableId(null)}
+                    right={<MuteButton accent={ACCENT} />}
                 />
                 <div className="flex min-h-0 flex-1 items-center justify-center">
                     <span className="text-[14px] font-semibold" style={{ color: 'rgba(255,255,255,0.55)' }}>
@@ -108,6 +110,7 @@ export function Holdem({ chips, onChips, onBack, onCashier }: CasinoGameProps) {
                 title={info ? `${info.name}  ${fmtChips(state.sb)}/${fmtChips(state.bb)}` : t('holdem.title', "Texas Hold'em")}
                 accent={ACCENT}
                 onBack={guardedBack}
+                right={<MuteButton accent={ACCENT} />}
             />
 
             <div className="relative flex min-h-0 flex-1 flex-col">
@@ -173,7 +176,7 @@ export function Holdem({ chips, onChips, onBack, onCashier }: CasinoGameProps) {
                         onAct={act}
                     />
                 ) : (
-                    <div className="flex h-[72px] shrink-0 items-center gap-2 px-3">
+                    <div className="flex shrink-0 items-center gap-2 px-3 pt-2" style={{ paddingBottom: PAD_B }}>
                         <button
                             type="button"
                             onClick={() => { void goList(); }}
@@ -244,7 +247,7 @@ function ChipsRow({ chips, onCashier }: { chips: number; onCashier: () => void }
 function TableList({ tables, onPick }: { tables: HoldemTableInfo[]; onPick: (id: string) => void }) {
     return (
         <Scroller className="min-h-0 flex-1">
-            <div className="flex flex-col gap-3 px-5 pb-10 pt-3">
+            <div className="flex flex-col gap-3 px-5 pt-3" style={{ paddingBottom: PAD_B }}>
                 <p className="text-[13px] font-semibold text-white/55">
                     {t('holdem.tablesIntro', 'No limit hold em, up to six players. Buy in and your chips wait at the table until you stand up.')}
                 </p>

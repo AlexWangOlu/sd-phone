@@ -5,6 +5,7 @@ import { SURFACE, WELL_SHADOW, fmtChips } from '../theme';
 
 const HOLD_MS = 400;
 const STACK_MAX = 4;
+const STACK_STEP = 5;
 
 function stackOf(amount: number): number[] {
     const out: number[] = [];
@@ -82,7 +83,7 @@ export function BetSpot({ label, odds, amount, color, grow, compact, locked, won
 
             <span
                 className="relative mt-1.5 flex items-end justify-center"
-                style={{ height: chipSize + (chips.length > 1 ? (chips.length - 1) * 5 : 0) }}
+                style={{ height: chipSize + (STACK_MAX - 1) * STACK_STEP }}
             >
                 {chips.length === 0 ? (
                     <span
@@ -93,7 +94,7 @@ export function BetSpot({ label, odds, amount, color, grow, compact, locked, won
                     <span
                         key={`${value}-${i}`}
                         className="absolute left-1/2"
-                        style={{ bottom: i * 5, transform: 'translateX(-50%)', zIndex: i }}
+                        style={{ bottom: i * STACK_STEP, transform: 'translateX(-50%)', zIndex: i }}
                     >
                         <Chip value={value} size={chipSize} />
                     </span>

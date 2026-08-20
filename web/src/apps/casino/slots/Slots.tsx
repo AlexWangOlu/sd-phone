@@ -8,7 +8,9 @@ import { Sheet } from '@/ui/Sheet';
 import { GameHeader } from '@/apps/_games/GameHeader';
 import { readJson, writeJson } from '@/lib/storage';
 import type { CasinoGameProps } from '@/apps/casino/casinoApi';
-import { CARD_SHADOW, FELT, GOLD, GOLD_FRAME, SURFACE, TABLE, WELL_SHADOW, fmtChips } from '@/apps/casino/theme';
+import { CARD_SHADOW, FELT, GOLD, GOLD_FRAME, PAD_B, SURFACE, TABLE, WELL_SHADOW, fmtChips } from '@/apps/casino/theme';
+import { MuteButton } from '@/apps/casino/MuteButton';
+import { type ReelLoop, playBigWin, playReelSpin, playReelStop, playWin, startReelLoop } from '@/apps/casino/sfx';
 import { REELS, STRIP_LEN, type SlotSymbolId } from './strips';
 import { LINES, PAYLINES, PAY_ORDER, SUITS_PAY, TRIPLE_PAY } from './paytable';
 import { SlotSymbol } from './SlotSymbol';
@@ -102,10 +104,11 @@ export function Slots({ chips, onChips, onBack, onCashier }: CasinoGameProps) {
     const landed = useRef<boolean[]>([false, false, false]);
     const pending = useRef<SlotResult | null>(null);
     const spinning = useRef(false);
+    const reelLoop = useRef<ReelLoop | null>(null);
     const timers = useRef<number[]>([]);
 
     useEffect(() => { writeJson(BET_KEY, bet); }, [bet]);
-    useEffect(() => () => { timers.current.forEach(id => window.clearTimeout(id)); }, []);
+    useEffect(() => () => { timers.current.forEach(id => window.clearTimeout(id)); reelLoop.current?.stop(); }, []);
 
     const attachStrip = useMemo(
         () => [0, 1, 2].map(r => (el: HTMLDivElement | null) => {
@@ -163,6 +166,8 @@ export function Slots({ chips, onChips, onBack, onCashier }: CasinoGameProps) {
             el.style.transition = '';
         }
         stops.current[r] = data.stops[r];
+        playReelStop(r);
+        reelLoop.current?.reelLanded(landed.current.filter(v => !v).length);
         setBlurred(prev => prev.map((v, i) => (i === r ? false : v)));
 
         const wrap = wrapRefs.current[r];
@@ -172,11 +177,15 @@ export function Slots({ chips, onChips, onBack, onCashier }: CasinoGameProps) {
         }
 
         if (landed.current.every(Boolean)) {
+            reelLoop.current?.stop();
+            reelLoop.current = null;
             spinning.current = false;
             pending.current = null;
             setLines(data.lines);
             setWin(data.win);
             setPhase('result');
+            if (data.win >= data.bet * 10) playBigWin();
+            else if (data.win > 0) playWin();
         }
     }
 
@@ -197,9 +206,14 @@ export function Slots({ chips, onChips, onBack, onCashier }: CasinoGameProps) {
         setWin(0);
         setPhase('spinning');
         setBlurred([true, true, true]);
+        playReelSpin();
+        reelLoop.current?.stop();
+        reelLoop.current = startReelLoop();
 
         const res = await slotsSpin(bet);
         if (!res.ok || !res.data) {
+            reelLoop.current?.stop();
+            reelLoop.current = null;
             spinning.current = false;
             setPhase('idle');
             setBlurred([false, false, false]);
@@ -238,7 +252,7 @@ export function Slots({ chips, onChips, onBack, onCashier }: CasinoGameProps) {
                 .slot-settle { animation: slot-settle ${SETTLE_MS}ms ease-out; }
             `}</style>
 
-            <GameHeader title={t('slots.title', 'Slots')} accent={TABLE.chip} onBack={onBack} />
+            <GameHeader title={t('slots.title', 'Slots')} accent={TABLE.chip} onBack={onBack} right={<MuteButton accent={TABLE.chip} />} />
 
             <div className="flex shrink-0 justify-center px-4 pb-1 pt-1">
                 <button
@@ -409,7 +423,7 @@ export function Slots({ chips, onChips, onBack, onCashier }: CasinoGameProps) {
 
             </div>
 
-            <div className="shrink-0 px-[10px]" style={{ paddingBottom: 'calc(var(--safe-bottom) + 30px)' }}>
+            <div className="shrink-0 px-[10px]" style={{ paddingBottom: PAD_B }}>
                 <button
                     type="button"
                     onClick={spin}

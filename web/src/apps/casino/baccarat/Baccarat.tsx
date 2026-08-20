@@ -14,7 +14,9 @@ import type { Card } from '../cards';
 import { CardFace } from '../CardFace';
 import { CHIP_DENOMS, Chip } from '../roulette/Chip';
 import type { CasinoGameProps } from '../casinoApi';
-import { CARD_SHADOW, FELT, GOLD, GOLD_FRAME, SURFACE, TABLE, WELL_SHADOW, fmtChips } from '../theme';
+import { CARD_SHADOW, FELT, GOLD, GOLD_FRAME, PAD_B, SURFACE, TABLE, WELL_SHADOW, fmtChips } from '../theme';
+import { MuteButton } from '../MuteButton';
+import { playBigWin, playCardDeal, playChipPlace, playLose, playPush, playWin } from '../sfx';
 import { BetSpot } from './BetSpot';
 import { type BaccaratResult, baccaratDeal } from './baccaratApi';
 import { type BaccaratBets, type BaccaratSpot, MAX_TOTAL, MIN_BET, emptyBets, spotMax, stakeOf, totalOf } from './logic';
@@ -117,6 +119,7 @@ export function Baccarat({ chips, onChips, onBack, onCashier }: CasinoGameProps)
         setNotice(null);
         pushHistory();
         setBets(next);
+        playChipPlace();
     }
 
     function clearSpot(spot: BaccaratSpot) {
@@ -163,6 +166,7 @@ export function Baccarat({ chips, onChips, onBack, onCashier }: CasinoGameProps)
         setStage(0);
         setPhase('dealing');
         onChips(chipsRef.current - stake);
+        playCardDeal();
 
         const reply = await baccaratDeal(bets);
         acting.current = false;
@@ -180,11 +184,14 @@ export function Baccarat({ chips, onChips, onBack, onCashier }: CasinoGameProps)
         setHand(data);
 
         const thirds = data.player.cards.length > 2 || data.banker.cards.length > 2;
-        after(TWO_CARD_AT, () => setStage(1));
+        after(TWO_CARD_AT, () => { setStage(1); playCardDeal(); });
         after(thirds ? THIRD_AT : TWO_CARD_AT + 90, () => {
             setStage(2);
             setPhase('result');
             onChips(data.chips);
+            if (data.net > 0) { if (data.net >= stake * 5) playBigWin(); else playWin(); }
+            else if (data.net < 0) playLose();
+            else playPush();
             if (!isFiveM) {
                 const result = data.net > 0 ? 'win' : data.net < 0 ? 'loss' : 'draw';
                 void recordResultApi(GAME, 'cpu', result, data.net);
@@ -205,7 +212,7 @@ export function Baccarat({ chips, onChips, onBack, onCashier }: CasinoGameProps)
                 @keyframes bac-net { 0% { transform: translateY(0); opacity: 0 } 25% { transform: translateY(-6px); opacity: 1 } 100% { transform: translateY(-26px); opacity: 0 } }
             `}</style>
 
-            <GameHeader title={t('baccarat.title', 'Baccarat')} accent={TABLE.chip} onBack={onBack} />
+            <GameHeader title={t('baccarat.title', 'Baccarat')} accent={TABLE.chip} onBack={onBack} right={<MuteButton accent={TABLE.chip} />} />
 
             <button
                 type="button"
@@ -298,7 +305,7 @@ export function Baccarat({ chips, onChips, onBack, onCashier }: CasinoGameProps)
                 </div>
             </div>
 
-            <div className="shrink-0 px-4 pt-2.5" style={{ paddingBottom: 'calc(var(--safe-bottom) + 20px)' }}>
+            <div className="shrink-0 px-4 pt-2.5" style={{ paddingBottom: PAD_B }}>
                 <div className="flex items-center justify-between">
                     {DENOMS.map(value => (
                         <button

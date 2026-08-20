@@ -13,11 +13,11 @@ const CELL_W = 108;
 const GAP    = 3;
 const GUTTER = 16;
 
-const H_ZERO = 44;
-const H_NUM  = 38;
-const H_COL  = 36;
-const H_DOZ  = 36;
-const H_OUT  = 46;
+const H_ZERO = 50;
+const H_NUM  = 46;
+const H_COL  = 42;
+const H_DOZ  = 42;
+const H_OUT  = 52;
 const SEC    = 8;
 
 const Y_ZERO = 0;
@@ -203,10 +203,10 @@ export function BetLayout({ stacks, winning, winners, onPlace }: {
                     {NUM_COLS.map(c => (
                         <Hotspot
                             key={`zs${c}`} id={`p:0-${c + 1}`} name={name(`p:0-${c + 1}`)} onPlace={onPlace}
-                            style={{ left: colX(c) - GUTTER + 10, bottom: -7, width: CELL_W - 20, height: 14, zIndex: HOT_Z }}
+                            style={{ left: colX(c) - GUTTER + 8, bottom: -11, width: CELL_W - 16, height: 22, zIndex: HOT_Z }}
                         />
                     ))}
-                    <Hotspot id="bk" name={name('bk')} onPlace={onPlace} style={{ left: -8, bottom: -8, width: 16, height: 16, zIndex: CORNER_Z }} />
+                    <Hotspot id="bk" name={name('bk')} onPlace={onPlace} style={{ left: -11, bottom: -11, width: 24, height: 24, zIndex: CORNER_Z }} />
                 </div>
 
                 {NUM_ROWS.map(k => NUM_COLS.map(c => {
@@ -224,23 +224,23 @@ export function BetLayout({ stacks, winning, winners, onPlace }: {
                             </Cell>
                             {c < 2 && (
                                 <Hotspot id={`p:${n}-${n + 1}`} name={name(`p:${n}-${n + 1}`)} onPlace={onPlace}
-                                    style={{ right: -7, top: 9, bottom: 9, width: 14, zIndex: HOT_Z }} />
+                                    style={{ right: -11, top: 7, bottom: 7, width: 22, zIndex: HOT_Z }} />
                             )}
                             {k < 11 && (
                                 <Hotspot id={`p:${n}-${n + 3}`} name={name(`p:${n}-${n + 3}`)} onPlace={onPlace}
-                                    style={{ bottom: -7, left: 10, right: 10, height: 14, zIndex: HOT_Z }} />
+                                    style={{ bottom: -11, left: 12, right: 12, height: 22, zIndex: HOT_Z }} />
                             )}
                             {c === 0 && (
                                 <Hotspot id={`t:${n}`} name={name(`t:${n}`)} onPlace={onPlace}
-                                    style={{ left: -10, top: 7, bottom: 7, width: 15, zIndex: HOT_Z }} />
+                                    style={{ left: -12, top: 6, bottom: 6, width: 22, zIndex: HOT_Z }} />
                             )}
                             {c < 2 && k < 11 && (
                                 <Hotspot id={`c:${n}`} name={name(`c:${n}`)} onPlace={onPlace}
-                                    style={{ right: -8, bottom: -8, width: 16, height: 16, zIndex: CORNER_Z }} />
+                                    style={{ right: -11, bottom: -11, width: 24, height: 24, zIndex: CORNER_Z }} />
                             )}
                             {c === 0 && k < 11 && (
                                 <Hotspot id={`l:${n}`} name={name(`l:${n}`)} onPlace={onPlace}
-                                    style={{ left: -9, bottom: -8, width: 17, height: 16, zIndex: CORNER_Z }} />
+                                    style={{ left: -12, bottom: -11, width: 25, height: 24, zIndex: CORNER_Z }} />
                             )}
                         </div>
                     );

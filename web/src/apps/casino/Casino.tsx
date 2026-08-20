@@ -8,6 +8,7 @@ import { useDeckActive } from '@/shell/deckActive';
 import { useStatusBarLight } from '@/shell/useStatusBarLight';
 import { useSessionState } from '@/hooks/useSessionState';
 
+import { primeSamples } from './samples';
 import { Baccarat } from './baccarat/Baccarat';
 import { Blackjack } from './blackjack/Blackjack';
 import { Crash } from './crash/Crash';
@@ -37,6 +38,7 @@ export function Casino({ onClose: _onClose }: { onClose: () => void }) {
     }, []);
 
     useEffect(() => { syncChips(); }, [syncChips]);
+    useEffect(() => { primeSamples(); }, []);
 
     const deckActive = useDeckActive();
     const wasActive  = useRef(deckActive);
