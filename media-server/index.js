@@ -36,7 +36,7 @@ if (!config.tlsCert) {
         // Something is terminating TLS in front, so every client arrives wearing the proxy's
         // address. The per-IP abuse counter would then pool the whole server into one bucket and
         // ban everybody the moment any single player trips it.
-        log.warn('boot', 'TLS is terminated in front but SD_PHONE_RELAY_TRUST_PROXY is not set, so every client looks like the proxy and one bad client can rate-limit the whole server. Set it to 1 when the proxy is one you control.');
+        log.warn('boot', 'no built-in TLS and SD_PHONE_RELAY_TRUST_PROXY is not set. If a reverse proxy is terminating TLS in front, set it to 1: without it every client arrives wearing the proxy address, and one bad client rate-limits the whole server. Ignore this if nothing is in front (plain ws on loopback).');
     }
 }
 
