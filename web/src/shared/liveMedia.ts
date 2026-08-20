@@ -67,6 +67,8 @@ export interface LiveVideoStats {
 
 const KEEP_SECONDS = 10;
 const MAX_LAG = 3;
+const DRIFT_TRIM = 0.6;
+const TRIM_RATE = 1.06;
 const WATCHDOG_MS = 500;
 const STALL_TICKS = 3;
 const STALL_FEED_MS = 1_500;
@@ -513,7 +515,15 @@ export class LiveVideoPlayer {
 
         const end = sb.buffered.end(sb.buffered.length - 1);
         const start = sb.buffered.start(0);
-        if (v.currentTime < start || end - v.currentTime > this.maxLag) this.seekToEdge();
+        const lag = end - v.currentTime;
+        if (v.currentTime < start || lag > this.maxLag) {
+            this.seekToEdge();
+            v.playbackRate = 1;
+        } else if (lag > DRIFT_TRIM) {
+            v.playbackRate = TRIM_RATE;
+        } else if (v.playbackRate !== 1) {
+            v.playbackRate = 1;
+        }
         void v.play?.().catch(() => {});
 
         if (end - start > this.keepSeconds) {

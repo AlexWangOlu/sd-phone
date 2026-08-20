@@ -325,7 +325,13 @@ export class Stream {
         if (!this.publisher) return;
         this.publisher = null;
         this.publisherSid = 0;
-        this.broadcastState('ended', reason);
+        // Not 'ended': that is terminal to a viewer and makes it drop the stream. The whole point of
+        // the linger below is that the publisher usually comes straight back, most often because a
+        // quality change re-anchors it under a new generation. Telling viewers it ended here means
+        // they leave during the re-anchor and the returning publisher finds an empty room, which the
+        // player then reports as a dead feed after its silence timeout. Only the linger expiring is
+        // an actual end.
+        this.broadcastState('idle', reason);
         this.log.info('stream', 'publisher gone', { key: this.key, gen: this.gen, reason, viewers: this.viewers.size });
 
         if (this.lingerTimer) clearTimeout(this.lingerTimer);
