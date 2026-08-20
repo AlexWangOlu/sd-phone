@@ -67,8 +67,8 @@ return {
     -- render buys nothing but bitrate.
     Fullscreen = {
         Fps     = 30,
-        Width   = 1280,
-        Bitrate = 5000000,
+        Width   = 1600,
+        Bitrate = 8000000,
     },
 
     -- How often (ms) the broadcaster emits a chunk. Lower is lower latency and slightly
