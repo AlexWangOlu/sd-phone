@@ -12,6 +12,8 @@ const PREFIX = 'custom:';
 
 const SANDBOX = 'allow-scripts allow-same-origin';
 
+const RELAY_MS = 500;
+
 export function customWidgetKind(appId: string, widgetId: string): string {
     return `${PREFIX}${appId}:${widgetId}`;
 }
@@ -54,8 +56,10 @@ export function CustomWidgetFrame({ kind, size, width, height, editing, onOpen, 
     const { theme } = useTheme('theme');
     const found = useMemo(() => findWidget(apps, kind), [apps, kind]);
     const interactive = found?.widget.interactive === true;
+    const live = interactive && !editing && !!onOpen;
 
     const frameRef = useRef<HTMLIFrameElement>(null);
+    const lastRelay = useRef(0);
     const [ready, setReady] = useState(false);
 
     const src = useMemo(() => {
@@ -85,16 +89,20 @@ export function CustomWidgetFrame({ kind, size, width, height, editing, onOpen, 
     // bubbles out to the homescreen tile (cross-origin iframes never bubble into the parent
     // document). The widget opts back into that behavior explicitly via postMessage instead.
     useEffect(() => {
-        if (!interactive) return;
+        if (!live) return;
         function onMessage(e: MessageEvent) {
             if (e.source !== frameRef.current?.contentWindow) return;
             const type = (e.data as { type?: string } | null)?.type;
+            if (type !== 'sd-phone:widget:open' && type !== 'sd-phone:widget:longpress') return;
+            const now = Date.now();
+            if (now - lastRelay.current < RELAY_MS) return;
+            lastRelay.current = now;
             if (type === 'sd-phone:widget:open') onOpen?.();
-            else if (type === 'sd-phone:widget:longpress') onLongPress?.();
+            else onLongPress?.();
         }
         window.addEventListener('message', onMessage);
         return () => window.removeEventListener('message', onMessage);
-    }, [interactive, onOpen, onLongPress]);
+    }, [live, onOpen, onLongPress]);
 
     const radius = size === 'sm' ? 22 : 26;
     const p = palette('dark');
@@ -124,7 +132,7 @@ export function CustomWidgetFrame({ kind, size, width, height, editing, onOpen, 
                 sandbox={SANDBOX}
                 referrerPolicy="no-referrer"
                 onLoad={() => setReady(true)}
-                className={`absolute inset-0 border-0 transition-opacity duration-200 ${interactive && !editing ? 'pointer-events-auto' : 'pointer-events-none'}`}
+                className={`absolute inset-0 border-0 transition-opacity duration-200 ${live ? 'pointer-events-auto' : 'pointer-events-none'}`}
                 style={{
                     width,
                     height,
