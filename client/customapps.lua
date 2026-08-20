@@ -47,6 +47,8 @@ local WIDGET_SIZES = { sm = true, md = true, lg = true }
 ---@type string[] Sizes a widget is offered at when it declares none.
 local WIDGET_SIZES_DEFAULT = { 'sm', 'md', 'lg' }
 
+---@type table<string, string> Fields of one entry in a def's optional `lockscreenWidgets` array,
+---and the Lua type each must have. `height` is the card's pixel height in the lock-screen stack.
 local LOCKSCREEN_WIDGET_FIELD_TYPES = {
     id = 'string', name = 'string', ui = 'string', height = 'number', interactive = 'boolean',
 }
@@ -162,6 +164,10 @@ local function readWidgets(list, identifier)
     return widgets
 end
 
+---Reads a def's optional `lockscreenWidgets` array, keeping every entry that names a ui outside
+---this resource and claims an id no earlier entry took. Height is clamped to the stack's range.
+---@param entries any
+---@return table[] widgets
 local function readLockscreenWidgets(entries)
     local out, seen = {}, {}
     if type(entries) ~= 'table' then return out end
@@ -321,6 +327,8 @@ function M.has(identifier)
     return type(identifier) == 'string' and registry[identifier] ~= nil
 end
 
+---Every registered app the player currently passes the job and `requires` gates for.
+---@return table[] defs
 function M.list()
     return currentList()
 end

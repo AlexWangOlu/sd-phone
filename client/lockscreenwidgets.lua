@@ -1,12 +1,25 @@
+---@type table Custom app registry (client.customapps), read here to confirm a widget was declared.
 local customApps = require 'client.customapps'
 
+---@type table<string, string> "appId:widgetId" -> the resource showing it, so only the owner hides it.
 local active = {}
+
+---@type table<string, function> "appId:widgetId" -> the owner's action handler for taps in the card.
 local callbacks = {}
 
+---Stack key for one app's widget.
+---@param appId string
+---@param widgetId string
+---@return string
 local function key(appId, widgetId)
     return appId .. ':' .. widgetId
 end
 
+---Whether the calling resource declared this lock-screen widget on an app the player can see.
+---@param appId string
+---@param widgetId string
+---@param resource string? invoking resource, which must be the one that registered the app
+---@return boolean
 local function registered(appId, widgetId, resource)
     local list = customApps.list and customApps.list() or nil
     if type(list) ~= 'table' then return false end

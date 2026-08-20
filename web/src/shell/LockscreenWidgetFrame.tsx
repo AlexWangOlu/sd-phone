@@ -42,6 +42,6 @@ export function LockscreenWidgetFrame({ item }: { item: ActiveLockscreenWidget }
     return <div className="relative w-full overflow-hidden rounded-[22px]" style={{ height: definition.widget.height }}>
         <iframe ref={frame} src={src} title={definition.widget.name} sandbox="allow-scripts allow-same-origin"
             onLoad={() => setReady(true)} className="absolute inset-0 h-full w-full border-0"
-            style={{ pointerEvents: definition.widget.interactive === false ? 'none' : 'auto', opacity: ready ? 1 : 0 }} />
+            style={{ pointerEvents: definition.widget.interactive === true ? 'auto' : 'none', opacity: ready ? 1 : 0 }} />
     </div>;
 }

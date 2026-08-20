@@ -101,6 +101,12 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     // control back to whatever the built-in player was already doing.
     const [external, setExternal] = useState<{ appId: string; track: ExternalNowPlayingTrack } | null>(null);
 
+    const extAppId   = external?.appId ?? null;
+    const extTitle   = external?.track.title ?? '';
+    const extArtist  = external?.track.artist ?? '';
+    const extThumb   = external?.track.thumb;
+    const extPlaying = external?.track.playing ?? false;
+
     useNuiEvent('sd-phone:nowPlaying:set', useCallback((data: { appId: string; track: ExternalNowPlayingTrack }) => {
         setExternal({ appId: data.appId, track: data.track });
     }, []));
@@ -114,20 +120,20 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     // an external provider takes the Now Playing slot, pause it (its own <audio>/YT element, via
     // the normal `playing` state below — the effects that own actual playback react to this).
     useEffect(() => {
-        if (external) setPlaying(false);
-    }, [external]);
+        if (extAppId) setPlaying(false);
+    }, [extAppId]);
 
     const externalTrack = useMemo<Track | null>(() => {
-        if (!external) return null;
+        if (!extAppId) return null;
         return {
-            id: `external:${external.appId}`,
-            title:  external.track.title,
-            artist: external.track.artist ?? '',
+            id: `external:${extAppId}`,
+            title:  extTitle,
+            artist: extArtist,
             url:    '',
-            thumb:  external.track.thumb,
+            thumb:  extThumb,
             addedAt: 0,
         };
-    }, [external]);
+    }, [extAppId, extTitle, extArtist, extThumb]);
 
     const volumeRef = useRef(volume);
     useEffect(() => { volumeRef.current = volume; }, [volume]);
@@ -275,25 +281,25 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     // audio engine, over NUI) when one holds the Now Playing slot, otherwise falls through to the
     // built-in player's own toggle/next/prev/seek above unchanged.
     const externalAction = useCallback((action: 'toggle' | 'next' | 'prev' | 'seek', value?: number) => {
-        if (!external) return false;
-        void fetchNui('sd-phone:nowPlaying:action', { appId: external.appId, action, value });
+        if (!extAppId) return false;
+        void fetchNui('sd-phone:nowPlaying:action', { appId: extAppId, action, value });
         return true;
-    }, [external]);
+    }, [extAppId]);
     const exposedToggle = useCallback(() => { if (!externalAction('toggle')) toggle(); }, [externalAction, toggle]);
     const exposedNext   = useCallback(() => { if (!externalAction('next'))   next(); },   [externalAction, next]);
     const exposedPrev   = useCallback(() => { if (!externalAction('prev'))   prev(); },   [externalAction, prev]);
     const exposedSeek   = useCallback((t: number) => { if (!externalAction('seek', t)) seek(t); }, [externalAction, seek]);
 
     const value = useMemo<MusicCtx>(() => ({
-        current: external ? externalTrack : current,
-        playing: external ? external.track.playing : playing,
+        current: extAppId ? externalTrack : current,
+        playing: extAppId ? extPlaying : playing,
         volume, shuffle, repeat,
         play, stop,
         toggle: exposedToggle, next: exposedNext, prev: exposedPrev, seek: exposedSeek,
         setVolume, setShuffle, setRepeat,
         requestOpen, openSignal,
     }), [
-        external, externalTrack, current, playing, volume, shuffle, repeat,
+        extAppId, extPlaying, externalTrack, current, playing, volume, shuffle, repeat,
         play, stop, exposedToggle, exposedNext, exposedPrev, exposedSeek,
         setVolume, setShuffle, setRepeat,
         requestOpen, openSignal,

@@ -12,6 +12,10 @@ end)
 ---@type table<string, fun(action: string, value: number?)> appId -> action callback
 local nowPlayingProviders = {}
 
+---@type table<string, string> appId -> the resource that claimed it, so one resource can neither
+---overwrite nor clear a card another resource owns.
+local providerOwners = {}
+
 ---@type string? appId currently holding the Now Playing slot, so a stale `clear` from a provider
 ---that already lost it to a newer one is a no-op rather than wiping the newer card.
 local activeProvider = nil
@@ -22,6 +26,10 @@ local activeProvider = nil
 ---the card/island/widget this pushes to; `action == 'seek'` carries the target position as `value`
 exports('setExternalNowPlaying', function(appId, track, onAction)
     if type(appId) ~= 'string' or appId == '' or type(track) ~= 'table' then return false end
+    local resource = GetInvokingResource()
+    local owner = providerOwners[appId]
+    if owner and owner ~= resource then return false end
+    providerOwners[appId] = resource
     activeProvider = appId
     nowPlayingProviders[appId] = onAction
     SendNUIMessage({ action = 'sd-phone:nowPlaying:set', data = { appId = appId, track = track } })
@@ -30,10 +38,23 @@ end)
 
 ---@param appId string must match the appId passed to setExternalNowPlaying
 exports('clearExternalNowPlaying', function(appId)
-    if type(appId) ~= 'string' then return end
-    nowPlayingProviders[appId] = nil
+    if type(appId) ~= 'string' or providerOwners[appId] ~= GetInvokingResource() then return end
+    providerOwners[appId], nowPlayingProviders[appId] = nil, nil
     if activeProvider == appId then activeProvider = nil end
     SendNUIMessage({ action = 'sd-phone:nowPlaying:clear', data = { appId = appId } })
+end)
+
+---Drops any Now Playing slot a stopping resource still held, so a restarted provider cannot leave
+---a dead card (and a dangling onAction) on the Control Center, island, widget and lock screen.
+---@param resource string
+AddEventHandler('onResourceStop', function(resource)
+    for appId, owner in pairs(providerOwners) do
+        if owner == resource then
+            providerOwners[appId], nowPlayingProviders[appId] = nil, nil
+            if activeProvider == appId then activeProvider = nil end
+            SendNUIMessage({ action = 'sd-phone:nowPlaying:clear', data = { appId = appId } })
+        end
+    end
 end)
 
 RegisterNUICallback('sd-phone:nowPlaying:action', function(data, cb)
