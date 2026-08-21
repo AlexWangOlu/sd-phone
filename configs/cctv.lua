@@ -13,8 +13,20 @@ return {
     -- flicking between cameras does not thrash the world stream.
     FocusGraceSeconds = 3,
 
-    -- Field of view. Lower is more zoomed in.
+    -- Field of view at rest. Lower is more zoomed in.
     Fov = 62.0,
+
+    -- How far an operator may swing a camera off its resting aim, and how far it zooms. A real
+    -- fixed camera is not a free cam: it pans within its mount, so these are deliberately bounded.
+    Controls = {
+        PanDegrees  = 70.0,   -- left/right from centre
+        TiltUp      = 22.0,   -- above centre
+        TiltDown    = 34.0,   -- below centre
+        ZoomMinFov  = 22.0,   -- most zoomed in
+        ZoomMaxFov  = 70.0,   -- most zoomed out
+        LookSpeed   = 1.35,   -- degrees per frame at full stick/mouse deflection
+        ZoomSpeed   = 2.2,    -- fov change per scroll step
+    },
 
     Cameras = {
         -- Bank
