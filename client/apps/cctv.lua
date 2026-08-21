@@ -72,12 +72,15 @@ local function aim(entry)
 
     SetCamCoord(cam, at.x, at.y, at.z)
 
-    -- Take the resting aim once by pointing at the target, reading the rotation back, then driving
-    -- the camera by rotation from there. PointCamAtCoord cannot be combined with an operator
-    -- offset, so the offsets are applied to the angles rather than to the point being looked at.
+    -- Take the resting aim once by pointing at the target, read the rotation back, then RELEASE the
+    -- point-at before driving the camera by rotation. PointCamAtCoord is not a one-shot aim: it puts
+    -- the camera into a tracking mode that re-aims every frame and silently discards SetCamRot, so
+    -- without StopCamPointing the operator's pan and tilt are written and thrown away.
     PointCamAtCoord(cam, look.x, look.y, look.z)
     local rot = GetCamRot(cam, 2)
     basePitch, baseYaw = rot.x, rot.z
+    StopCamPointing(cam)
+    SetCamRot(cam, basePitch, 0.0, baseYaw, 2)
     panOffset, tiltOffset = 0.0, 0.0
     fov = FOV
     SetCamFov(cam, fov)
