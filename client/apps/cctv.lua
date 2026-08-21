@@ -120,7 +120,10 @@ local function release()
         DestroyCam(cam, true)
         cam = nil
     end
-    if active then SendNUIMessage({ action = 'sd-phone:cctv:exit', data = {} }) end
+    if active then
+        SendNUIMessage({ action = 'sd-phone:cctv:exit', data = {} })
+        TriggerEvent('sd-phone:client:cameraCursor', true)
+    end
     active = nil
     if focused then
         ClearFocus()
@@ -189,15 +192,23 @@ local function open(id)
     focus(entry)
     aim(entry)
 
-    if not active then
+    local first = active == nil
+    -- Set before the control loop starts: the loop runs while `active` is a camera, so starting it
+    -- first meant it read nil on its opening check and exited before a single frame.
+    active = id
+
+    if first then
         RenderScriptCams(true, false, 0, true, true)
         -- The phone stays LOADED (it draws the overlay) but gives up input, so the operator can
         -- swing the camera with the same stick and mouse they move with. Hiding the handset is the
         -- NUI's job, not this file's: it is told below.
         SetNuiFocus(false, false)
+        -- The shell owns NUI focus while the phone is open and will reclaim it the moment look mode
+        -- ends. This is the flag it already honours for the Camera app releasing the cursor on
+        -- purpose; without it the pointer is taken back and the camera stops responding.
+        TriggerEvent('sd-phone:client:cameraCursor', false)
         startControl()
     end
-    active = id
     SendNUIMessage({ action = 'sd-phone:cctv:enter', data = {
         cameraId = entry.id,
         label    = entry.label,
@@ -218,6 +229,7 @@ leaveCamera = function()
     if active then SendNUIMessage({ action = 'sd-phone:cctv:exit', data = {} }) end
     active = nil
     releaseAt = GetGameTimer() + FOCUS_GRACE_MS
+    TriggerEvent('sd-phone:client:cameraCursor', true)
     SetNuiFocus(true, true)
 end
 
