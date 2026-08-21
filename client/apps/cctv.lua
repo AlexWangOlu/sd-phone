@@ -21,13 +21,38 @@ end
 ---@type table Pan, tilt and zoom limits. A fixed camera swings within its mount rather than
 ---flying, so every one of these is a bound rather than a speed to be exceeded.
 local CTL = type(CFG.Controls) == 'table' and CFG.Controls or {}
-local PAN_LIMIT  = tonumber(CTL.PanDegrees) or 70.0
-local TILT_UP    = tonumber(CTL.TiltUp) or 22.0
-local TILT_DOWN  = tonumber(CTL.TiltDown) or 34.0
-local ZOOM_MIN   = tonumber(CTL.ZoomMinFov) or 22.0
-local ZOOM_MAX   = tonumber(CTL.ZoomMaxFov) or 70.0
 local LOOK_SPEED = tonumber(CTL.LookSpeed) or 1.35
 local ZOOM_SPEED = tonumber(CTL.ZoomSpeed) or 2.2
+
+---@type number Pan allowed each way from the resting aim on the camera currently open. At or above
+---360 the camera spins freely and the angle wraps instead of stopping.
+local panLimit = 360.0
+---@type number Tilt allowed above the resting aim on the camera currently open.
+local tiltUp = 22.0
+---@type number Tilt allowed below the resting aim on the camera currently open.
+local tiltDown = 34.0
+---@type number Narrowest field of view the camera currently open will zoom to.
+local zoomMin = 22.0
+---@type number Widest field of view the camera currently open will zoom to.
+local zoomMax = 70.0
+
+---Reads one camera's limits, falling back to the shared Controls block for anything it does not
+---name. Doing this per camera is what lets a dome on a bank ceiling spin while a camera bolted
+---beside a doorway only covers the doorway.
+---@param entry table camera definition
+local function limitsFor(entry)
+    panLimit = tonumber(entry.PanDegrees) or tonumber(CTL.PanDegrees) or 70.0
+    tiltUp   = tonumber(entry.TiltUp)     or tonumber(CTL.TiltUp)     or 22.0
+    tiltDown = tonumber(entry.TiltDown)   or tonumber(CTL.TiltDown)   or 34.0
+    zoomMin  = tonumber(entry.ZoomMinFov) or tonumber(CTL.ZoomMinFov) or 22.0
+    zoomMax  = tonumber(entry.ZoomMaxFov) or tonumber(CTL.ZoomMaxFov) or 70.0
+end
+
+---Whether the camera currently open spins without stops rather than hitting pan limits.
+---@return boolean
+local function freeSpin()
+    return panLimit >= 360.0
+end
 
 ---@type number Resting pitch of the camera, from where it is to what it looks at.
 local basePitch = 0.0
@@ -71,6 +96,7 @@ local function aim(entry)
     end
 
     SetCamCoord(cam, at.x, at.y, at.z)
+    limitsFor(entry)
 
     -- Take the resting aim once by pointing at the target, read the rotation back, then RELEASE the
     -- point-at before driving the camera by rotation. PointCamAtCoord is not a one-shot aim: it puts
@@ -157,9 +183,16 @@ local function startControl()
 
             if dx ~= 0.0 or dy ~= 0.0 then
                 -- Zooming in narrows the swing, the way a real zoom makes a mount feel slower.
-                local scale = LOOK_SPEED * (fov / ZOOM_MAX)
-                panOffset  = clamp(panOffset - dx * scale * 10.0, -PAN_LIMIT, PAN_LIMIT)
-                tiltOffset = clamp(tiltOffset - dy * scale * 8.0, -TILT_DOWN, TILT_UP)
+                local scale = LOOK_SPEED * (fov / zoomMax)
+                local nextPan = panOffset - dx * scale * 10.0
+                if freeSpin() then
+                    -- Wrap rather than clamp, so the operator can keep spinning past the seam
+                    -- instead of hitting an invisible stop at some arbitrary bearing.
+                    panOffset = (nextPan + 180.0) % 360.0 - 180.0
+                else
+                    panOffset = clamp(nextPan, -panLimit, panLimit)
+                end
+                tiltOffset = clamp(tiltOffset - dy * scale * 8.0, -tiltDown, tiltUp)
                 applyLook()
             end
 
@@ -171,10 +204,10 @@ local function startControl()
             end
 
             if IsDisabledControlJustPressed(0, 241) or IsDisabledControlJustPressed(0, 15) then
-                fov = clamp(fov - ZOOM_SPEED, ZOOM_MIN, ZOOM_MAX)
+                fov = clamp(fov - ZOOM_SPEED, zoomMin, zoomMax)
                 applyLook()
             elseif IsDisabledControlJustPressed(0, 242) or IsDisabledControlJustPressed(0, 14) then
-                fov = clamp(fov + ZOOM_SPEED, ZOOM_MIN, ZOOM_MAX)
+                fov = clamp(fov + ZOOM_SPEED, zoomMin, zoomMax)
                 applyLook()
             end
 

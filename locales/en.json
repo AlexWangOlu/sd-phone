@@ -2861,7 +2861,8 @@
     "cctvChannel": "CH",
     "cctvHintLook": "Move the mouse to pan and tilt",
     "cctvHintZoom": "Scroll to zoom",
-    "cctvHintExit": "Backspace to leave the camera"
+    "cctvHintExit": "Backspace to leave the camera",
+    "cctvStandby": "STBY"
   },
   "messages": {
     "accepted": "Accepted",
