@@ -557,6 +557,7 @@ export function PhoneShell({ children, hidden = false, cameraActive = false, ent
                         className="absolute overflow-hidden"
                         style={{
                             left: SX, top: SY, width: SW, height: SH,
+                            overflow: 'clip',
                             borderRadius: SR,
                             clipPath: `inset(0 round ${SR}px)`,
                             WebkitClipPath: `inset(0 round ${SR}px)`,
