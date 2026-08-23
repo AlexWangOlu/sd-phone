@@ -805,7 +805,7 @@ function store.grantMigratedLogins(entries)
     MySQL.query.await(([[
         CREATE TABLE `%s` (
             app VARCHAR(24) NOT NULL, username VARCHAR(64) NOT NULL, citizenid VARCHAR(64) NOT NULL,
-            plain VARCHAR(64) NOT NULL, hash VARCHAR(64) NOT NULL, email VARCHAR(120) NULL,
+            plain VARCHAR(64) NOT NULL, hash VARCHAR(255) NOT NULL, email VARCHAR(120) NULL,
             PRIMARY KEY (app, username, citizenid)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ]]):format(tmp))
