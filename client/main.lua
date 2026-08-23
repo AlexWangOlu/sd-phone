@@ -239,6 +239,8 @@ local cameraActive = false
 local cameraSurface = 'camera'
 ---@type boolean True while the Camera app has handed the mouse to the game to aim the lens.
 local cameraCursorFree = false
+---@type boolean True while a call is live; holds the pose up after the phone is put away.
+local callActive = false
 ---@type boolean True while a UI text field is focused.
 local typingInPhone = false
 ---@type boolean True while the focused field is digit-only (PIN pads, dialers): keep-input
@@ -273,6 +275,7 @@ local function updatePose()
         torch  = flashlightOn,
         camera = cameraActive,
         color  = currentFrameColor,
+        call   = callActive,
     })
     broadcastHoldState()
 end
@@ -416,6 +419,15 @@ AddEventHandler('sd-phone:client:cameraMode', function(on, surface)
     if not cameraActive then cameraCursorFree = false end
     updatePose()
     syncKeepInput()
+end)
+
+---Tracks whether a call is live, then re-syncs the pose so the phone stays in hand once the UI is
+---put away. Routed through updatePose rather than straight into the pose module so the prop
+---statebag other players read is broadcast with it.
+---@param on any truthy from the first ring-out until the call ends
+AddEventHandler('sd-phone:client:callPose', function(on)
+    callActive = on and true or false
+    updatePose()
 end)
 
 ---Tracks whether the Camera app is holding the NUI cursor or has handed the mouse to the game to
