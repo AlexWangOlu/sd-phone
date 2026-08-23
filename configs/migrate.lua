@@ -1,7 +1,11 @@
 -- lb-phone -> sd-phone data migration. When a server switches from lb-phone to sd-phone this
--- carries each player's essentials across on first boot, so people keep their phone instead of
--- starting over: phone number + lock passcode, contacts, call history, blocked numbers, SMS
--- threads (incl. groups), photos + albums, and notes.
+-- carries each player's essentials across, so people keep their phone instead of starting over:
+-- phone number + lock passcode, contacts, call history, blocked numbers, SMS threads (incl.
+-- groups), photos + albums, and notes.
+--
+-- Two ways to run it. /phoneadmin -> Migration previews what is on the other side, takes a
+-- domain selection and streams the run; `enabled` below decides whether it also runs by itself
+-- on boot for servers that would rather not watch it happen.
 --
 -- It is idempotent and non-destructive. A marker row (phone_migrations) stops it running twice,
 -- every write is INSERT IGNORE / fill-only, and a player who already has sd-phone data is never
@@ -9,8 +13,14 @@
 -- no-op. The join is lb-phone's phone owner id -> framework citizenid, and each player's lb-phone
 -- number is adopted as their sd-phone number so every contact / thread / call log still lines up.
 return {
-    -- Import automatically on resource start. Turn this off to only ever run it by hand, via the
-    -- `sdphone:migrate` server-console command.
+    -- Import automatically on resource start, with no one watching. Leave this on and the whole
+    -- migration happens by itself the first time the resource boots, exactly as it always has; it
+    -- is idempotent, so once there is nothing left to import it is a cheap no-op.
+    --
+    -- Turn it off to drive the import by hand instead. /phoneadmin -> Migration is the primary
+    -- way: it previews what lb-phone actually holds, lets you pick the domains to bring across,
+    -- and streams the run with a live log and an ETA. `sdphone:migrate` from the server console
+    -- still works either way.
     enabled = true,
 
     -- lb-phone's table prefix. Its tables are all phone_* (phone_phones, phone_phone_contacts,
