@@ -62,6 +62,10 @@ local groupRings = {}
 ---@type table<number, table> { channel, location, boothNumber, caller }
 local boothRings = {}
 
+---@type table<number, table> Dev-only fake calls from /fakecall, keyed by source. A test call has
+---no session or ring behind it, so this is the only record that it exists.
+local devFake = {}
+
 local util = require 'server.util'
 local ok, fail, digits = util.ok, util.fail, util.digits
 
@@ -1099,6 +1103,7 @@ end
 ---@return table
 function actions.hangup(source, payload)
     if type(payload) ~= 'table' then payload = {} end
+    devFake[source] = nil
     local channel = tonumber(payload.channel)
 
     local ring = channel and groupRings[channel]
@@ -1175,6 +1180,16 @@ function actions.current(source)
             return ok({ channel = rchannel, phase = 'incoming',
                         number = ring.caller.number,
                         name   = contactNameFor(player.getIdentifier(source), ring.caller.number), elapsed = 0 })
+        end
+        -- /fakecall has no session or ring behind it, so without this a reconcile would answer
+        -- "no call" and wipe the panel the moment the phone is closed and reopened.
+        local fake = devFake[source]
+        if fake then
+            return ok({
+                channel = fake.channel, phase = 'active',
+                number  = fake.number,  name  = fake.name,
+                elapsed = math.max(0, os.time() - fake.startedAt),
+            })
         end
         return ok(nil)
     end
@@ -1256,6 +1271,14 @@ local SIGNAL_WINDOW = 10000
 ---while it negotiates and nothing afterwards, so this is many times the real burst.
 local SIGNAL_PER_WINDOW = 200
 
+---Registers or clears a dev fake call, so /fakecall survives the phone being closed and
+---reopened. Called only by the dev command; nothing in the normal call flow touches it.
+---@param src number
+---@param info table|nil { channel, number, name, startedAt }, nil to clear
+function actions.devFake(src, info)
+    devFake[src] = info
+end
+
 ---Relays a WebRTC signaling blob to the call peer. Dropped silently when the sender isn't in a
 ---live call, when the blob isn't the shape a peer sends, or when it is over budget.
 ---
@@ -1333,6 +1356,7 @@ end
 ---dropping ring caller cancels the whole ring, and a dropping ringer is removed.
 ---@param src number
 function actions.onDrop(src)
+    devFake[src] = nil
     local channel, s = sessionForSource(src)
     if channel and s then
         -- A merged third party or a pending invite dropping takes only their own leg with them;
