@@ -1,5 +1,7 @@
 ---@type fun(nuiAction: string, serverEvent: string) NUI->server pass-through registrar (client.nui).
 local proxyCallback = require 'client.nui'
+---@type table sd-phone config root (configs.config): read for Phone.OpenOnIncomingCall.
+local config = require 'configs.config'
 ---@type table Scripted phone camera (client.phonecam): owns the view whenever the video call is
 ---allowed to keep the player moving, since the native cell cam pins the ped at engine level.
 local phonecam = require 'client.phonecam'
@@ -110,12 +112,16 @@ RegisterNUICallback('sd-phone:call:voiceCapabilities', function(_, cb)
     cb(voice.capabilities())
 end)
 
----Incoming call: forces the phone open, waits briefly for the React tree to mount, then pushes
----the ringing payload.
----@param data table incoming-call payload from the server
+---An inbound ring. The page is told either way; what differs is whether the phone is thrown onto
+---the screen with it. Left closed, the shell peeks with a banner naming the caller and the ring
+---plays from the page, which is alive whether or not the UI is showing - so the only thing lost by
+---not opening is the takeover itself.
+---@param data table { channel: number, name?: string, number: string, video?: boolean }
 RegisterNetEvent('sd-phone:client:call:incoming', function(data)
-    exports['sd-phone']:open()
-    Wait(200)
+    if config.Phone.OpenOnIncomingCall then
+        exports['sd-phone']:open()
+        Wait(200)
+    end
     pushCall('sd-phone:call:incoming', data)
 end)
 

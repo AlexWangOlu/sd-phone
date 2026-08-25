@@ -13,12 +13,9 @@ import { playDtmf } from './keypad/dtmf';
 import { Dialpad } from './keypad/Dialpad';
 import { ContactPickerSheet } from '@/shared/ContactPickerSheet';
 import { Sheet } from '@/ui/Sheet';
-import { startRing } from './calls/ringtone';
 import { callRecorder } from './calls/callRecorder';
 import { recordingEnabled } from './callrecApi';
-import { startRingtone } from '@/apps/settings/tonePlayer';
-import { resolveTone } from '@/apps/settings/tones';
-import { useTheme, useThemeStore } from '@/stores/themeStore';
+import { useThemeStore } from '@/stores/themeStore';
 import { VideoCall } from './calls/VideoCall';
 import { acceptVideo, requestVideo, stopVideo } from './calls/webrtc';
 import { useCallStore } from '@/stores/callStore';
@@ -57,7 +54,6 @@ export function CallLayer({ wallpaper }: { wallpaper?: string }) {
     const [videoPhase, setVideoPhase]         = useState<'off' | 'requesting' | 'incoming' | 'active'>('off');
     const [videoInitiator, setVideoInitiator] = useState(false);
     const [canMute, setCanMute] = useState(true);
-    const { ringtone, ringtoneVol, customRingtones } = useTheme('ringtone', 'ringtoneVol', 'customRingtones');
     const { load: loadContacts } = useContacts('load');
 
     useEffect(() => {
@@ -179,14 +175,6 @@ export function CallLayer({ wallpaper }: { wallpaper?: string }) {
     useEffect(reconcile, [reconcile]);
 
     useNuiEvent('sd-phone:open', reconcile);
-
-    useEffect(() => {
-        if (!phase || phase === 'active') return;
-        if (phase === 'incoming') {
-            return startRingtone(resolveTone('ringtone', ringtone, customRingtones).url, ringtoneVol / 100);
-        }
-        return startRing('ringback');
-    }, [channel, phase, ringtone, customRingtones]);
 
     useEffect(() => {
         if (phase !== 'active') return;
