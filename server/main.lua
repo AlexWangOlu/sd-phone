@@ -46,7 +46,7 @@ require 'server.voicememos.init'
 require 'server.callrec.init'
 require 'server.music.init'
 require 'server.share.init'
-require 'server.devseed'
+require 'server.devseed.init'
 -- Optional local-only helpers; absent on every install but a developer's, so a missing file is
 -- expected rather than an error.
 pcall(require, 'server.devswap')
