@@ -181,7 +181,7 @@ end)
 | Layer | Supported |
 |---|---|
 | Frameworks | QBCore, QBox, ESX (auto-detected). ox_core is supported but **experimental** |
-| Inventories | ox_inventory, tgiann-inventory, qb-inventory, qs-inventory(-pro), origen_inventory, codem-inventory, jaksam_inventory, lj-inventory, ps-inventory |
+| Inventories | ox_inventory, one_inventory, tgiann-inventory, qb-inventory, qs-inventory(-pro), origen_inventory, codem-inventory, jaksam_inventory, lj-inventory, ps-inventory |
 | Voice | pma-voice |
 | Housing | 9 housing systems for the Homes app |
 | Garages | 10 garage systems for the Garages app |
