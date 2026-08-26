@@ -464,6 +464,62 @@ function store.insertPages(rows)
     insertMulti('INSERT IGNORE INTO pages_posts (citizenid, title, body, price, image, images, `number`, email, created_at) VALUES', 9, rows)
 end
 
+---Insert a batch of Cherry profiles. rows:
+---{ username, name, age, about, gender, interested, visible, photos, updated_at }.
+---@param rows any[][]
+function store.insertCherryProfiles(rows)
+    insertMulti('INSERT IGNORE INTO phone_cherry_profiles (username, name, age, about, gender, interested, visible, photos, updated_at) VALUES', 9, rows)
+end
+
+---Insert a batch of Cherry swipes. rows: { swiper, target, liked, created_at }.
+---@param rows any[][]
+function store.insertCherrySwipes(rows)
+    insertMulti('INSERT IGNORE INTO phone_cherry_swipes (swiper, target, liked, created_at) VALUES', 4, rows)
+end
+
+---Insert a batch of Cherry matches. rows: { id, a, b, created_at }.
+---@param rows any[][]
+function store.insertCherryMatches(rows)
+    insertMulti('INSERT IGNORE INTO phone_cherry_matches (id, a, b, created_at) VALUES', 4, rows)
+end
+
+---Insert a batch of Cherry messages. rows: { id, match_id, sender, kind, body, meta, created_at }.
+---@param rows any[][]
+function store.insertCherryMessages(rows)
+    insertMulti('INSERT IGNORE INTO phone_cherry_messages (id, match_id, sender, kind, body, meta, created_at) VALUES', 7, rows)
+end
+
+---Insert a batch of Dark Chat rooms. rows: { id, code, name, owner, created_at }.
+---@param rows any[][]
+function store.insertDarkchatRooms(rows)
+    insertMulti('INSERT IGNORE INTO `darkchat_rooms` (id, code, name, owner, created_at) VALUES', 5, rows)
+end
+
+---Insert a batch of Dark Chat memberships. rows: { room_id, citizenid, joined_at }.
+---@param rows any[][]
+function store.insertDarkchatMembers(rows)
+    insertMulti('INSERT IGNORE INTO `darkchat_members` (room_id, citizenid, joined_at) VALUES', 3, rows)
+end
+
+---Insert a batch of Dark Chat messages. rows: { room_id, citizenid, author, body, kind, meta, created_at }.
+---@param rows any[][]
+function store.insertDarkchatMessages(rows)
+    insertMulti('INSERT IGNORE INTO `darkchat_messages` (room_id, citizenid, author, body, kind, meta, created_at) VALUES', 7, rows)
+end
+
+---Insert a batch of Dark Chat nicknames. rows: { citizenid, nickname }.
+---@param rows any[][]
+function store.insertDarkchatNicknames(rows)
+    insertMulti('INSERT IGNORE INTO `darkchat_nicknames` (citizenid, nickname) VALUES', 2, rows)
+end
+
+---Insert a batch of Weazel News articles. rows:
+---{ category, headline, dek, body, author, author_cid, image, featured, views, created_at, updated_at }.
+---@param rows any[][]
+function store.insertWeazelArticles(rows)
+    insertMulti('INSERT IGNORE INTO `phone_weazel_articles` (category, headline, dek, body, author, author_cid, image, featured, views, created_at, updated_at) VALUES', 11, rows)
+end
+
 ---Insert a batch of call-log rows. rows: { id, citizenid, number, name, direction, duration, seen, called_at }.
 ---@param rows any[][]
 function store.insertCalls(rows)

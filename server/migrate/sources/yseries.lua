@@ -33,6 +33,10 @@ source.ports = {
     { key = 'birdy',      label = 'birdy',      run = require('server.migrate.port.y.birdy').run },
     { key = 'marketplace', label = 'marketplace', run = require('server.migrate.port.y.classifieds').marketplace },
     { key = 'pages',      label = 'pages',      run = require('server.migrate.port.y.classifieds').pages },
+    { key = 'mail',       label = 'mail',       run = require('server.migrate.port.y.mail').run },
+    { key = 'cherry',     label = 'cherry',     run = require('server.migrate.port.y.cherry').run },
+    { key = 'darkchat',   label = 'darkchat',   run = require('server.migrate.port.y.darkchat').run },
+    { key = 'weazelnews', label = 'weazelnews', run = require('server.migrate.port.y.weazelnews').run },
 }
 
 ---@type table<string, string> Domains that cannot land without another having run first. None yet:
@@ -61,6 +65,10 @@ source.domainSources = {
     birdy      = { 'twitter_accounts', 'twitter_tweets', 'twitter_likes', 'twitter_retweets', 'twitter_follows' },
     marketplace = { 'ybuy_ads' },
     pages      = { 'promo_hub_posts' },
+    mail       = { 'mails' },
+    cherry     = { 'lovr_accounts', 'lovr_likes', 'lovr_passes', 'lovr_matches', 'lovr_messages' },
+    darkchat   = { 'darkchat_accounts', 'darkchat_channels', 'darkchat_members', 'darkchat_messages' },
+    weazelnews = { 'news_accounts', 'news_articles' },
 }
 
 ---Whether a YSeries database is present to read from.
