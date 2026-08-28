@@ -38,3 +38,25 @@ lib.callback.register('sd-phone:server:garages:list', function(src)
 end)
 
 -- No boot print: the detected garage system is available via garages.activeSystem() when needed.
+
+---Prints what the garage bridge resolved for the calling player. Console and ACE holders only,
+---because it names database columns.
+RegisterCommand('garagediag', function(src)
+    if src ~= 0 and not IsPlayerAceAllowed(src, 'command.garagediag') then return end
+
+    local d = garages.diagnose(src)
+    local lines = {
+        ('system      : %s'):format(d.system),
+        ('table       : %s (%d row(s) for you)'):format(d.table, d.rows),
+        ('garage col  : %s'):format(d.garageCol or 'NONE of the profile candidates'),
+        ('state col   : %s'):format(d.stateCol or 'NONE of the profile candidates'),
+        ('parked table: %s'):format(d.parkedTable and (d.parkedTable .. (d.parkedCols and ' (present)' or ' (MISSING)')) or 'n/a'),
+        ('garages     : %d with usable coords'):format(d.garages),
+        ('row columns : %s'):format(table.concat(d.columns, ', ')),
+    }
+    for i = 1, #lines do
+        if src == 0 then print('^5[sd-phone:garagediag]^0 ' .. lines[i]) else
+            TriggerClientEvent('chat:addMessage', src, { args = { 'garagediag', lines[i] } })
+        end
+    end
+end, false)
