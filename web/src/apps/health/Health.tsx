@@ -80,8 +80,7 @@ export function Health({ onClose }: { onClose: () => void }) {
     const deckActive = useDeckActive();
     const { data: summary, refetch: refetchSummary } = useAsyncData(apiSummary, [deckActive], { enabled: deckActive });
     useEffect(() => { refetchRef.current = refetchSummary; }, [refetchSummary]);
-    const { data: board, settled: boardSettled } = useAsyncData(
-        apiLeaderboard, [deckActive, tab], { enabled: deckActive && tab === 'board' });
+    const { data: board } = useAsyncData(apiLeaderboard, [deckActive], { enabled: deckActive });
 
     const tabs: TabBarItem<HealthTab>[] = [
         { id: 'summary', label: t('health.summary', 'Summary'), icon: a => <HeartPulse className="h-[27px] w-[27px]" strokeWidth={a ? 2.2 : 1.9} /> },
@@ -110,7 +109,7 @@ export function Health({ onClose }: { onClose: () => void }) {
                             awakeMs={Math.max(0, now - (storeStart ?? fallbackStart))}
                         />
                     ) : (
-                        <LeaderboardTab board={board} settled={boardSettled} />
+                        <LeaderboardTab board={board} />
                     )}
                 </div>
             </div>

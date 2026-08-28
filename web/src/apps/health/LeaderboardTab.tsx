@@ -7,11 +7,13 @@ import type { HealthBoard } from './healthApi';
 const MEDAL = ['#FFD54F', '#C7CCD1', '#CD8E5A'];
 const ACCENT = '#FB8C00';
 
-export function LeaderboardTab({ board, settled }: { board: HealthBoard | null; settled: boolean }) {
+export function LeaderboardTab({ board }: { board: HealthBoard | null }) {
     const entries = board?.entries ?? [];
     const mine    = entries.find(e => e.you);
 
-    if (settled && entries.length === 0) {
+    if (board === null) return <div className="px-3 pb-4 pt-1" />;
+
+    if (entries.length === 0) {
         return (
             <div className="px-3 pb-4 pt-1">
                 <EmptyState
