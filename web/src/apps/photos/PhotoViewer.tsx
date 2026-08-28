@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { ChevronLeft, FolderPlus, Heart, MoreHorizontal, Trash2, Wallpaper } from 'lucide-react';
+import { ChevronLeft, Heart, MoreHorizontal, Wallpaper } from 'lucide-react';
 
 import { t } from '@/i18n';
 import type { Photo } from '@/core/photosApi';
 import { useThemeStore } from '@/stores/themeStore';
+import { ActionSheet } from '@/ui/ActionSheet';
 import { VideoView } from './VideoView';
 
 function fmtDate(iso: string): string {
@@ -172,45 +173,20 @@ export function PhotoViewer({
             </div>
 
             {menuOpen && (
-                <>
-                    <div className="absolute inset-0 z-10" onClick={() => setMenuOpen(false)} />
-                    <div className="absolute right-3 top-[108px] z-20 w-56 overflow-hidden rounded-[14px] bg-elevated/95 shadow-xl backdrop-blur-xl dark:bg-elevated/95">
-                        <button
-                            type="button"
-                            onClick={() => { setMenuOpen(false); onAddToAlbum(current); }}
-                            className="flex w-full items-center justify-between px-4 py-3 text-[16px] active:bg-black/5 dark:active:bg-white/10"
-                        >
-                            {t('photos.addToAlbum', 'Add to Album')}
-                            <FolderPlus className="h-5 w-5" strokeWidth={2} />
-                        </button>
-                        {!current.video && (
-                            <>
-                                <div className="h-px bg-black/10 dark:bg-white/10" />
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setMenuOpen(false);
-                                        useThemeStore.getState().setWallpaper(current.url, 'both');
-                                        setWallpaperHud(v => v + 1);
-                                    }}
-                                    className="flex w-full items-center justify-between px-4 py-3 text-[16px] active:bg-black/5 dark:active:bg-white/10"
-                                >
-                                    {t('photos.useAsWallpaper', 'Use as Wallpaper')}
-                                    <Wallpaper className="h-5 w-5" strokeWidth={2} />
-                                </button>
-                            </>
-                        )}
-                        <div className="h-px bg-black/10 dark:bg-white/10" />
-                        <button
-                            type="button"
-                            onClick={() => { setMenuOpen(false); onDelete(current); }}
-                            className="flex w-full items-center justify-between px-4 py-3 text-[16px] text-[#ff3b30] active:bg-black/5 dark:active:bg-white/10"
-                        >
-                            {t('photos.delete', 'Delete')}
-                            <Trash2 className="h-5 w-5" strokeWidth={2} />
-                        </button>
-                    </div>
-                </>
+                <ActionSheet
+                    actions={[
+                        { label: t('photos.addToAlbum', 'Add to Album'), onClick: () => onAddToAlbum(current) },
+                        ...(current.video ? [] : [{
+                            label: t('photos.useAsWallpaper', 'Use as Wallpaper'),
+                            onClick: () => {
+                                useThemeStore.getState().setWallpaper(current.url, 'both');
+                                setWallpaperHud(v => v + 1);
+                            },
+                        }]),
+                        { label: t('photos.delete', 'Delete'), destructive: true, onClick: () => onDelete(current) },
+                    ]}
+                    onClose={() => setMenuOpen(false)}
+                />
             )}
 
             {wallpaperHud > 0 && (
