@@ -77,6 +77,10 @@ local landscape = false
 local color = config.Phone.DefaultColor or 'black'
 ---@type integer|nil Handle of the attached phone prop, nil while stowed.
 local prop
+---@type integer Bumped by every weld and every removal. Welding streams the model, which yields,
+---so a weld can finish after another has replaced it or after the phone was put away; comparing
+---this tells it to delete what it built rather than orphan a prop nothing tracks.
+local weldSeq = 0
 ---@type boolean True while a text field in the phone has focus
 local typing = false
 ---@type boolean True while a call is live, whether it is still ringing out or already connected.
@@ -170,11 +174,21 @@ function pose.createProp(ped, frame, wide)
 end
 
 ---Attaches our own hand prop in the current frame colour and grip. No-op if one is already
----attached or the model won't stream.
+---attached, and a weld superseded or stowed while streaming deletes what it built.
 ---@param ped integer player ped handle
 local function attachProp(ped)
     if prop and DoesEntityExist(prop) then return end
-    prop = pose.createProp(ped, color, landscape)
+
+    weldSeq = weldSeq + 1
+    local seq = weldSeq
+    local obj = pose.createProp(ped, color, landscape)
+    if not obj then return end
+
+    if seq ~= weldSeq or not pose.shouldHold() or (prop and DoesEntityExist(prop)) then
+        DeleteObject(obj)
+        return
+    end
+    prop = obj
 end
 
 ---Puts the pose and prop the player is holding right now onto ANOTHER ped.
@@ -203,8 +217,9 @@ function pose.mirrorOnto(ped)
     return pose.createProp(ped, color, landscape)
 end
 
----Delete the attached phone prop, if any. Idempotent.
+---Delete the attached phone prop, if any. Idempotent, and cancels any weld still streaming.
 function pose.removeProp()
+    weldSeq = weldSeq + 1
     if prop and DoesEntityExist(prop) then DeleteObject(prop) end
     prop = nil
 end
