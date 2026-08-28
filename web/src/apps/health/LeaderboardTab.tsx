@@ -74,11 +74,17 @@ function Row({ entry, peak }: { entry: { rank: number; name: string; steps: numb
                 style={{ width: `${(entry.steps / peak) * 100}%`, background: ACCENT, opacity: 0.12 }}
             />
             <div className="relative flex items-center gap-3">
-                <span
-                    className="w-7 shrink-0 text-center text-[16px] font-bold tabular-nums"
-                    style={{ color: medal ?? undefined }}
-                >
-                    {entry.rank}
+                <span className="flex w-7 shrink-0 items-center justify-center">
+                    {medal ? (
+                        <span
+                            className="flex h-[24px] w-[24px] items-center justify-center rounded-full text-[14px] font-bold tabular-nums"
+                            style={{ background: medal, color: '#1c1c1e' }}
+                        >
+                            {entry.rank}
+                        </span>
+                    ) : (
+                        <span className="text-[16px] font-bold tabular-nums">{entry.rank}</span>
+                    )}
                 </span>
                 <span className={`min-w-0 flex-1 truncate text-[17px] ${entry.you ? 'font-bold' : 'font-medium'}`}>
                     {entry.you ? t('health.you', 'You') : entry.name}
