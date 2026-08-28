@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, Play } from 'lucide-react';
+import { Check, Heart, Play } from 'lucide-react';
 
 import type { Photo } from '@/core/photosApi';
 
@@ -48,6 +48,11 @@ export function PhotoTile({ photo, selectable, selected, defer, onClick }: {
                     ref={el => { if (el?.complete) setLoaded(true); }}
                     className={media}
                 />
+            )}
+            {photo.favorite && selectable && (
+                <span className="pointer-events-none absolute bottom-1 left-1">
+                    <Heart className="h-[18px] w-[18px] fill-ios-red text-ios-red drop-shadow-[0_1px_2px_rgba(0,0,0,0.65)]" />
+                </span>
             )}
             {photo.video && !selectable && (
                 <span className="pointer-events-none absolute bottom-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/45">
