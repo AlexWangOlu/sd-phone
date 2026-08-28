@@ -196,11 +196,8 @@ local currentSimState = nil
 
 ---@type string Current frame colour; always one of FRAME_COLORS.
 local currentFrameColor = config.Phone.DefaultColor or 'black'
----@type table<string, boolean> Whitelist of valid frame colours.
-local FRAME_COLORS = {
-    black = true, blue = true, green = true, orange = true,
-    pink = true, purple = true, red = true, yellow = true,
-}
+---@type table<string, boolean> Whitelist of valid frame colours (client.framecolors).
+local FRAME_COLORS = require 'client.framecolors'
 
 ---@type integer Wall-clock ms of the session start (re-stamped on character load); the Health app's
 ---"time awake" anchor. Seeded at script load as a fallback for opens before the character resolves.
@@ -228,9 +225,9 @@ local pushWeather
 ---@type fun()|nil Phone close (assigned further down).
 local ClosePhone
 
----@type table<integer, {obj: integer, color: string}> Server id -> local phone-prop copy welded
----onto that remote holder's ped.
-local remoteProps = {}
+---@type table Remote phone-prop copies (client.remoteprops): welds the local copy of every other
+---player's phone onto their ped, driven by the replicated `sdPhone` statebag.
+local remoteprops = require 'client.remoteprops'
 ---@type boolean Lockscreen torch state; persists after the UI closes.
 local flashlightOn = false
 ---@type boolean True while the Camera app's native cell-cam owns the pose and controls.
@@ -887,60 +884,6 @@ CreateThread(function()
     end
 end)
 
----Deletes a remote holder's welded prop copy, if any. Idempotent.
----@param source integer server id of the remote holder
-local function removeRemoteProp(source)
-    local entry = remoteProps[source]
-    if entry and entry.obj and DoesEntityExist(entry.obj) then DeleteObject(entry.obj) end
-    remoteProps[source] = nil
-end
-
--- Cross-player prop visibility: the holder broadcasts the replicated `sdPhone` player statebag
--- and every client welds its own local prop copy onto the holder's ped.
-if config.Phone.PropVisibleToOthers then
-    ---Resolves a `player:<serverId>` bag to (serverId, ped); ped is 0 when that player isn't in
-    ---scope on this client.
-    ---@param bagName string
-    ---@return integer? source, integer ped
-    local function bagOwner(bagName)
-        local source = tonumber(bagName:match('player:(%d+)'))
-        if not source then return nil, 0 end
-        local plyr = GetPlayerFromServerId(source)
-        if plyr == -1 then return source, 0 end
-        return source, GetPlayerPed(plyr)
-    end
-
-    AddStateBagChangeHandler('sdPhone', nil, function(bagName, _key, value)
-        local source, ped = bagOwner(bagName)
-        if not source or source == cache.serverId then return end
-        if not value or ped == 0 then
-            removeRemoteProp(source)
-            return
-        end
-        if not FRAME_COLORS[value] then return end
-        local entry = remoteProps[source]
-        if entry and entry.color == value and DoesEntityExist(entry.obj) then return end
-        removeRemoteProp(source)
-        local obj = pose.createProp(ped, value)
-        if obj then remoteProps[source] = { obj = obj, color = value } end
-        debugPrint(('remote prop for %s -> %s'):format(source, value))
-    end)
-
-    -- 1s sweep: removes copies whose owner left scope or whose prop no longer exists.
-    CreateThread(function()
-        while true do
-            Wait(1000)
-            for source, entry in pairs(remoteProps) do
-                local plyr = GetPlayerFromServerId(source)
-                local ped = plyr ~= -1 and GetPlayerPed(plyr) or 0
-                if ped == 0 or not DoesEntityExist(ped) or not DoesEntityExist(entry.obj) then
-                    removeRemoteProp(source)
-                end
-            end
-        end
-    end)
-end
-
 ---Launches an app from another resource (exports['sd-phone']:openApp), opening the phone first
 ---if needed. Returns false on a refused open or malformed arguments.
 ---@param appId string app id as the home screen knows it (e.g. 'messages')
@@ -1111,7 +1054,7 @@ AddEventHandler('onResourceStop', function(resource)
     if phoneState.open then SetNuiFocus(false, false) end
     pose.stop()
     if config.Phone.PropVisibleToOthers then LocalPlayer.state:set('sdPhone', false, true) end
-    for source in pairs(remoteProps) do removeRemoteProp(source) end
+    remoteprops.clear()
 end)
 
 -- Loaded for side effects: feeds the player state bags every compat shim reads.
