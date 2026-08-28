@@ -5,6 +5,7 @@ import { useNuiEvent } from '@/hooks/useNuiEvent';
 import { useSessionState } from '@/hooks/useSessionState';
 import { useDeckActive } from '@/shell/deckActive';
 import { t } from '@/i18n';
+import { AlertDialog } from '@/ui/AlertDialog';
 import { PromptDialog } from '@/ui/PromptDialog';
 import {
     apiAddPhotosToAlbum, apiCreateAlbum, apiDeleteAlbum, apiDeletePhoto,
@@ -54,6 +55,7 @@ export function Photos({ onClose }: { onClose: () => void }) {
 
     const [viewer, setViewer] = useState<ViewerState | null>(null);
     const [albumPicker, setAlbumPicker] = useState<{ photoIds: string[] } | null>(null);
+    const [confirmDelete, setConfirmDelete] = useState<{ ids: string[]; fromSelect: boolean } | null>(null);
     const [photoPicker, setPhotoPicker] = useState(false);
     const [createState, setCreateState] = useState<CreateState | null>(null);
 
@@ -255,6 +257,7 @@ export function Photos({ onClose }: { onClose: () => void }) {
         : [];
 
     const isEmpty = !loading && photos.length === 0;
+    const selectBarUp = tab === 'gallery' && gallerySelect;
 
     return (
         <div className="absolute inset-0 z-10 flex flex-col bg-base text-black dark:text-white">
@@ -316,10 +319,21 @@ export function Photos({ onClose }: { onClose: () => void }) {
                 )}
             </div>
 
-            {tab === 'gallery' && gallerySelect ? (
-                <div className="flex shrink-0 items-stretch justify-around border-t border-black/10 bg-elevated/95 px-1 pb-9 pt-2.5 backdrop-blur-xl dark:border-white/10 dark:bg-base/80">
+            <div className="relative shrink-0 overflow-hidden">
+                <PhotoTabBar tab={tab} onChange={(t) => { setTab(t); exitGallerySelect(); setAlbumsEdit(false); }} />
+                <div
+                    aria-hidden={!selectBarUp}
+                    className="absolute inset-x-0 bottom-0 flex items-stretch justify-around border-t border-black/10 bg-elevated/95 px-1 pb-9 pt-2.5 backdrop-blur-xl dark:border-white/10 dark:bg-base/80"
+                    style={{
+                        transform:     selectBarUp ? 'translateY(0)' : 'translateY(100%)',
+                        transition:    'transform 0.28s cubic-bezier(0.32,0.72,0,1)',
+                        pointerEvents: selectBarUp ? undefined : 'none',
+                        willChange:    'transform',
+                    }}
+                >
                     <button
                         type="button"
+                        tabIndex={selectBarUp ? undefined : -1}
                         disabled={gallerySelected.size === 0}
                         onClick={() => setAlbumPicker({ photoIds: Array.from(gallerySelected) })}
                         className="flex flex-1 flex-col items-center gap-1.5 py-1 text-ios-blue disabled:opacity-40"
@@ -329,6 +343,7 @@ export function Photos({ onClose }: { onClose: () => void }) {
                     </button>
                     <button
                         type="button"
+                        tabIndex={selectBarUp ? undefined : -1}
                         disabled={gallerySelected.size === 0}
                         onClick={() => favoritePhotos(Array.from(gallerySelected)).then(exitGallerySelect)}
                         className="flex flex-1 flex-col items-center gap-1.5 py-1 text-ios-blue disabled:opacity-40"
@@ -338,17 +353,16 @@ export function Photos({ onClose }: { onClose: () => void }) {
                     </button>
                     <button
                         type="button"
+                        tabIndex={selectBarUp ? undefined : -1}
                         disabled={gallerySelected.size === 0}
-                        onClick={() => deletePhotos(Array.from(gallerySelected)).then(exitGallerySelect)}
+                        onClick={() => setConfirmDelete({ ids: Array.from(gallerySelected), fromSelect: true })}
                         className="flex flex-1 flex-col items-center gap-1.5 py-1 text-[#ff3b30] disabled:opacity-40"
                     >
                         <Trash2 className="h-[33px] w-[33px]" strokeWidth={1.9} />
                         <span className="text-[15px] font-bold tracking-tight">{t('photos.delete','Delete')}</span>
                     </button>
                 </div>
-            ) : (
-                <PhotoTabBar tab={tab} onChange={(t) => { setTab(t); exitGallerySelect(); setAlbumsEdit(false); }} />
-            )}
+            </div>
 
             {openAlbum && (
                 <AlbumDetail
@@ -372,7 +386,7 @@ export function Photos({ onClose }: { onClose: () => void }) {
                     onIndexChange={(i) => setViewer(v => (v ? { ...v, index: i } : v))}
                     onToggleFavorite={toggleFavorite}
                     onAddToAlbum={(p) => setAlbumPicker({ photoIds: [p.id] })}
-                    onDelete={(p) => void deletePhotos([p.id])}
+                    onDelete={(p) => setConfirmDelete({ ids: [p.id], fromSelect: false })}
                 />
             )}
 
@@ -424,6 +438,25 @@ export function Photos({ onClose }: { onClose: () => void }) {
                     maxLength={40}
                     onCancel={() => setCreateState(null)}
                     onConfirm={(name) => void submitCreate(name)}
+                />
+            )}
+
+            {confirmDelete && (
+                <AlertDialog
+                    destructive
+                    title={confirmDelete.ids.length > 1
+                        ? t('photos.deletePhotosTitle', 'Delete {count} Photos?', { count: confirmDelete.ids.length })
+                        : t('photos.deletePhotoTitle', 'Delete Photo?')}
+                    message={confirmDelete.ids.length > 1
+                        ? t('photos.deletePhotosMessage', 'These photos will be deleted. This cannot be undone.')
+                        : t('photos.deletePhotoMessage', 'This photo will be deleted. This cannot be undone.')}
+                    confirmLabel={t('photos.delete', 'Delete')}
+                    onCancel={() => setConfirmDelete(null)}
+                    onConfirm={() => {
+                        const { ids, fromSelect } = confirmDelete;
+                        setConfirmDelete(null);
+                        void deletePhotos(ids).then(() => { if (fromSelect) exitGallerySelect(); });
+                    }}
                 />
             )}
 
