@@ -323,7 +323,7 @@ export function Photos({ onClose }: { onClose: () => void }) {
                 <PhotoTabBar tab={tab} onChange={(t) => { setTab(t); exitGallerySelect(); setAlbumsEdit(false); }} />
                 <div
                     aria-hidden={!selectBarUp}
-                    className="absolute inset-x-0 bottom-0 flex items-stretch justify-around border-t border-black/10 bg-elevated/95 px-1 pb-9 pt-2.5 backdrop-blur-xl dark:border-white/10 dark:bg-base/80"
+                    className="absolute inset-x-0 bottom-0 flex items-stretch justify-around border-t border-black/10 bg-elevated px-1 pb-9 pt-2.5 dark:border-white/10 dark:bg-base"
                     style={{
                         transform:     selectBarUp ? 'translateY(0)' : 'translateY(100%)',
                         transition:    'transform 0.28s cubic-bezier(0.32,0.72,0,1)',
