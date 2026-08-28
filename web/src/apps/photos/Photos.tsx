@@ -225,11 +225,15 @@ export function Photos({ onClose }: { onClose: () => void }) {
         if (!album) return;
         setAlbums(prev => [album, ...prev]);
         if (addIds.length) await addToAlbum(album.id, addIds);
-        exitGallerySelect();
+        clearGallerySelection();
     }
 
     function exitGallerySelect() {
         setGallerySelect(false);
+        setGallerySelected(new Set());
+    }
+
+    function clearGallerySelection() {
         setGallerySelected(new Set());
     }
 
@@ -345,7 +349,7 @@ export function Photos({ onClose }: { onClose: () => void }) {
                         type="button"
                         tabIndex={selectBarUp ? undefined : -1}
                         disabled={gallerySelected.size === 0}
-                        onClick={() => favoritePhotos(Array.from(gallerySelected)).then(exitGallerySelect)}
+                        onClick={() => favoritePhotos(Array.from(gallerySelected)).then(clearGallerySelection)}
                         className="flex flex-1 flex-col items-center gap-1.5 py-1 text-ios-blue disabled:opacity-40"
                     >
                         <Heart className="h-[31px] w-[31px]" strokeWidth={1.9} />
@@ -424,7 +428,7 @@ export function Photos({ onClose }: { onClose: () => void }) {
                     albums={albums}
                     count={albumPicker.photoIds.length}
                     onClose={() => setAlbumPicker(null)}
-                    onPick={(albumId) => { void addToAlbum(albumId, albumPicker.photoIds); setAlbumPicker(null); exitGallerySelect(); }}
+                    onPick={(albumId) => { void addToAlbum(albumId, albumPicker.photoIds); setAlbumPicker(null); clearGallerySelection(); }}
                     onNewAlbum={() => { setCreateState({ addIds: albumPicker.photoIds }); setAlbumPicker(null); }}
                 />
             )}
@@ -455,7 +459,7 @@ export function Photos({ onClose }: { onClose: () => void }) {
                     onConfirm={() => {
                         const { ids, fromSelect } = confirmDelete;
                         setConfirmDelete(null);
-                        void deletePhotos(ids).then(() => { if (fromSelect) exitGallerySelect(); });
+                        void deletePhotos(ids).then(() => { if (fromSelect) clearGallerySelection(); });
                     }}
                 />
             )}
