@@ -268,8 +268,20 @@ Without one the symptom is easy to misread as a bug: the call connects, the time
 works and your own self-view looks perfect, but the other person's side of the screen stays black.
 Nothing has crashed, the video simply has no route.
 
-Set these in your `server.cfg`. They are convars rather than config entries so credentials never
-land in the repo:
+**One setup covers everything**: video calls, nearby-voice capture in camera clips, Photogram Live
+and bodycams all share the same relay. The quickest route is Cloudflare's free TURN service, which
+sd-phone provisions for you. Create a TURN key at **Cloudflare dashboard, Realtime, TURN**, then put
+the two values in your `server.cfg`:
+
+```cfg
+set sd_cf_turn_token_id  "your-cloudflare-turn-token-id"
+set sd_cf_turn_api_token "your-cloudflare-turn-api-token"
+```
+
+These are convars rather than config entries so credentials never land in the repo. sd-phone mints
+short-lived credentials from them and refreshes automatically, so nothing expires on you.
+
+Prefer your own relay? A fixed TURN server works too, and can be used alongside the above:
 
 ```cfg
 set sd_phone_turn_url        "turn:turn.example.com:3478"
@@ -277,19 +289,12 @@ set sd_phone_turn_username   "your-username"
 set sd_phone_turn_credential "your-password"
 ```
 
-Any standard TURN server works: self-hosted [coturn](https://github.com/coturn/coturn), or a
-managed one from Cloudflare Realtime, Metered or Twilio.
+Use this form for self-hosted [coturn](https://github.com/coturn/coturn) or a static-credential
+provider such as Metered. Note that Cloudflare and Twilio issue **expiring** credentials through an
+API, so their values cannot be pasted here; use the convar pair above for Cloudflare instead.
 
-Recording **nearby players' voices** into camera clips is a separate WebRTC mesh with its own
-credentials, provisioned from Cloudflare Realtime (dashboard, Realtime, TURN):
-
-```cfg
-set sd_cf_turn_token_id  "your-cloudflare-turn-token-id"
-set sd_cf_turn_api_token "your-cloudflare-turn-api-token"
-```
-
-Both are optional and independent. sd-phone prints one reminder line at boot when video-call TURN
-is unset; silence it with `WarnAboutTurn = false` in `configs/phone.lua`.
+sd-phone prints one reminder line at boot while no relay is configured; silence it with
+`WarnAboutTurn = false` in `configs/phone.lua`.
 
 ### Building from source
 

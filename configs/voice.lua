@@ -42,10 +42,13 @@ return {
 
     -- 'cloudflare' provisions TURN relays (needed for players on different networks) from
     -- Cloudflare Realtime; 'none' uses STUN only (works on LAN / permissive NATs only).
+    -- This one setting serves EVERY WebRTC feature: video calls, nearby-voice capture,
+    -- Photogram Live and bodycams. Without it, video calls between players on different
+    -- home connections show a black picture.
     -- TURN secrets are read from server convars (NOT committed to the repo):
     --     set sd_cf_turn_token_id   "your-cloudflare-turn-token-id"
     --     set sd_cf_turn_api_token  "your-cloudflare-turn-api-token"
-    -- Create them at Cloudflare dash → Realtime → TURN. See the Cloudflare TURN docs.
+    -- Create them at Cloudflare dash -> Realtime -> TURN. Free tier covers a normal server.
     Turn = {
         Provider   = 'cloudflare',   -- 'cloudflare' | 'none'
         TtlSeconds = 86400,          -- lifetime of provisioned TURN credentials
