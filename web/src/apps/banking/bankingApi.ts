@@ -4,6 +4,7 @@ import { ACCOUNTS, TRANSACTIONS } from './data';
 import { apiData, type Envelope } from '@/core/api';
 import { formatClockTime } from '@/lib/time';
 import type { SentInvoice, SentInvoicesResult } from '@/apps/services/servicesApi';
+import { presetFor, type CardStyle } from './bankBrands';
 
 export interface BankTx {
     id:        string;
@@ -24,6 +25,8 @@ export interface BankOverview {
     name:           string;
     number:         string;
     allowAnonymous: boolean;
+    cardStyle:      CardStyle;
+    cardLocked:     boolean;
     transactions:   BankTx[];
 }
 
@@ -33,6 +36,8 @@ const DEV_OVERVIEW: BankOverview = {
     name:    'Sam Nicol',
     number:  '2135550100',
     allowAnonymous: true,
+    cardStyle: presetFor('fleeca'),
+    cardLocked: false,
     transactions: TRANSACTIONS
         .filter(t => t.accountId === ACCOUNTS[0].id)
         .map(t => ({ id: t.id, merchant: t.merchant, amount: t.amount, category: t.category, date: t.date, pending: t.pending, peerNumber: t.peerNumber, peerInitials: t.peerInitials, peerColor: t.peerColor })),
@@ -41,7 +46,16 @@ const DEV_OVERVIEW: BankOverview = {
 export async function fetchOverview(): Promise<BankOverview> {
     if (!isFiveM) return DEV_OVERVIEW;
     return (await apiData<BankOverview>('sd-phone:banking:overview'))
-        ?? { balance: 0, cash: 0, name: '', number: '', allowAnonymous: false, transactions: [] };
+        ?? { balance: 0, cash: 0, name: '', number: '', allowAnonymous: false, cardStyle: presetFor('fleeca'), cardLocked: true, transactions: [] };
+}
+
+export async function setCardStyle(style: CardStyle): Promise<Envelope<{ cardStyle: CardStyle }>> {
+    if (!isFiveM) {
+        DEV_OVERVIEW.cardStyle = style;
+        return { success: true, data: { cardStyle: style } };
+    }
+    return (await fetchNui<Envelope<{ cardStyle: CardStyle }>>('sd-phone:banking:setCardStyle', style))
+        ?? { success: false, message: t('banking.noServerResponse', 'No response from server') };
 }
 
 export type SendMode = 'number' | 'playerId';

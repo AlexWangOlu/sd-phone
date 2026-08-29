@@ -39,6 +39,29 @@ local KEEP_ROWS = 2000
 local PRUNE_GAP = 300000
 ---@type string Stand-in the recipient sees in place of an anonymous sender's number.
 local ANON_LABEL = 'Anonymous'
+---@type table<string, { color: string, pattern: string }> Banks the Wallet ships, each with the
+---colour and pattern that make up its authentic card; mirrors web/src/apps/banking/bankBrands.ts.
+local CARD_BANKS = {
+    fleeca  = { color = 'emerald', pattern = 'wave' },
+    maze    = { color = 'crimson', pattern = 'meander' },
+    lombank = { color = 'cobalt',  pattern = 'pinstripe' },
+    pacific = { color = 'navy',    pattern = 'guilloche' },
+    blaine  = { color = 'bronze',  pattern = 'crosshatch' },
+}
+---@type table<string, true> Card colour ids; mirrors CARD_COLORS in bankBrands.ts.
+local CARD_COLORS = {
+    emerald = true, crimson = true, cobalt = true, navy = true, bronze = true,
+    graphite = true, teal = true, violet = true, slate = true,
+    amber = true, rose = true, midnight = true, mint = true, burgundy = true,
+}
+---@type table<string, true> Card pattern ids; mirrors CARD_PATTERNS in bankBrands.ts.
+local CARD_PATTERNS = {
+    wave = true, meander = true, pinstripe = true, guilloche = true, crosshatch = true,
+    chevron = true, dots = true, grid = true, diamond = true, scales = true,
+    topo = true, circuit = true, carbon = true, none = true,
+}
+---@type string Bank used when the config names an unknown one.
+local CARD_FALLBACK = 'fleeca'
 
 ---Trims a character's transaction log, at most once per PRUNE_GAP. Called after a write, so a log
 ---that stopped growing is never re-scanned.
@@ -116,6 +139,65 @@ local function txOut(row, contactMap)
     return out
 end
 
+---Builds the card style the config declares, falling back per axis to the bank's authentic pair.
+---@return table style { bank, color, pattern }
+local function configuredStyle()
+    local card = BK.Card or {}
+    local bankId = CARD_BANKS[card.Brand] and card.Brand or CARD_FALLBACK
+    local preset = CARD_BANKS[bankId]
+    return {
+        bank    = bankId,
+        color   = CARD_COLORS[card.Color] and card.Color or preset.color,
+        pattern = CARD_PATTERNS[card.Pattern] and card.Pattern or preset.pattern,
+    }
+end
+
+---Resolves the card style a character's Wallet shows: their saved pick per axis, else the
+---configured default. A locked config ignores the pick entirely.
+---@param citizenid string framework per-character id
+---@return table style { bank, color, pattern }
+local function cardStyleFor(citizenid)
+    local base = configuredStyle()
+    if (BK.Card and BK.Card.Locked) == true then return base end
+
+    local saved = settings.getCardStyle(citizenid)
+    if type(saved) ~= 'table' then return base end
+
+    local bankId = CARD_BANKS[saved.bank] and saved.bank or base.bank
+    local preset = CARD_BANKS[bankId]
+    return {
+        bank    = bankId,
+        color   = CARD_COLORS[saved.color] and saved.color or preset.color,
+        pattern = CARD_PATTERNS[saved.pattern] and saved.pattern or preset.pattern,
+    }
+end
+
+---Stores the card style a character built in the Wallet; every axis is whitelisted separately.
+---@param src integer player server id
+---@param payload table { bank: string, color: string, pattern: string }
+---@return table result envelope { success, message?, data? }
+function actions.setCardStyle(src, payload)
+    local cid = cidOf(src)
+    if not cid then return { success = false } end
+    payload = type(payload) == 'table' and payload or {}
+
+    if (BK.Card and BK.Card.Locked) == true then
+        return { success = false, message = 'Your bank card is set by the server' }
+    end
+
+    local bankId, color, pattern = payload.bank, payload.color, payload.pattern
+    if not CARD_BANKS[bankId] or not CARD_COLORS[color] or not CARD_PATTERNS[pattern] then
+        return { success = false, message = 'Unknown card design' }
+    end
+
+    local style = { bank = bankId, color = color, pattern = pattern }
+    if not settings.setCardStyle(cid, style) then
+        return { success = false, message = 'Could not save that card design' }
+    end
+
+    return { success = true, data = { cardStyle = style } }
+end
+
 ---Returns balance, cash, and recent transactions for the Wallet's main screen, with the list
 ---capped at Banking.TransactionLimit; ensurePhoneNumber lazily allocates the caller's number.
 ---@param src integer player server id
@@ -138,6 +220,8 @@ function actions.overview(src)
             name           = player.getName(src),
             number         = settings.ensurePhoneNumber(cid),
             allowAnonymous = BK.AllowAnonymous ~= false,
+            cardStyle      = cardStyleFor(cid),
+            cardLocked     = (BK.Card and BK.Card.Locked) == true,
             transactions   = txs,
         },
     }
