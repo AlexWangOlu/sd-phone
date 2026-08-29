@@ -258,6 +258,39 @@ In `configs/server/apikeys.lua`:
 | `FivemanageMedia` | **Required.** Camera, Photos and Voice Memos uploads. Create a free [Fivemanage](https://refer.fivemanage.com/samuel) token of type **Media**. Without it those apps open, but nothing uploads or saves. |
 | `Giphy` | Optional. The GIF picker in Messages. Free key from [developers.giphy.com](https://developers.giphy.com). |
 
+### 4. Video calls between networks (TURN)
+
+Video calls send the picture peer-to-peer over WebRTC, with the audio staying on your voice
+resource. A public STUN server is built in, which is enough when both players share a network.
+Two players on **different home connections need a TURN relay** to get a picture at all.
+
+Without one the symptom is easy to misread as a bug: the call connects, the timer runs, the audio
+works and your own self-view looks perfect, but the other person's side of the screen stays black.
+Nothing has crashed, the video simply has no route.
+
+Set these in your `server.cfg`. They are convars rather than config entries so credentials never
+land in the repo:
+
+```cfg
+set sd_phone_turn_url        "turn:turn.example.com:3478"
+set sd_phone_turn_username   "your-username"
+set sd_phone_turn_credential "your-password"
+```
+
+Any standard TURN server works: self-hosted [coturn](https://github.com/coturn/coturn), or a
+managed one from Cloudflare Realtime, Metered or Twilio.
+
+Recording **nearby players' voices** into camera clips is a separate WebRTC mesh with its own
+credentials, provisioned from Cloudflare Realtime (dashboard, Realtime, TURN):
+
+```cfg
+set sd_cf_turn_token_id  "your-cloudflare-turn-token-id"
+set sd_cf_turn_api_token "your-cloudflare-turn-api-token"
+```
+
+Both are optional and independent. sd-phone prints one reminder line at boot when video-call TURN
+is unset; silence it with `WarnAboutTurn = false` in `configs/phone.lua`.
+
 ### Building from source
 
 Cloned the repo instead of using a release? Build the UI yourself:

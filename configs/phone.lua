@@ -114,6 +114,21 @@ return {
     -- the player for the length of the video call. Needs AllowMovement.
     AllowMovementInVideoCall = true,
 
+    -- Video calls send the picture peer-to-peer over WebRTC; the call audio stays on your voice
+    -- resource. Google STUN is always used, which is enough when both players share a network.
+    -- A TURN relay is what carries the picture between players on different home connections.
+    -- Without one they get a connected call with a black picture, while their own self-view
+    -- still looks fine, because the self-view never leaves their machine.
+    --
+    -- Credentials live in server convars so they are never committed:
+    --     set sd_phone_turn_url        "turn:turn.example.com:3478"
+    --     set sd_phone_turn_username   "your-username"
+    --     set sd_phone_turn_credential "your-password"
+    --
+    -- Any standard TURN server works (coturn, Cloudflare Realtime, Metered, Twilio). Set this
+    -- false to silence the boot warning if you deliberately run STUN-only.
+    WarnAboutTurn = true,
+
     -- Hold this key/button (while the phone is open) to free the mouse for
     -- camera rotation without closing the phone. Releasing it returns to the
     -- on-screen cursor. Combat stays suppressed, so you can look around but not

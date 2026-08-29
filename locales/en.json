@@ -3421,6 +3421,8 @@
     "videoCallConfirm": "Start a video call with {name}?",
     "videoCallIncoming": "Incoming video call",
     "videoCallName": "Video call {name}",
+    "videoLinkFailed": "Couldn't connect video",
+    "videoLinkFailedHint": "The call audio is still connected.",
     "wantsToSwitchToVideo": "{name} wants to switch to video",
     "yesterday": "Yesterday",
     "youLostService": "You lost service."

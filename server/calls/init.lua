@@ -5,6 +5,17 @@ local player  = require 'bridge.server.player'
 ---@type table Shared server helpers (server.util): response envelopes + trim.
 local util    = require 'server.util'
 local ok, fail, trim = util.ok, util.fail, util.trim
+---@type table Boot reporter (server.boot): deferred setup warnings.
+local boot    = require 'server.boot'
+---@type table sd-phone config root (configs/config.lua): Phone.WarnAboutTurn.
+local config  = require 'configs.config'
+
+-- Without a TURN relay the picture never crosses two home networks, and it reads as a bug rather
+-- than a setup gap: call connects, self-view works, the peer's pane stays black.
+if config.Phone.WarnAboutTurn ~= false and GetConvar('sd_phone_turn_url', '') == '' then
+    boot.warn('^3[sd-phone]^0 no TURN relay set: video calls will only connect between players on the same network.')
+    boot.warn('^3[sd-phone]^0 set sd_phone_turn_url / _username / _credential, or configs/phone.lua WarnAboutTurn = false.')
+end
 
 -- Authoritative call callbacks: thin delegates into server.calls.actions.
 lib.callback.register('sd-phone:server:call:dial', function(src, payload) return actions.dial(src, payload) end)
