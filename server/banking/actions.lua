@@ -140,21 +140,20 @@ function actions.overview(src)
     }
 end
 
----Transfers money from the caller's bank to the character who owns `number`: amount validated
----and clamped, debit before credit with a refund on failure, both sides logged.
+---Transfers money from the caller's bank to the character who owns `number`, or to the player on
+---`serverId` when one is given: amount validated and clamped, debit before credit with a refund
+---on failure, both sides logged.
 ---@param src integer player server id
----@param payload table { number: string, amount: number, note?: string }
+---@param payload table { number?: string, serverId?: number, amount: number, note?: string }
 ---@return table result envelope { success, message?, data? }
 function actions.send(src, payload)
     local cid = cidOf(src)
     if not cid then return { success = false } end
     payload = type(payload) == 'table' and payload or {}
 
-    local number = digits(payload.number)
     local amount = tonumber(payload.amount) or 0
     local note   = (tostring(payload.note or ''):gsub('^%s+', ''):gsub('%s+$', '')):sub(1, 80)
 
-    if number == '' then return { success = false, message = 'Enter a recipient number' } end
     if amount ~= amount or amount == math.huge or amount == -math.huge then
         return { success = false, message = 'Enter a valid amount' }
     end
@@ -163,10 +162,28 @@ function actions.send(src, payload)
     if amount > (BK.MaxSend or math.huge) then return { success = false, message = 'Amount is too large' } end
 
     local myNumber = digits(settings.ensurePhoneNumber(cid))
-    if number == myNumber then return { success = false, message = "You can't send money to yourself" } end
 
-    local rcid = settings.getCitizenByNumber(number)
-    if not rcid then return { success = false, message = 'No one owns that number' } end
+    -- A server id only *finds* the recipient: it resolves to that character's own number, so every
+    -- memo, ledger row and hook below stays number-keyed and an id transfer settles identically to
+    -- one addressed by number. Only an online player has an id, so this branch never goes offline.
+    local number, rcid
+    local serverId = tonumber(payload.serverId)
+    if serverId and util.finite(serverId) then
+        serverId = math.floor(serverId)
+        if serverId <= 0 or serverId > 65535 then return { success = false, message = 'No player with that server ID' } end
+        if serverId == src then return { success = false, message = "You can't send money to yourself" } end
+        rcid = player.getIdentifier(serverId)
+        if not rcid then return { success = false, message = 'No player with that server ID' } end
+        if rcid == cid then return { success = false, message = "You can't send money to yourself" } end
+        number = digits(settings.ensurePhoneNumber(rcid))
+    else
+        number = digits(payload.number)
+        if number == '' then return { success = false, message = 'Enter a recipient number' } end
+        if number == myNumber then return { success = false, message = "You can't send money to yourself" } end
+        rcid = settings.getCitizenByNumber(number)
+        if not rcid then return { success = false, message = 'No one owns that number' } end
+        if rcid == cid then return { success = false, message = "You can't send money to yourself" } end
+    end
 
     if not util.rateLimit(cid, 'bank:send', SEND_WINDOW, SEND_MAX)
         or not util.rateLimit(cid, 'bank:send:' .. number, SEND_WINDOW, SEND_MAX_PEER) then

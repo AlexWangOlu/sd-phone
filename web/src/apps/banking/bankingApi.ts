@@ -42,17 +42,26 @@ export async function fetchOverview(): Promise<BankOverview> {
         ?? { balance: 0, cash: 0, name: '', number: '', transactions: [] };
 }
 
-export async function sendMoney(number: string, amount: number, note?: string): Promise<Envelope<{ balance: number; transaction: BankTx }>> {
+export type SendMode = 'number' | 'playerId';
+
+export interface SendTarget { number?: string; serverId?: number }
+
+export function sendTarget(mode: SendMode, value: string): SendTarget {
+    return mode === 'playerId' ? { serverId: parseInt(value, 10) } : { number: value };
+}
+
+export async function sendMoney(target: SendTarget, amount: number, note?: string): Promise<Envelope<{ balance: number; transaction: BankTx }>> {
     if (!isFiveM) {
+        const to = target.number ?? `ID ${target.serverId ?? 0}`;
         return {
             success: true,
             data: {
                 balance: DEV_OVERVIEW.balance - amount,
-                transaction: { id: 'dev-' + Date.now(), merchant: 'Sent to ' + number, amount: -amount, category: 'transfer', date: new Date().toISOString() },
+                transaction: { id: 'dev-' + Date.now(), merchant: 'Sent to ' + to, amount: -amount, category: 'transfer', date: new Date().toISOString() },
             },
         };
     }
-    return (await fetchNui<Envelope<{ balance: number; transaction: BankTx }>>('sd-phone:banking:send', { number, amount, note }))
+    return (await fetchNui<Envelope<{ balance: number; transaction: BankTx }>>('sd-phone:banking:send', { number: target.number, serverId: target.serverId, amount, note }))
         ?? { success: false, message: t('banking.noServerResponse', 'No response from server') };
 }
 
