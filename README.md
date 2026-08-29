@@ -15,7 +15,7 @@ Unlock it, rearrange the home screen, install apps from the App Store, open the 
 
 **An iOS-themed smartphone for FiveM.** that supports QBOX, QBCORE, ESX, ox_core and ND. 49 server-backed apps, real app accounts, a live game-view camera and online multiplayer games. Ships its own custom phone props: eight phone items in eight colours, each tinting both the on-screen frame and the custom prop model held in hand. A unique phone system as well as sim cards can be enabled!
 
-**A drop-in replacement for lb-phone, qs-smartphone, gksphone, roadphone and YSeries.** Scripts and custom apps written against any of them keep running unmodified: their exports answer, their events fire and their admin commands are registered. And if you are coming from lb-phone or YSeries, a migration carries your players across rather than resetting them: phone numbers and lock passcodes, contacts, blocked numbers, call history, SMS threads including groups and reactions, photos and albums, notes, phone settings, mail accounts with their inboxes, wallet transaction history, voice memos, Photogram and Birdy accounts with their posts, stories, DMs and followers, and the app logins themselves, so players open the phone already signed in.
+**A drop-in replacement for lb-phone, qs-smartphone, gksphone, roadphone and YSeries.** Scripts and custom apps written against any of them keep running unmodified: their exports answer and their events fire, so nothing has to be rewritten. And if you are coming from lb-phone or YSeries, a migration carries your players across rather than resetting them: their numbers, contacts, messages, mail, photos, wallet history and social accounts, right down to the app logins, so they open the phone already signed in.
 
 If sd-phone is useful to you, please ⭐ the repo. Issues and pull requests are always welcome.
 
@@ -44,7 +44,9 @@ If sd-phone is useful to you, please ⭐ the repo. Issues and pull requests are 
 
 > [!IMPORTANT]
 > **Coming from lb-phone or YSeries? Run the import when you are ready for it.**
-> Nothing is imported automatically. Open **`/phoneadmin` → Migration**: it previews what your old database actually holds, lets you pick which domains to bring across, and streams the run with a live log and an ETA.
+> Nothing is imported automatically. Open **`/phoneadmin` → Migration**: it previews what your old database actually holds, lets you pick what to bring across, and streams the run with a live log and an ETA.
+>
+> What comes across: phone numbers and lock passcodes, contacts, blocked numbers, call history, messages, mail, notes, photos and albums, voice memos, wallet history, classifieds, phone settings, and whichever social apps your old phone had (Birdy, Photogram, Cherry, Dark Chat, Weazel News, Clout) with their posts, DMs, followers and logins, so players open the phone already signed in.
 >
 > On a large database this is not instant. A production import of **3.8 million rows took roughly 8 minutes**, and the server stays busy until it finishes. Start it when that is acceptable, and let it run to the end.
 >
@@ -158,7 +160,7 @@ after: [github.com/Samuels-Development/sd-tablet](https://github.com/Samuels-Dev
 - **Photogram Live.** Stream real encoded video to other players' phones, with clean late-joins.
 - **Deep world integration.** Garages and Homes bridge across 13 garage systems and 12 housing systems; Wallet reads your framework bank; Services maps jobs to callable, messageable companies; Weather mirrors the in-game sky.
 - **Custom apps.** Other resources can put their own apps on the phone: one export call turns any webpage into an installable app with icons, badges, notifications, popups and an App Store listing. Custom apps built for lb-phone run unmodified. Start from the [app templates](https://github.com/Samuels-Development/sd-phone-app-templates) (plain JS, React JS/TS, Vue 3, Svelte 5) and the [custom app guide](https://docs.samueldev.shop/resources/phone/custom-apps).
-- **Drop-in compatibility.** Scripts written for lb-phone, qs-smartphone (including PRO and Lite), gksphone, roadphone or YSeries keep working unmodified: every documented export is answered, their events are mirrored, and their admin commands are registered. Anything sd-phone has no equivalent for warns once with the reason instead of failing silently. Player data from lb-phone and YSeries imports from `/phoneadmin` → Migration. See the [compatibility docs](https://docs.samueldev.shop/resources/phone/lb-phone-compatibility).
+- **Drop-in compatibility.** Scripts written for lb-phone, qs-smartphone (including PRO and Lite), gksphone, roadphone or YSeries keep working unmodified: every documented export is answered and their events are mirrored. Anything sd-phone has no equivalent for warns once with the reason instead of failing silently. Player data from lb-phone and YSeries imports from `/phoneadmin` → Migration. See the [compatibility docs](https://docs.samueldev.shop/resources/phone/lb-phone-compatibility).
 
 ## For developers
 
