@@ -19,11 +19,12 @@ export interface BankTx {
 }
 
 export interface BankOverview {
-    balance:      number;
-    cash:         number;
-    name:         string;
-    number:       string;
-    transactions: BankTx[];
+    balance:        number;
+    cash:           number;
+    name:           string;
+    number:         string;
+    allowAnonymous: boolean;
+    transactions:   BankTx[];
 }
 
 const DEV_OVERVIEW: BankOverview = {
@@ -31,6 +32,7 @@ const DEV_OVERVIEW: BankOverview = {
     cash:    1_240,
     name:    'Sam Nicol',
     number:  '2135550100',
+    allowAnonymous: true,
     transactions: TRANSACTIONS
         .filter(t => t.accountId === ACCOUNTS[0].id)
         .map(t => ({ id: t.id, merchant: t.merchant, amount: t.amount, category: t.category, date: t.date, pending: t.pending, peerNumber: t.peerNumber, peerInitials: t.peerInitials, peerColor: t.peerColor })),
@@ -39,7 +41,7 @@ const DEV_OVERVIEW: BankOverview = {
 export async function fetchOverview(): Promise<BankOverview> {
     if (!isFiveM) return DEV_OVERVIEW;
     return (await apiData<BankOverview>('sd-phone:banking:overview'))
-        ?? { balance: 0, cash: 0, name: '', number: '', transactions: [] };
+        ?? { balance: 0, cash: 0, name: '', number: '', allowAnonymous: false, transactions: [] };
 }
 
 export type SendMode = 'number' | 'playerId';
@@ -50,7 +52,7 @@ export function sendTarget(mode: SendMode, value: string): SendTarget {
     return mode === 'playerId' ? { serverId: parseInt(value, 10) } : { number: value };
 }
 
-export async function sendMoney(target: SendTarget, amount: number, note?: string): Promise<Envelope<{ balance: number; transaction: BankTx }>> {
+export async function sendMoney(target: SendTarget, amount: number, anonymous = false, note?: string): Promise<Envelope<{ balance: number; transaction: BankTx }>> {
     if (!isFiveM) {
         const to = target.number ?? `ID ${target.serverId ?? 0}`;
         return {
@@ -61,7 +63,7 @@ export async function sendMoney(target: SendTarget, amount: number, note?: strin
             },
         };
     }
-    return (await fetchNui<Envelope<{ balance: number; transaction: BankTx }>>('sd-phone:banking:send', { number: target.number, serverId: target.serverId, amount, note }))
+    return (await fetchNui<Envelope<{ balance: number; transaction: BankTx }>>('sd-phone:banking:send', { number: target.number, serverId: target.serverId, amount, anonymous, note }))
         ?? { success: false, message: t('banking.noServerResponse', 'No response from server') };
 }
 

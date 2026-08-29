@@ -37,6 +37,8 @@ local SEND_MAX_PEER = 6
 local KEEP_ROWS = 2000
 ---@type integer Smallest gap between two prunes of the same character's log, in ms.
 local PRUNE_GAP = 300000
+---@type string Stand-in the recipient sees in place of an anonymous sender's number.
+local ANON_LABEL = 'Anonymous'
 
 ---Trims a character's transaction log, at most once per PRUNE_GAP. Called after a write, so a log
 ---that stopped growing is never re-scanned.
@@ -131,20 +133,32 @@ function actions.overview(src)
     return {
         success = true,
         data = {
-            balance      = bank.getBalance(src) or 0,
-            cash         = money.get(src, 'cash') or 0,
-            name         = player.getName(src),
-            number       = settings.ensurePhoneNumber(cid),
-            transactions = txs,
+            balance        = bank.getBalance(src) or 0,
+            cash           = money.get(src, 'cash') or 0,
+            name           = player.getName(src),
+            number         = settings.ensurePhoneNumber(cid),
+            allowAnonymous = BK.AllowAnonymous ~= false,
+            transactions   = txs,
         },
     }
 end
 
----Transfers money from the caller's bank to the character who owns `number`, or to the player on
----`serverId` when one is given: amount validated and clamped, debit before credit with a refund
----on failure, both sides logged.
+---Resolves how the recipient sees the sender: the title on their transaction row, the name on
+---their credit memo and bank statement, and the counterparty stored against the row.
+---@param myNumber string sender's bare-digit phone number
+---@param anonymous boolean true when the sender asked to stay hidden
+---@return string title row title; a bare name, since a counterparty replaces it when there is one
+---@return string ref name on the recipient's credit memo and bank statement
+---@return string peer counterparty stored on the row; empty when anonymous
+local function shownSender(myNumber, anonymous)
+    if anonymous then return ANON_LABEL, ANON_LABEL, '' end
+    return ('Received from %s'):format(myNumber), myNumber, myNumber
+end
+
+---Transfers money from the caller's bank to the character who owns `number`, or to the player
+---on `serverId`; debits before crediting, refunds on failure, and logs both sides.
 ---@param src integer player server id
----@param payload table { number?: string, serverId?: number, amount: number, note?: string }
+---@param payload table { number?: string, serverId?: number, amount: number, note?: string, anonymous?: boolean }
 ---@return table result envelope { success, message?, data? }
 function actions.send(src, payload)
     local cid = cidOf(src)
@@ -153,6 +167,11 @@ function actions.send(src, payload)
 
     local amount = tonumber(payload.amount) or 0
     local note   = (tostring(payload.note or ''):gsub('^%s+', ''):gsub('%s+$', '')):sub(1, 80)
+
+    local anonymous = payload.anonymous == true
+    if anonymous and BK.AllowAnonymous == false then
+        return { success = false, message = 'Anonymous transfers are disabled' }
+    end
 
     if amount ~= amount or amount == math.huge or amount == -math.huge then
         return { success = false, message = 'Enter a valid amount' }
@@ -163,9 +182,6 @@ function actions.send(src, payload)
 
     local myNumber = digits(settings.ensurePhoneNumber(cid))
 
-    -- A server id only *finds* the recipient: it resolves to that character's own number, so every
-    -- memo, ledger row and hook below stays number-keyed and an id transfer settles identically to
-    -- one addressed by number. Only an online player has an id, so this branch never goes offline.
     local number, rcid
     local serverId = tonumber(payload.serverId)
     if serverId and util.finite(serverId) then
@@ -204,9 +220,11 @@ function actions.send(src, payload)
         return { success = false, message = 'Could not take that from your account' }
     end
 
+    local recvTitle, senderRef, senderPeer = shownSender(myNumber, anonymous)
+
     local credited
     if rsrc then
-        credited = bank.addMoney(rsrc, amount, ('Transfer from %s'):format(myNumber))
+        credited = bank.addMoney(rsrc, amount, ('Transfer from %s'):format(senderRef))
     else
         credited = bank.addOffline(rcid, amount)
     end
@@ -218,8 +236,8 @@ function actions.send(src, payload)
 
     local ts          = os.time()
     local senderLabel = note ~= '' and note or ('Sent to %s'):format(number)
-    store.insert(cid,  senderLabel,                          -amount, 'transfer', number,   ts)
-    store.insert(rcid, ('Received from %s'):format(myNumber), amount, 'transfer', myNumber, ts)
+    store.insert(cid,  senderLabel,                           -amount, 'transfer', number,     ts)
+    store.insert(rcid, recvTitle,                              amount, 'transfer', senderPeer, ts)
     pruneLog(cid)
     pruneLog(rcid)
 
@@ -227,17 +245,23 @@ function actions.send(src, payload)
     TriggerEvent('sd-phone:server:banking:transfer', {
         fromCitizenid = cid, fromNumber = myNumber, fromSource = src,
         toCitizenid = rcid, toNumber = number, toSource = rsrc,
-        amount = amount, note = note, timestamp = ts,
+        amount = amount, note = note, anonymous = anonymous, timestamp = ts,
     })
 
     bank.logToResource(src, ('Transfer to %s'):format(number), amount, false)
     if rsrc then
-        bank.logToResource(rsrc, ('Transfer from %s'):format(myNumber), amount, true)
-        TriggerClientEvent('sd-phone:client:bankReceived', rsrc, { amount = amount, from = myNumber })
+        bank.logToResource(rsrc, ('Transfer from %s'):format(senderRef), amount, true)
+        local received = { amount = amount, anonymous = anonymous }
+        if not anonymous then received.from = myNumber end
+        TriggerClientEvent('sd-phone:client:bankReceived', rsrc, received)
 
-        local rmap = contactMapFor(rcid)
-        local fromName = (rmap[myNumber] and rmap[myNumber].name) or player.getName(src) or formatNumber(myNumber)
-        notifyBank(rsrc, ('%s sent you %s'):format(fromName, formatMoney(amount)))
+        if anonymous then
+            notifyBank(rsrc, ('Someone sent you %s'):format(formatMoney(amount)))
+        else
+            local rmap = contactMapFor(rcid)
+            local fromName = (rmap[myNumber] and rmap[myNumber].name) or player.getName(src) or formatNumber(myNumber)
+            notifyBank(rsrc, ('%s sent you %s'):format(fromName, formatMoney(amount)))
+        end
     end
 
     return {

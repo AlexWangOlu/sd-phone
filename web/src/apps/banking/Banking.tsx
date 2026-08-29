@@ -150,6 +150,7 @@ export function Banking({ onClose: _onClose }: { onClose: () => void }) {
             {sending && (
                 <SendMoney
                     balance={balance}
+                    allowAnonymous={overview?.allowAnonymous ?? false}
                     onClose={() => setSending(false)}
                     onSent={() => { setSending(false); refresh(); }}
                 />

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronLeft, UserRound } from 'lucide-react';
+import { ChevronLeft, UserRound, EyeOff } from 'lucide-react';
 
 import { useSessionState, seedSessionState } from '@/hooks/useSessionState';
 import { useIosPush } from '@/hooks/useIosPush';
@@ -25,8 +25,9 @@ export function prefillTransferAgain(number: string, name?: string) {
     seedSessionState('banking:sendName', name);
 }
 
-export function SendMoney({ balance, onClose, onSent }: {
+export function SendMoney({ balance, allowAnonymous = false, onClose, onSent }: {
     balance: number;
+    allowAnonymous?: boolean;
     onClose: () => void;
     onSent:  (newBalance: number, tx: BankTx) => void;
 }) {
@@ -37,6 +38,7 @@ export function SendMoney({ balance, onClose, onSent }: {
     const [amount,  setAmount]  = useState('');
     const [picking, setPicking] = useState(false);
     const [swapDir, setSwapDir] = useState<'forward' | 'back' | null>(null);
+    const [anon,    setAnon]    = useSessionState('banking:sendAnon', false);
 
     const { goBack: backToWallet, pageStyle } = useIosPush(onClose);
 
@@ -54,7 +56,7 @@ export function SendMoney({ balance, onClose, onSent }: {
 
     function handleSent(newBalance: number, tx: BankTx) {
         setStep('recipient'); setMode('number'); setNumber(''); setName(undefined); setAmount('');
-        setSwapDir(null);
+        setSwapDir(null); setAnon(false);
         onSent(newBalance, tx);
     }
 
@@ -140,6 +142,9 @@ export function SendMoney({ balance, onClose, onSent }: {
                     toLabel={byId ? t('banking.playerIdLabel', 'Player ID {id}', { id: number }) : (name ?? formatPhonePartial(number))}
                     amount={amount}
                     setAmount={setAmount}
+                    anon={anon}
+                    setAnon={setAnon}
+                    allowAnonymous={allowAnonymous}
                     onBack={() => setStep('recipient')}
                     onSent={handleSent}
                 />
@@ -155,12 +160,15 @@ export function SendMoney({ balance, onClose, onSent }: {
     );
 }
 
-function AmountStage({ balance, target, toLabel, amount, setAmount, onBack, onSent }: {
+function AmountStage({ balance, target, toLabel, amount, setAmount, anon, setAnon, allowAnonymous, onBack, onSent }: {
     balance:   number;
     target:    SendTarget;
     toLabel:   string;
     amount:    string;
     setAmount: (updater: (prev: string) => string) => void;
+    anon:      boolean;
+    setAnon:   (v: boolean) => void;
+    allowAnonymous: boolean;
     onBack:    () => void;
     onSent:    (newBalance: number, tx: BankTx) => void;
 }) {
@@ -180,7 +188,7 @@ function AmountStage({ balance, target, toLabel, amount, setAmount, onBack, onSe
     async function submit() {
         if (!canSend) return;
         setBusy(true); setError(null);
-        const res = await sendMoney(target, amountNum);
+        const res = await sendMoney(target, amountNum, anon);
         setBusy(false);
         if (res.success && res.data) onSent(res.data.balance, res.data.transaction);
         else setError(res.message ?? t('banking.transferFailed', 'Transfer failed'));
@@ -236,6 +244,23 @@ function AmountStage({ balance, target, toLabel, amount, setAmount, onBack, onSe
                 <div className={`mt-5 rounded-full px-5 py-2.5 text-[18.5px] font-semibold ${error ? 'bg-ios-red/10 text-ios-red' : 'bg-black/[0.06] text-black/65 dark:bg-white/10 dark:text-white/70'}`}>
                     {error ?? t('banking.available', '${amount} available', { amount: balance.toLocaleString('en-US') })}
                 </div>
+
+                {allowAnonymous && (
+                    <button
+                        type="button"
+                        role="switch"
+                        aria-checked={anon}
+                        onClick={() => setAnon(!anon)}
+                        className={`mt-4 flex items-center gap-2 rounded-full px-4 py-2 text-[16.5px] font-semibold transition-colors active:opacity-60 ${
+                            anon
+                                ? 'bg-ios-blue text-white'
+                                : 'bg-black/[0.06] text-black/60 dark:bg-white/10 dark:text-white/65'
+                        }`}
+                    >
+                        <EyeOff className="h-[17px] w-[17px]" strokeWidth={2.4} />
+                        {t('banking.sendAnonymously', 'Send Anonymously')}
+                    </button>
+                )}
             </div>
 
             <Keypad variant="phone" onPress={pressAmount} onDelete={() => setAmount(p => p.slice(0, -1))} canDelete={amount.length > 0} className="shrink-0 px-8 pb-14 pt-6" />
@@ -243,7 +268,9 @@ function AmountStage({ balance, target, toLabel, amount, setAmount, onBack, onSe
             {confirming && (
                 <AlertDialog
                     title={t('banking.confirmTransfer', 'Confirm Transfer')}
-                    message={t('banking.confirmTransferMessage', "Send ${amount} to {name}? This can't be undone.", { amount: amountNum.toLocaleString('en-US'), name: toLabel })}
+                    message={anon
+                        ? t('banking.confirmTransferAnonMessage', "Send ${amount} to {name} anonymously? They won't see who it came from, and this can't be undone.", { amount: amountNum.toLocaleString('en-US'), name: toLabel })
+                        : t('banking.confirmTransferMessage', "Send ${amount} to {name}? This can't be undone.", { amount: amountNum.toLocaleString('en-US'), name: toLabel })}
                     confirmLabel={t('banking.send', 'Send')}
                     cancelLabel={t('banking.cancel', 'Cancel')}
                     onCancel={() => setConfirming(false)}

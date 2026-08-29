@@ -14,6 +14,12 @@ return {
     -- fd) require the recipient to be online.
     AllowOffline     = true,
 
+    -- Let the sender tick "Send Anonymously". Hides them from the RECIPIENT only: that row,
+    -- statement and banner read "Anonymous" with no counterparty to send back to. Server-side
+    -- logging is never anonymised, so sd-phone:server:banking:transfer still carries the real
+    -- sender, with an `anonymous` flag alongside it.
+    AllowAnonymous   = true,
+
     -- Person-to-person invoicing from the Wallet's Invoices tab (business invoicing is
     -- configured in configs/services.lua and unaffected by this block).
     PersonalInvoices = {
