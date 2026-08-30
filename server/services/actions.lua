@@ -34,6 +34,16 @@ local EMP_LIMIT    = SV.EmployeeLimit or 100
 local byJob = {}
 for _, c in ipairs(COMPANIES) do byJob[c.job] = c end
 
+---@type table<string, string> Callable company line (digits only) -> job name. Built here rather
+---than at each caller so the dialer and the RoadPhone shim cannot drift apart on which numbers
+---are lines and which are ordinary phone numbers.
+local byCallNumber = {}
+for _, c in ipairs(COMPANIES) do
+    if c.canCall and type(c.callNumber) == 'string' then
+        byCallNumber[(c.callNumber:gsub('%D', ''))] = c.job
+    end
+end
+
 -- Jobs that count as "no job" (no Actions tab). Unemployed is always included.
 ---@type table<string, boolean> Set of jobs the Services app treats as not employed.
 local BLACKLIST = {}
@@ -580,6 +590,15 @@ function actions.quit(src)
     job.leave(src, myJob)
     actions.notifyRoster(myJob)
     return ok({ myCompany = buildMyCompany(src) })
+end
+
+---Resolves a dialed number to the company whose line it is, so the dialer can route 911 without
+---knowing anything about jobs. Only a company marked canCall has a line.
+---@param number string|number dialed digits, in any formatting
+---@return string|nil job framework job name, nil when the number is not a company line
+function actions.jobForCallNumber(number)
+    local d = digits(number)
+    return d ~= '' and byCallNumber[d] or nil
 end
 
 ---Calls a company: rings every online, on-duty, call-accepting employee of the whitelisted job

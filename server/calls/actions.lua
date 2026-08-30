@@ -567,6 +567,14 @@ function actions.dial(source, payload)
     end
     if digits(myNumber) == dialed then return fail('You can\'t call yourself') end
 
+    -- Emergency and company lines resolve ahead of the player-number lookup, so a citizen who
+    -- happens to hold a short number can never shadow 911. Required lazily because
+    -- server.services.actions requires this module at load: a top-level require here would
+    -- close the cycle. Lua caches the module, so this costs a table lookup per dial.
+    local services = require 'server.services.actions'
+    local lineJob  = services.jobForCallNumber(dialed)
+    if lineJob then return services.callCompany(source, { job = lineJob }) end
+
     local targetCid = settings.getCitizenByNumber(dialed)
     if not targetCid then
         -- Not a player number: a payphone booth rings physically instead.
