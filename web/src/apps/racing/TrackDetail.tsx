@@ -1,5 +1,5 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { Flag, Map as MapIcon, MapPin, Timer, Trophy } from 'lucide-react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { Check, Copy, Flag, Map as MapIcon, MapPin, Timer, Trophy } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 import { getLocaleTag, t } from '@/i18n';
@@ -13,7 +13,8 @@ import { cardSurface, panePad, rowMeta, ruleX, sectionHeader } from '@/ui/surfac
 
 import { RaceSetup } from './RaceSetup';
 import { TrackMap } from './TrackMap';
-import { racingTrack, racingWaypoint } from './racingApi';
+import { copyToClipboard } from '@/lib/clipboard';
+import { racingExportTrack, racingTrack, racingWaypoint } from './racingApi';
 import { useRacingSession } from './useRacingSession';
 import {
     CLASS_TONE, RACING_ACCENT, racingAccentBar, racingAccentText, racingDetailEnter,
@@ -264,6 +265,19 @@ export function TrackDetail({ trackId }: { trackId: number }) {
     const session = useRacingSession();
 
     const [view, setView]  = useSessionState<TrackView>('racing:tracks:view', 'detail');
+    const [copied, setCopied] = useState(false);
+    const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => () => { if (copyTimer.current) clearTimeout(copyTimer.current); }, []);
+
+    async function exportJson() {
+        const track = await racingExportTrack(trackId);
+        if (!track) return;
+        if (!copyToClipboard(JSON.stringify(track, null, 2))) return;
+        setCopied(true);
+        if (copyTimer.current) clearTimeout(copyTimer.current);
+        copyTimer.current = setTimeout(() => { setCopied(false); copyTimer.current = null; }, 1800);
+    }
     const [, setOpenRacer] = useSessionState<string | null>('racing:rankings:open', null);
 
     const { data, loading } = useAsyncData(() => racingTrack(trackId), [trackId]);
@@ -327,6 +341,11 @@ export function TrackDetail({ trackId }: { trackId: number }) {
                                 label={t('racing.waypoint', 'Waypoint')}
                                 disabled={!track.coords}
                                 onPress={() => { if (track.coords) void racingWaypoint(track.coords.x, track.coords.y); }}
+                            />
+                            <DetailAction
+                                icon={copied ? Check : Copy}
+                                label={copied ? t('racing.copied', 'Copied') : t('racing.copyJson', 'Copy JSON')}
+                                onPress={() => { void exportJson(); }}
                             />
                         </div>
                     </div>

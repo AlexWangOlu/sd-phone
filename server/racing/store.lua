@@ -405,6 +405,17 @@ end
 
 ---A track's route in the layout the race client and the map both read: one nine-number array per
 ---gate, the centre first and then each edge. Empty when the track or its JSON is unusable.
+---The raw gate pairs a track was saved with, in the shape the creator and the JSON importer both
+---use. routeFor flattens these into render points; export needs them unflattened.
+---@param trackId integer|string
+---@return table gates `{ { {ax,ay,az}, {bx,by,bz} }, ... }`, empty for an unknown track
+function store.gatesFor(trackId)
+    local id = idOf(trackId)
+    if not id then return {} end
+    return decodeGates(MySQL.scalar.await(
+        'SELECT checkpoints FROM phone_racing_tracks WHERE id = ?', { id }))
+end
+
 ---@param trackId integer|string
 ---@return number[][] points `{ midX, midY, midZ, aX, aY, aZ, bX, bY, bZ }` per gate
 function store.routeFor(trackId)

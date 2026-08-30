@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BadgeCheck, MapPin, Route, Search, Star } from 'lucide-react';
+import { BadgeCheck, Download, MapPin, Route, Search, Star } from 'lucide-react';
 
 import { t } from '@/i18n';
 import { useAsyncData } from '@/hooks/useAsyncData';
@@ -9,6 +9,7 @@ import { ListColumn } from '@/ui/ListColumn';
 import { MasterDetail } from '@/ui/MasterDetail';
 import { Pager } from '@/ui/Pager';
 import { Select, type SelectOption } from '@/ui/Select';
+import { Sheet } from '@/ui/Sheet';
 import { Toggle } from '@/ui/Toggle';
 import { cardRow, cardRowPad, listStack, rowHover, rowMeta, rowTitle } from '@/ui/surfaces';
 import { device } from '@device';
@@ -16,7 +17,7 @@ import { device } from '@device';
 const isPhone = device.id === 'phone';
 
 import { TrackDetail, modeLabel } from './TrackDetail';
-import { racingTracks, racingWaypoint } from './racingApi';
+import { racingImportTracks, racingTracks, racingWaypoint } from './racingApi';
 import { RACING_ACCENT, racingAccentText } from './racingTheme';
 import { TRACKS_PER_PAGE, type TrackRow, type TrackSort } from './data';
 
@@ -87,6 +88,68 @@ function TrackListRow({ track, selected, onPress, onWaypoint }: {
     );
 }
 
+function ImportSheet({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+    const [text, setText]     = useState('');
+    const [busy, setBusy]     = useState(false);
+    const [error, setError]   = useState('');
+    const [failed, setFailed] = useState<{ index: number; name: string; reason: string }[]>([]);
+
+    async function submit(close: () => void) {
+        if (busy || !text.trim()) return;
+        setBusy(true);
+        setError('');
+        setFailed([]);
+
+        const res = await racingImportTracks(text);
+        setBusy(false);
+        if (!res.success) {
+            setError(res.message ?? t('racing.importFailed', 'Nothing could be imported.'));
+            return;
+        }
+        if (res.data && res.data.failed.length > 0) setFailed(res.data.failed);
+        onDone();
+        if (!res.data || res.data.failed.length === 0) close();
+    }
+
+    return (
+        <Sheet onClose={onClose} fit="content" title={t('racing.importTracks', 'Import tracks')}>
+            {({ close }) => (
+                <div className="flex flex-col gap-3 px-4 pb-5">
+                    <p className={rowMeta}>
+                        {t('racing.importHint', 'Paste one track or a list of them. Copy JSON on any track gives you this format.')}
+                    </p>
+                    <textarea
+                        value={text}
+                        onChange={e => setText(e.target.value)}
+                        spellCheck={false}
+                        placeholder={'{ "name": "...", "mode": "circuit", "gates": [...] }'}
+                        className="h-[168px] w-full resize-none rounded-[12px] bg-black/[0.05] px-3 py-2.5 font-mono text-[12px] leading-snug text-black outline-none placeholder:text-ios-gray dark:bg-white/[0.08] dark:text-white"
+                    />
+                    {error && <p className="text-[13px] text-ios-red">{error}</p>}
+                    {failed.length > 0 && (
+                        <div className="flex flex-col gap-1">
+                            {failed.map(f => (
+                                <p key={`${f.index}-${f.name}`} className="text-[12.5px] text-ios-orange">
+                                    {f.name || `#${f.index}`}: {f.reason}
+                                </p>
+                            ))}
+                        </div>
+                    )}
+                    <button
+                        type="button"
+                        disabled={busy || !text.trim()}
+                        onClick={() => { void submit(close); }}
+                        className="h-[44px] w-full rounded-[12px] text-[15px] font-semibold text-white transition-opacity active:opacity-70 disabled:opacity-40"
+                        style={{ backgroundColor: RACING_ACCENT }}
+                    >
+                        {busy ? t('racing.importing', 'Importing…') : t('racing.import', 'Import')}
+                    </button>
+                </div>
+            )}
+        </Sheet>
+    );
+}
+
 export function TracksPane() {
     const [query, setQuery]       = useSessionState('racing:tracks:query', '');
     const [sort, setSort]         = useSessionState<TrackSort>('racing:tracks:sort', 'newest');
@@ -94,6 +157,8 @@ export function TracksPane() {
     const [page, setPage]         = useSessionState('racing:tracks:page', 1);
     const [selected, setSelected] = useSessionState<number | null>('racing:tracks:selected', null);
     const [term, setTerm]         = useState(query.trim());
+    const [importing, setImporting] = useState(false);
+    const [reload, setReload]       = useState(0);
 
     useEffect(() => {
         const id = window.setTimeout(() => setTerm(query.trim()), 250);
@@ -104,7 +169,7 @@ export function TracksPane() {
 
     const { data, loading, settled } = useAsyncData(
         () => racingTracks({ query: term, sort, verifiedOnly: verified, page }),
-        [term, sort, verified, page],
+        [term, sort, verified, page, reload],
     );
 
     const rows  = data?.rows ?? [];
@@ -153,6 +218,14 @@ export function TracksPane() {
                         className={isPhone ? 'w-[116px]' : 'w-[136px]'}
                         ariaLabel={t('racing.sortTracks', 'Sort tracks')}
                     />
+                    <button
+                        type="button"
+                        onClick={() => setImporting(true)}
+                        aria-label={t('racing.importTracks', 'Import tracks')}
+                        className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full text-ios-gray transition-colors duration-150 hover:bg-black/[0.06] hover:text-black active:opacity-60 dark:hover:bg-white/[0.10] dark:hover:text-white"
+                    >
+                        <Download className="h-[15px] w-[15px]" strokeWidth={2.2} />
+                    </button>
                     <div className="flex shrink-0 items-center gap-1.5">
                         <span className={rowMeta}>{t('racing.verifiedOnly', 'Verified')}</span>
                         <Toggle
@@ -182,20 +255,28 @@ export function TracksPane() {
     );
 
     return (
-        <MasterDetail
-            master={master}
-            masterWidth={MASTER_WIDTH}
-            hasDetail={selected !== null}
-            detail={selected !== null ? <TrackDetail key={selected} trackId={selected} /> : undefined}
-            placeholder={
-                <EmptyState
-                    center
-                    icon={Route}
-                    title={t('racing.pickTrack', 'No track selected')}
-                    subtitle={t('racing.pickTrackSub', 'Pick a track to see its record board, its route on the map, and to open a race on it.')}
+        <>
+            <MasterDetail
+                master={master}
+                masterWidth={MASTER_WIDTH}
+                hasDetail={selected !== null}
+                detail={selected !== null ? <TrackDetail key={selected} trackId={selected} /> : undefined}
+                placeholder={
+                    <EmptyState
+                        center
+                        icon={Route}
+                        title={t('racing.pickTrack', 'No track selected')}
+                        subtitle={t('racing.pickTrackSub', 'Pick a track to see its record board, its route on the map, and to open a race on it.')}
+                    />
+                }
+                onCloseDetail={() => setSelected(null)}
+            />
+            {importing && (
+                <ImportSheet
+                    onClose={() => setImporting(false)}
+                    onDone={() => { setPage(1); setReload(n => n + 1); }}
                 />
-            }
-            onCloseDetail={() => setSelected(null)}
-        />
+            )}
+        </>
     );
 }

@@ -613,6 +613,45 @@ end
 ---Saves a track recorded with the in-game creator. The ace is re-checked here because the callback
 ---is reachable by any client regardless of who was allowed to run the command.
 ---@param src integer player server id
+---Checks one track payload against the creator's own rules: a usable name, a gate count inside
+---CREATOR.MinGates/MaxGates, and two finite 3D points per gate. Shared by the in-world creator and
+---the JSON importer so an imported track can never bypass a limit the creator enforces.
+---@param payload table { name, mode, gates }
+---@return string|nil name nil when the payload is unusable
+---@return table|nil gates normalised gate list, nil when the payload is unusable
+---@return string|nil why refusal reason, set only when name is nil
+local function validateTrack(payload)
+    if type(payload) ~= 'table' then return nil, nil, 'That track is not readable' end
+
+    local name = util.limitedString(payload.name, int(LIMITS.TrackNameMax, 60))
+    if not name then return nil, nil, 'Give the track a name' end
+
+    local recorded = type(payload.gates) == 'table' and payload.gates or nil
+    if not recorded then return nil, nil, 'That track has no gates' end
+
+    local minGates, maxGates = int(CREATOR.MinGates, 2), int(CREATOR.MaxGates, 512)
+    local count = #recorded
+    if count < minGates then return nil, nil, ('A track needs at least %d gates'):format(minGates) end
+    if count > maxGates then return nil, nil, ('A track can hold at most %d gates'):format(maxGates) end
+
+    local gates = {}
+    for i = 1, count do
+        local gate = recorded[i]
+        local a    = type(gate) == 'table' and gate[1] or nil
+        local b    = type(gate) == 'table' and gate[2] or nil
+        if type(a) ~= 'table' or type(b) ~= 'table' then return nil, nil, 'That track has a damaged gate' end
+
+        local ax, ay, az = tonumber(a[1]), tonumber(a[2]), tonumber(a[3])
+        local bx, by, bz = tonumber(b[1]), tonumber(b[2]), tonumber(b[3])
+        if not (util.finite(ax) and util.finite(ay) and util.finite(az)
+            and util.finite(bx) and util.finite(by) and util.finite(bz)) then
+            return nil, nil, 'That track has a damaged gate'
+        end
+        gates[i] = { { ax, ay, az }, { bx, by, bz } }
+    end
+    return name, gates, nil
+end
+
 ---@param payload table { name, mode, gates }
 ---@return table envelope
 function actions.createTrack(src, payload)
@@ -625,38 +664,131 @@ function actions.createTrack(src, payload)
         return fail('Too many tracks saved, wait a moment')
     end
 
-    local name = util.limitedString(payload.name, int(LIMITS.TrackNameMax, 60))
-    if not name then return fail('Give the track a name') end
-
-    local recorded = type(payload.gates) == 'table' and payload.gates or nil
-    if not recorded then return fail('That track has no gates') end
-
-    local minGates, maxGates = int(CREATOR.MinGates, 2), int(CREATOR.MaxGates, 512)
-    local count = #recorded
-    if count < minGates then return fail(('A track needs at least %d gates'):format(minGates)) end
-    if count > maxGates then return fail(('A track can hold at most %d gates'):format(maxGates)) end
-
-    local gates = {}
-    for i = 1, count do
-        local gate = recorded[i]
-        local a    = type(gate) == 'table' and gate[1] or nil
-        local b    = type(gate) == 'table' and gate[2] or nil
-        if type(a) ~= 'table' or type(b) ~= 'table' then return fail('That track has a damaged gate') end
-
-        local ax, ay, az = tonumber(a[1]), tonumber(a[2]), tonumber(a[3])
-        local bx, by, bz = tonumber(b[1]), tonumber(b[2]), tonumber(b[3])
-        if not (util.finite(ax) and util.finite(ay) and util.finite(az)
-            and util.finite(bx) and util.finite(by) and util.finite(bz)) then
-            return fail('That track has a damaged gate')
-        end
-        gates[i] = { { ax, ay, az }, { bx, by, bz } }
-    end
+    local name, gates, why = validateTrack(payload)
+    if not name then return fail(why) end
 
     local id = store.createTrack(name, payload.mode == 'sprint', gates, cid, player.getName(src) or '')
     if not id then return fail('That track could not be saved') end
 
     store.invalidateTrackCache()
     return ok({ id = id })
+end
+
+---@type integer Tracks accepted in one import. A paste is a single deliberate act, so this is a
+---guard against one call inserting thousands of rows, not a quota.
+local IMPORT_MAX <const> = 50
+
+---Normalises what an importer was handed into a list of track payloads. A single track object and
+---an array of them are both accepted, so one file serves a player sharing one track and an owner
+---seeding a pack.
+---@param data any decoded JSON
+---@return table[] list empty when nothing usable was passed
+local function importList(data)
+    if type(data) ~= 'table' then return {} end
+    if data.gates ~= nil or data.name ~= nil then return { data } end
+
+    local list = {}
+    for i = 1, #data do
+        if type(data[i]) == 'table' then list[#list + 1] = data[i] end
+    end
+    return list
+end
+
+---Imports one or more tracks from decoded JSON, credited to the given citizenid and author name.
+---Every entry goes through the creator's own validation, so an import cannot save a track the
+---creator would refuse. A bad entry is reported and skipped rather than failing the whole batch:
+---a pack with one damaged track still lands the other forty-nine.
+---@param data any decoded JSON: one track object or an array of them
+---@param cid string|nil owning citizenid, nil for a server-side import with no owner
+---@param authorName string credited author
+---@return table result { imported = integer, failed = { index, name, reason }[] }
+function actions.importTracks(data, cid, authorName)
+    local list = importList(data)
+    local result = { imported = 0, failed = {} }
+    if #list == 0 then
+        result.failed[1] = { index = 0, name = '', reason = 'No tracks found in that JSON' }
+        return result
+    end
+
+    for i = 1, math.min(#list, IMPORT_MAX) do
+        local entry = list[i]
+        local name, gates, why = validateTrack(entry)
+        if not name then
+            result.failed[#result.failed + 1] = {
+                index  = i,
+                name   = type(entry) == 'table' and tostring(entry.name or '') or '',
+                reason = why or 'That track is not readable',
+            }
+        else
+            local id = store.createTrack(name, entry.mode == 'sprint', gates, cid, authorName)
+            if id then
+                result.imported = result.imported + 1
+            else
+                result.failed[#result.failed + 1] = { index = i, name = name, reason = 'That track could not be saved' }
+            end
+        end
+    end
+
+    if #list > IMPORT_MAX then
+        result.failed[#result.failed + 1] = {
+            index  = IMPORT_MAX + 1,
+            name   = '',
+            reason = ('Only the first %d tracks were imported'):format(IMPORT_MAX),
+        }
+    end
+
+    if result.imported > 0 then store.invalidateTrackCache() end
+    return result
+end
+
+---Player-facing import: the JSON arrives as text from the app's paste box. Held to the same gate
+---as the in-world creator, since importing a track and recording one both add a row.
+---@param src integer
+---@param payload table { json: string }
+---@return table
+function actions.importTracksFor(src, payload)
+    if CREATOR.Enabled == false then return fail('The track creator is switched off') end
+    if not canCreate(src) then return fail('You are not allowed to create tracks') end
+
+    local cid = cidOf(src)
+    if not cid then return fail(LOADING) end
+    if not budget(cid, 'racing:create', RATES.Create) then
+        return fail('Too many tracks saved, wait a moment')
+    end
+
+    local text = type(payload) == 'table' and payload.json or nil
+    if type(text) ~= 'string' or text == '' then return fail('Paste a track first') end
+
+    local okJson, decoded = pcall(json.decode, text)
+    if not okJson or type(decoded) ~= 'table' then return fail('That is not valid JSON') end
+
+    local result = actions.importTracks(decoded, cid, player.getName(src) or '')
+    if result.imported == 0 then
+        return fail(result.failed[1] and result.failed[1].reason or 'Nothing could be imported')
+    end
+    return ok(result)
+end
+
+---Exports a track as the JSON the importer accepts. Any track the caller can already see may be
+---exported: a published track's gates are coordinates the player can drive past anyway.
+---@param _ integer
+---@param payload table { trackId }
+---@return table
+function actions.exportTrack(_, payload)
+    local trackId = idOf(payload and payload.trackId)
+    if not trackId then return fail(NO_TRACK) end
+
+    local row = store.trackRow(trackId)
+    if not row or util.truthy(row.deleted) then return fail(NO_TRACK) end
+
+    local gates = store.gatesFor(trackId)
+    if #gates == 0 then return fail('That track has no gates to export') end
+
+    return ok({ track = {
+        name  = row.name or '',
+        mode  = util.truthy(row.is_sprint) and 'sprint' or 'circuit',
+        gates = gates,
+    } })
 end
 
 ---One page of the admin track list, unpublished tracks included.

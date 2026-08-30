@@ -17,6 +17,7 @@ local ACTIONS = {
     'leave', 'host',
     'rankings', 'racer',
     'setAlias', 'setAvatar',
+    'importTracks', 'exportTrack',
     'adminTracks', 'adminSetFlag', 'adminDelete',
 }
 

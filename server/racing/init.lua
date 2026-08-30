@@ -62,6 +62,50 @@ register('setAlias',     function(src, payload) return actions.setAlias(src, pay
 register('setAvatar',    function(src, payload) return actions.setAvatar(src, payload) end)
 register('setHud',       function(src, payload) return actions.setHud(src, payload) end)
 register('createTrack',  function(src, payload) return actions.createTrack(src, payload) end)
+---Bulk import for server owners: reads a JSON file from the resource folder and saves every track
+---in it. Console only, because it writes rows and needs no in-game context; the file lives beside
+---the resource so an owner can drop a track pack in without touching the database.
+---@param src integer 0 for the server console
+---@param args string[] { relative file path }
+RegisterCommand('importtracks', function(src, args)
+    if src ~= 0 then return end
+
+    local path = args[1]
+    if not path or path == '' then
+        print('^3usage:^0 importtracks <file.json>   (path is relative to the sd-phone folder)')
+        return
+    end
+
+    local raw = LoadResourceFile(GetCurrentResourceName(), path)
+    if not raw then
+        print(('^1[sd-phone:racing]^0 could not read %s'):format(path))
+        return
+    end
+
+    local okJson, decoded = pcall(json.decode, raw)
+    if not okJson or type(decoded) ~= 'table' then
+        print(('^1[sd-phone:racing]^0 %s is not valid JSON'):format(path))
+        return
+    end
+
+    local result = actions.importTracks(decoded, nil, 'Imported')
+    print(('^2[sd-phone:racing]^0 imported %d track(s) from %s'):format(result.imported, path))
+    for _, entry in ipairs(result.failed) do
+        print(('^3[sd-phone:racing]^0 skipped #%d %s: %s'):format(entry.index, entry.name, entry.reason))
+    end
+end, true)
+
+---Bulk import for other resources: exports['sd-phone']:importRaceTrack(data) takes one track table
+---or an array of them, the same shape the app and the console command accept.
+---@param data table one track or an array of them
+---@param authorName string|nil credited author, defaults to 'Imported'
+---@return table result { imported = integer, failed = { index, name, reason }[] }
+exports('importRaceTrack', function(data, authorName)
+    return actions.importTracks(data, nil, type(authorName) == 'string' and authorName or 'Imported')
+end)
+
+register('importTracks', function(src, payload) return actions.importTracksFor(src, payload) end)
+register('exportTrack',  function(src, payload) return actions.exportTrack(src, payload) end)
 register('adminTracks',  function(src, payload) return actions.adminTracks(src, payload) end)
 register('adminSetFlag', function(src, payload) return actions.adminSetFlag(src, payload) end)
 register('adminDelete',  function(src, payload) return actions.adminDelete(src, payload) end)

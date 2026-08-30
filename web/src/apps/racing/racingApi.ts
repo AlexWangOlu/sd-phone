@@ -625,6 +625,36 @@ export async function racingVehicle(): Promise<{ model: string; class: RaceClass
     return apiData<{ model: string; class: RaceClass; onFoot: boolean }>('sd-phone:racing:vehicle');
 }
 
+export interface TrackJson {
+    name:  string;
+    mode:  'sprint' | 'circuit';
+    gates: number[][][];
+}
+
+export interface ImportResult {
+    imported: number;
+    failed:   { index: number; name: string; reason: string }[];
+}
+
+export async function racingExportTrack(trackId: number): Promise<TrackJson | null> {
+    if (!isFiveM) {
+        const track = DEV_TRACKS.find(row => row.id === trackId);
+        if (!track) return null;
+        return {
+            name:  track.name,
+            mode:  track.mode === 'sprint' ? 'sprint' : 'circuit',
+            gates: [[[0, 0, 0], [1, 0, 0]], [[10, 10, 0], [11, 10, 0]]],
+        };
+    }
+    const res = await apiData<{ track: TrackJson }>('sd-phone:racing:exportTrack', { trackId });
+    return res?.track ?? null;
+}
+
+export async function racingImportTracks(text: string): Promise<Envelope<ImportResult>> {
+    if (!isFiveM) return { success: true, data: { imported: 1, failed: [] } };
+    return apiCall<ImportResult>('sd-phone:racing:importTracks', { json: text });
+}
+
 export async function racingAdminTracks(params: { query: string; page: number }): Promise<Page<AdminTrackRow>> {
     if (!isFiveM) {
         const hits = DEV_TRACKS.filter(track => devMatches(params.query, track.name, track.author));
