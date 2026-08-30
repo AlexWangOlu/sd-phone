@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BadgeCheck, Download, MapPin, Route, Search, Star } from 'lucide-react';
+import { BadgeCheck, Check, Download, MapPin, Route, Search, Star } from 'lucide-react';
 
 import { t } from '@/i18n';
 import { useAsyncData } from '@/hooks/useAsyncData';
@@ -10,7 +10,6 @@ import { MasterDetail } from '@/ui/MasterDetail';
 import { Pager } from '@/ui/Pager';
 import { Select, type SelectOption } from '@/ui/Select';
 import { Sheet } from '@/ui/Sheet';
-import { Toggle } from '@/ui/Toggle';
 import { cardRow, cardRowPad, listStack, rowHover, rowMeta, rowTitle } from '@/ui/surfaces';
 import { device } from '@device';
 
@@ -18,7 +17,7 @@ const isPhone = device.id === 'phone';
 
 import { TrackDetail, modeLabel } from './TrackDetail';
 import { racingImportTracks, racingTracks, racingWaypoint } from './racingApi';
-import { RACING_ACCENT, racingAccentText } from './racingTheme';
+import { RACING_ACCENT, racingAccentFill, racingAccentText, racingJsonField, racingJsonPlaceholder, racingSheetHint } from './racingTheme';
 import { TRACKS_PER_PAGE, type TrackRow, type TrackSort } from './data';
 
 const MASTER_WIDTH = 408;
@@ -30,6 +29,26 @@ function sortOptions(): SelectOption<TrackSort>[] {
         { value: 'plays',  label: t('racing.sortPlays', 'Most played') },
         { value: 'gates',  label: t('racing.sortGates', 'Most checkpoints') },
     ];
+}
+
+function FilterChip({ label, on, onChange }: {
+    label:    string;
+    on:       boolean;
+    onChange: (on: boolean) => void;
+}) {
+    return (
+        <button
+            type="button"
+            aria-pressed={on}
+            onClick={() => onChange(!on)}
+            className={`flex shrink-0 items-center gap-1 rounded-[9px] px-2 py-1 text-[13px] font-medium transition-colors duration-150 ${on
+                ? racingAccentFill
+                : 'bg-black/[0.05] text-ios-gray ring-1 ring-inset ring-black/[0.07] hover:bg-black/[0.08] dark:bg-white/[0.07] dark:ring-white/[0.10] dark:hover:bg-white/[0.10]'}`}
+        >
+            <Check className="h-[13px] w-[13px] shrink-0" strokeWidth={2.6} />
+            {label}
+        </button>
+    );
 }
 
 function TrackListRow({ track, selected, onPress, onWaypoint }: {
@@ -88,6 +107,12 @@ function TrackListRow({ track, selected, onPress, onWaypoint }: {
     );
 }
 
+const PLACEHOLDER_JSON = `{
+  "name": "Vinewood Sprint",
+  "mode": "circuit",
+  "gates": [ ... ]
+}`;
+
 function ImportSheet({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
     const [text, setText]     = useState('');
     const [busy, setBusy]     = useState(false);
@@ -112,18 +137,23 @@ function ImportSheet({ onClose, onDone }: { onClose: () => void; onDone: () => v
     }
 
     return (
-        <Sheet onClose={onClose} fit="content" title={t('racing.importTracks', 'Import tracks')}>
+        <Sheet
+            onClose={onClose}
+            fit="content"
+            title={t('racing.importTracks', 'Import tracks')}
+            className="font-sf bg-base text-black dark:text-white"
+        >
             {({ close }) => (
                 <div className="flex flex-col gap-3 px-4 pb-5">
-                    <p className={rowMeta}>
-                        {t('racing.importHint', 'Paste one track or a list of them. Copy JSON on any track gives you this format.')}
+                    <p className={racingSheetHint}>
+                        {t('racing.importHint', 'Paste a single track, or a whole list of them. To get this format, open any track and tap JSON.')}
                     </p>
                     <textarea
                         value={text}
                         onChange={e => setText(e.target.value)}
                         spellCheck={false}
-                        placeholder={'{ "name": "...", "mode": "circuit", "gates": [...] }'}
-                        className="h-[168px] w-full resize-none rounded-[12px] bg-black/[0.05] px-3 py-2.5 font-mono text-[12px] leading-snug text-black outline-none placeholder:text-ios-gray dark:bg-white/[0.08] dark:text-white"
+                        placeholder={PLACEHOLDER_JSON}
+                        className={`${racingJsonField} ${racingJsonPlaceholder}`}
                     />
                     {error && <p className="text-[13px] text-ios-red">{error}</p>}
                     {failed.length > 0 && (
@@ -209,34 +239,31 @@ export function TracksPane() {
             isEmpty={settled && rows.length === 0}
             empty={empty}
             action={
-                <div className="flex shrink-0 items-center gap-2">
+                <button
+                    type="button"
+                    onClick={() => setImporting(true)}
+                    aria-label={t('racing.importTracks', 'Import tracks')}
+                    className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full text-ios-gray transition-colors duration-150 hover:bg-black/[0.06] hover:text-black active:opacity-60 dark:hover:bg-white/[0.10] dark:hover:text-white"
+                >
+                    <Download className="h-[15px] w-[15px]" strokeWidth={2.2} />
+                </button>
+            }
+            filters={
+                <>
                     <Select
                         size="xs"
                         value={sort}
                         onChange={setSort}
                         options={options}
-                        className={isPhone ? 'w-[116px]' : 'w-[136px]'}
+                        className={isPhone ? 'w-[128px]' : 'w-[136px]'}
                         ariaLabel={t('racing.sortTracks', 'Sort tracks')}
                     />
-                    <button
-                        type="button"
-                        onClick={() => setImporting(true)}
-                        aria-label={t('racing.importTracks', 'Import tracks')}
-                        className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full text-ios-gray transition-colors duration-150 hover:bg-black/[0.06] hover:text-black active:opacity-60 dark:hover:bg-white/[0.10] dark:hover:text-white"
-                    >
-                        <Download className="h-[15px] w-[15px]" strokeWidth={2.2} />
-                    </button>
-                    <div className="flex shrink-0 items-center gap-1.5">
-                        <span className={rowMeta}>{t('racing.verifiedOnly', 'Verified')}</span>
-                        <Toggle
-                            on={verified}
-                            onChange={setVerified}
-                            scale={0.6}
-                            activeColor={RACING_ACCENT}
-                            ariaLabel={t('racing.verifiedOnlyFilter', 'Show verified tracks only')}
-                        />
-                    </div>
-                </div>
+                    <FilterChip
+                        label={t('racing.verifiedOnly', 'Verified')}
+                        on={verified}
+                        onChange={setVerified}
+                    />
+                </>
             }
             footer={<Pager page={page} pageSize={TRACKS_PER_PAGE} total={total} onPage={setPage} />}
         >
