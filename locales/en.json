@@ -420,6 +420,13 @@
     "startRecording": "Start recording",
     "stopRecording": "Stop recording",
     "takePhoto": "Take photo",
+    "uploadFailBadData": "That capture came out corrupted.",
+    "uploadFailBusy": "Another upload is still finishing.",
+    "uploadFailNoKey": "This server has not set up media uploads yet.",
+    "uploadFailProvider": "The upload service did not accept it.",
+    "uploadFailRateLimit": "Slow down a moment, then try again.",
+    "uploadFailSave": "Uploaded, but it could not be saved.",
+    "uploadFailTooLarge": "That capture is too large to upload.",
     "uploading": "Uploading…"
   },
   "casino": {
