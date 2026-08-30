@@ -141,9 +141,12 @@ registerLbExport('EmergencyNotification', function(source, data)
     if not src then return nil end
     local title = type(data.title) == 'string' and data.title ~= '' and data.title or 'Emergency'
     pushBanner(src, {
-        title = title,
-        body  = type(data.content) == 'string' and data.content or nil,
-        image = type(data.icon) == 'string' and data.icon or nil,
+        title     = title,
+        body      = type(data.content) == 'string' and data.content or nil,
+        image     = type(data.icon) == 'string' and data.icon or nil,
+        -- lb's emergency notification is a distinct, hard-to-miss alert rather than one more
+        -- banner, so it maps onto sd-phone's alert treatment instead of degrading to a plain one.
+        emergency = true,
     })
     return nil
 end)

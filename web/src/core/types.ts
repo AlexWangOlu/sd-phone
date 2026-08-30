@@ -497,7 +497,7 @@ export type NuiMessage =
     | { action: 'wordle:start';        data: { gameId: string; color: string; opponent: string; pot: number } }
     | { action: 'wordle:move';         data: { gameId: string; move: { rows: string[][]; solved: boolean; failed: boolean; tries: number; finishMs: number } } }
     | { action: 'wordle:ended';        data: { reason: string } }
-    | { action: 'sd-phone:notification';       data: { id?: string; app?: string; image?: string; title: string; body?: string; time?: string; appId?: string; quietInApp?: boolean; otherPhone?: boolean; phoneColor?: string; profileKey?: string; link?: Record<string, unknown> } }
+    | { action: 'sd-phone:notification';       data: { id?: string; app?: string; image?: string; title: string; body?: string; time?: string; appId?: string; quietInApp?: boolean; emergency?: boolean; otherPhone?: boolean; phoneColor?: string; profileKey?: string; link?: Record<string, unknown> } }
     | { action: 'sd-phone:badges';             data: Record<string, number> }
     | { action: 'sd-phone:badges:patch';       data: Record<string, number> }
     | { action: 'sd-phone:airshare';           data: { id: string; kind: string; fromName: string } }

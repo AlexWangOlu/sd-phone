@@ -5063,6 +5063,7 @@
   },
   "shell": {
     "clearAll": "Clear All",
+    "emergencyAlert": "Emergency Alert",
     "closeNotifications": "Close",
     "notificationHidden": "Notification hidden",
     "swipeUpToClose": "Swipe up to close",
