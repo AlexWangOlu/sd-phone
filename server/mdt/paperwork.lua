@@ -620,17 +620,30 @@ local CASE_SELECT = [[
     FROM phone_mdt_cases c
 ]]
 
+---@type string Detail projection: the list columns plus the two bodies only the detail pane reads.
+---Kept apart from CASE_SELECT so listing a page of cases never drags a TEXT summary and a
+---MEDIUMTEXT evidence blob per row. Reading a single case through the list projection is what left
+---every summary blank: the column was never selected, so `row.summary` was always nil.
+local CASE_SELECT_ONE = [[
+    SELECT c.id, c.ref, c.title, c.summary, c.evidence, c.status, c.priority,
+           c.created_name, c.created_at, c.updated_at,
+           (SELECT COUNT(*) FROM phone_mdt_case_officers o WHERE o.case_id = c.id) AS officer_count,
+           (SELECT COUNT(*) FROM phone_mdt_case_reports l WHERE l.case_id = c.id) AS report_count
+    FROM phone_mdt_cases c
+]]
+
 ---@type string Case scoping clause, against the alias `c`: a case file belongs to the department
 ---that opened it, and an unstamped row is shared.
 local CASE_SCOPE = '(c.department = ? OR c.department = ?)'
 
----Loads a case row of the caller's own department by ref, or nil.
+---Loads a case row of the caller's own department by ref, or nil. Reads the detail projection:
+---every caller feeds the row to caseDetail, which needs the summary and evidence bodies.
 ---@param me table caller identity from access.identity
 ---@param ref string
 ---@return table|nil row
 local function caseRow(me, ref)
     return MySQL.single.await(
-        ('%s WHERE c.ref = ? AND %s LIMIT 1'):format(CASE_SELECT, CASE_SCOPE), { ref, me.job, '' })
+        ('%s WHERE c.ref = ? AND %s LIMIT 1'):format(CASE_SELECT_ONE, CASE_SCOPE), { ref, me.job, '' })
 end
 
 ---Composes the case the detail pane renders.
