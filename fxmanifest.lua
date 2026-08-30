@@ -21,6 +21,7 @@ server_scripts {
     '@oxmysql/lib/MySQL.lua',
     'server/crypto.js',
     'server/relay.js',
+    'server/upload.js',
     'bridge/server/init.lua',
     'server/main.lua',
 }

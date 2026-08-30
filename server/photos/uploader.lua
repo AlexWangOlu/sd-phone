@@ -1,8 +1,14 @@
 ---@type table sd-phone config root (configs/config.lua) - config.ApiKeys holds the media token.
 local config = require 'configs.config'
 
+---@type table Qbox CDN provider (server.photos.qbox): the multipart route through the Node helper.
+local qbox = require 'server.photos.qbox'
+
 ---@type table Uploader module; the table returned at end of file.
 local uploader = {}
+
+---@type table Photos config (configs/photos.lua): which CDN the uploads go to.
+local PHOTOS = type(config.Photos) == 'table' and config.Photos or {}
 
 -- Response shape: { data = { id, url }, status = "ok" }.
 ---@type string Fivemanage media upload endpoint (v3 base64 route).
@@ -21,10 +27,18 @@ local function mediaKey()
     return GetConvar(CONVAR_KEY, '')
 end
 
----True when a media token is set either way round. Read at boot so a server missing its key is
+---Which CDN this server uploads to. Anything other than 'qbox' stays on Fivemanage, so a typo
+---never silently sends media somewhere the owner did not choose.
+---@return 'fivemanage'|'qbox'
+function uploader.provider()
+    return tostring(PHOTOS.Provider or 'fivemanage'):lower() == 'qbox' and 'qbox' or 'fivemanage'
+end
+
+---True when the active provider has a token set. Read at boot so a server missing its key is
 ---told once at startup, instead of every player discovering it as a capture that never lands.
 ---@return boolean
 function uploader.configured()
+    if uploader.provider() == 'qbox' then return qbox.configured() end
     return mediaKey() ~= ''
 end
 
@@ -35,7 +49,7 @@ end
 ---@param base64Image string media as a base64 data-URL (data:image/...;base64,...)
 ---@param filename string suggested filename stored alongside the upload
 ---@param cb fun(url: string|nil, err: string|nil, code: 'no-key'|'bad-data'|'provider'|nil)
-function uploader.uploadMedia(base64Image, filename, cb)
+local function uploadFivemanage(base64Image, filename, cb)
     local key = mediaKey()
 
     if key == '' then
@@ -94,6 +108,19 @@ function uploader.uploadMedia(base64Image, filename, cb)
         ['Content-Type']  = 'application/json',
         ['Authorization'] = key,
     })
+end
+
+---Uploads a base64 data-URL to whichever CDN this server is set to and hands back the hosted URL.
+---Asynchronous: calls `cb(url|nil, err, code)` exactly once.
+---@param base64Image string media as a base64 data-URL (data:image/...;base64,...)
+---@param filename string suggested filename stored alongside the upload
+---@param cb fun(url: string|nil, err: string|nil, code: 'no-key'|'bad-data'|'provider'|nil)
+function uploader.uploadMedia(base64Image, filename, cb)
+    if uploader.provider() == 'qbox' then
+        qbox.uploadMedia(base64Image, filename, cb)
+        return
+    end
+    uploadFivemanage(base64Image, filename, cb)
 end
 
 return uploader

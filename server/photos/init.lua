@@ -20,8 +20,11 @@ local share    = require 'server.share.core'
 -- swallow that: the shutter span, the spinner ran out, no photo, no reason. Say it once at boot
 -- so the gap is the server owner's to fix, not something players rediscover one capture at a time.
 if not uploader.configured() then
-    boot.warn('^3[sd-phone]^0 no Fivemanage media key set: Camera, Photos and Voice Memos will accept a capture but never save it.')
-    boot.warn('^3[sd-phone]^0 set FivemanageMedia in configs/server/apikeys.lua (free at fivemanage.com, token type "Media").')
+    boot.warn(('^3[sd-phone]^0 no %s key set: Camera, Photos and Voice Memos will accept a capture but never save it.')
+        :format(uploader.provider() == 'qbox' and 'Qbox CDN' or 'Fivemanage media'))
+    boot.warn(uploader.provider() == 'qbox'
+        and '^3[sd-phone]^0 set QboxCdn in configs/server/apikeys.lua (token from dashboard.qbox.re -> CDN -> API).'
+        or '^3[sd-phone]^0 set FivemanageMedia in configs/server/apikeys.lua (free at fivemanage.com, token type "Media").')
 end
 
 ---Bootstraps the schema in a thread, pcall-guarded.
