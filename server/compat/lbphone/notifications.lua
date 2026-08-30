@@ -70,12 +70,33 @@ local function bannerFor(data)
     }
 end
 
----Resolves lb's dual-typed notification target: a number (or a numeric string naming an online
----player) is a server id, any other string is a phone number.
+---@type integer lb's broadcast sentinel. Resources pass -1 to reach everyone, which works on
+---lb-phone because it hands the source straight to TriggerClientEvent and FiveM treats -1 as every
+---client. This shim resolves targets itself, so it has to honour the sentinel explicitly; guarding
+---on GetPlayerName alone rejected it and a broadcast reached nobody, silently.
+local EVERYONE = -1
+
+---Delivers a banner to a resolved target: every online player for the -1 sentinel, otherwise the
+---one source. Shares NotifyEveryone's loop so both broadcast paths reach the same players.
+---@param target number resolved source, or EVERYONE
+---@param payload table banner payload for sd-phone:client:notify
+local function pushBanner(target, payload)
+    if target ~= EVERYONE then
+        TriggerClientEvent('sd-phone:client:notify', target, payload)
+        return
+    end
+    for _, src in ipairs(GetPlayers()) do
+        TriggerClientEvent('sd-phone:client:notify', tonumber(src), payload)
+    end
+end
+
+---Resolves lb's dual-typed notification target: -1 is every online player, a number (or a numeric
+---string naming an online player) is a server id, any other string is a phone number.
 ---@param target any
----@return number|nil source
+---@return number|nil source resolved source, EVERYONE for a broadcast, nil when unresolvable
 local function targetSource(target)
     if type(target) == 'number' then
+        if target == EVERYONE then return EVERYONE end
         return GetPlayerName(target) and target or nil
     end
     if type(target) == 'string' then
@@ -94,7 +115,7 @@ registerLbExport('SendNotification', function(target, data)
     if not payload then return nil end
     local src = targetSource(target)
     if not src then return nil end
-    TriggerClientEvent('sd-phone:client:notify', src, payload)
+    pushBanner(src, payload)
     return nil
 end)
 
@@ -107,18 +128,19 @@ registerLbExport('NotifyEveryone', function(a, b)
     if scope == 'all' then
         warnOnce('NotifyEveryone.all', ("NotifyEveryone 'all' reaches online players only (called by %s); sd-phone has no offline notification store"):format(GetInvokingResource() or 'unknown'))
     end
-    for _, src in ipairs(GetPlayers()) do
-        TriggerClientEvent('sd-phone:client:notify', tonumber(src), payload)
-    end
+    pushBanner(EVERYONE, payload)
 end)
 
 ---EmergencyNotification(source, data { title, content?, icon? }): a plain banner;
----title/content/icon map onto title/body/image. Returns nil.
+---title/content/icon map onto title/body/image. Dispatch resources routinely broadcast these with
+---source -1, so the target goes through the shared resolver rather than a single-player guard.
+---Returns nil.
 registerLbExport('EmergencyNotification', function(source, data)
-    if type(source) ~= 'number' or not GetPlayerName(source) then return nil end
     if type(data) ~= 'table' then return nil end
+    local src = targetSource(source)
+    if not src then return nil end
     local title = type(data.title) == 'string' and data.title ~= '' and data.title or 'Emergency'
-    TriggerClientEvent('sd-phone:client:notify', source, {
+    pushBanner(src, {
         title = title,
         body  = type(data.content) == 'string' and data.content or nil,
         image = type(data.icon) == 'string' and data.icon or nil,
