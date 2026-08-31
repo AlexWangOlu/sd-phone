@@ -79,12 +79,12 @@ source.domainSources = {
         'tiktok_accounts', 'tiktok_videos', 'tiktok_comments', 'tiktok_likes', 'tiktok_saves',
         'tiktok_comments_likes', 'tiktok_follows', 'tiktok_notifications',
     },
-    mail       = { 'phone_mail_accounts', 'phone_mails' },
-    wallet     = { 'phone_transactions' },
-    voicememos = { 'phone_notes_voice' },
+    mail       = { 'mail_accounts', 'mail_messages' },
+    wallet     = { 'wallet_transactions' },
+    voicememos = { 'voice_memos_recordings' },
     marketplace = { 'phone_marketplace_posts' },
     pages      = { 'phone_yellow_pages_posts' },
-    sessions   = { 'phone_last_phone' },
+    sessions   = { 'logged_in_accounts' },
 }
 
 ---Whether an lb-phone database is present to read from.
