@@ -72,6 +72,15 @@ end
 -- NOT, because YouTube ids are case-sensitive and folding them would let 'AbC' match 'abc'.
 ---@type { youtube: boolean, hosts: string[], videos: string[] }
 local MUSIC_SOURCES = {}
+
+---@type string[] Casino games this server offers, in lobby order. A game missing from
+---configs/casino.lua Games counts as on, so an older config keeps every game.
+local CASINO_GAMES = {}
+for _, id in ipairs({ 'blackjack', 'holdem', 'crash', 'baccarat', 'roulette', 'slots' }) do
+    if (((config.Casino or {}).Games or {})[id]) ~= false then
+        CASINO_GAMES[#CASINO_GAMES + 1] = id
+    end
+end
 do
     local cfg = type(config.Music) == 'table' and config.Music or {}
     local hosts = {}
@@ -509,6 +518,7 @@ local function OpenPhone()
             mailDomain = config.Mail.Domain,
             number    = NUMBER_FORMAT,
             music     = MUSIC_SOURCES,
+            casino    = { games = CASINO_GAMES },
             bootScreen = config.Phone.BootScreen ~= false,
             wallpaper = {
                 lock = config.Lockscreen.Wallpaper,

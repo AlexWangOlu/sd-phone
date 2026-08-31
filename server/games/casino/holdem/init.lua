@@ -24,12 +24,14 @@ local SIT_COOLDOWN = 1000
 local CREATE_COOLDOWN = 5000
 
 lib.callback.register('sd-phone:server:games:holdemTables', function(src)
+    if not shared.enabled('holdem') then return shared.shut() end
     if not APP_ENABLED then return util.fail('The casino is closed') end
     if not shared.cidOf(src) then return util.fail('Player not found') end
     return util.ok({ tables = holdem.tables(), create = holdem.createLimits() })
 end)
 
 lib.callback.register('sd-phone:server:games:holdemCreate', function(src, payload)
+    if not shared.enabled('holdem') then return shared.shut() end
     payload = type(payload) == 'table' and payload or {}
     if not APP_ENABLED then return util.fail('The casino is closed') end
     local cid = shared.cidOf(src); if not cid then return util.fail('Player not found') end
@@ -40,6 +42,7 @@ lib.callback.register('sd-phone:server:games:holdemCreate', function(src, payloa
 end)
 
 lib.callback.register('sd-phone:server:games:holdemSit', function(src, payload)
+    if not shared.enabled('holdem') then return shared.shut() end
     payload = type(payload) == 'table' and payload or {}
     if not APP_ENABLED then return util.fail('The casino is closed') end
     local cid = shared.cidOf(src); if not cid then return util.fail('Player not found') end
@@ -61,6 +64,7 @@ lib.callback.register('sd-phone:server:games:holdemLeave', function(src)
 end)
 
 lib.callback.register('sd-phone:server:games:holdemAct', function(src, payload)
+    if not shared.enabled('holdem') then return shared.shut() end
     payload = type(payload) == 'table' and payload or {}
     if not APP_ENABLED then return util.fail('The casino is closed') end
     local cid = shared.cidOf(src); if not cid then return util.fail('Player not found') end
@@ -71,6 +75,7 @@ lib.callback.register('sd-phone:server:games:holdemAct', function(src, payload)
 end)
 
 lib.callback.register('sd-phone:server:games:holdemSync', function(src, payload)
+    if not shared.enabled('holdem') then return shared.shut() end
     payload = type(payload) == 'table' and payload or {}
     if not APP_ENABLED then return util.fail('The casino is closed') end
     local cid = shared.cidOf(src); if not cid then return util.fail('Player not found') end

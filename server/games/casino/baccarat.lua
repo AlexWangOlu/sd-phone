@@ -220,6 +220,7 @@ function baccarat.deal(src, payload)
 end
 
 lib.callback.register('sd-phone:server:games:baccaratDeal', function(src, payload)
+    if not shared.enabled('baccarat') then return shared.shut() end
     payload = type(payload) == 'table' and payload or {}
     return baccarat.deal(src, payload)
 end)

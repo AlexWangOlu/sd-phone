@@ -36,6 +36,9 @@ export interface OpenPayload {
         length?: number;
     };
     bootScreen?: boolean;
+    casino?: {
+        games?: string[];
+    };
     music?: {
         youtube?: boolean;
         anyAudio?: boolean;

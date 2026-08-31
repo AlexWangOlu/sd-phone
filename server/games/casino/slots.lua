@@ -141,6 +141,7 @@ slots.strips = STRIPS
 ---@param payload table client payload { bet }
 ---@return table envelope { success, message?, data? }
 function slots.spin(src, payload)
+    if not shared.enabled('slots') then return shared.shut() end
     local cid = shared.cidOf(src); if not cid then return util.fail('Player not found') end
     if not util.cooldown(cid, 'games:slotsSpin', COOLDOWN) then return util.fail('Slow down') end
     local bet = shared.wager(payload.bet, MIN_BET, MAX_BET)

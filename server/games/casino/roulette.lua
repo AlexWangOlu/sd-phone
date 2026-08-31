@@ -215,6 +215,7 @@ function roulette.spin(src, payload)
 end
 
 lib.callback.register('sd-phone:server:games:rouletteSpin', function(src, payload)
+    if not shared.enabled('roulette') then return shared.shut() end
     payload = type(payload) == 'table' and payload or {}
     return roulette.spin(src, payload)
 end)
