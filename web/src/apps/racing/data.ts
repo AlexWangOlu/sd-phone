@@ -154,12 +154,13 @@ export interface RacingMe {
 }
 
 export interface RacingBootstrap {
-    me:      RacingMe;
-    hud:     HudSettings;
-    admin:   boolean;
-    creator: boolean;
-    classes: Record<RaceClass, { level: number; label: string; color: string }>;
-    limits:  RacingLimits;
+    me:                   RacingMe;
+    hud:                  HudSettings;
+    admin:                boolean;
+    creator:              boolean;
+    creatorNeedsApproval: boolean;
+    classes:              Record<RaceClass, { level: number; label: string; color: string }>;
+    limits:               RacingLimits;
 }
 
 export interface RacingLimits {
@@ -253,6 +254,17 @@ export interface RaceResult {
 export interface AdminTrackRow extends TrackRow {
     published: boolean;
     createdAt: number;
+}
+
+export interface PendingTrackRow {
+    id:               number;
+    name:             string;
+    author:           string;
+    mode:             RaceMode;
+    gates:            number;
+    citizenid:        string;
+    createdAt:        number;
+    rejectionReason?: string | null;
 }
 
 export interface Page<T> {
