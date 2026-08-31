@@ -16,7 +16,7 @@ local ice     = require 'server.voice.ice'
 -- than a setup gap: call connects, self-view works, the peer's pane stays black.
 local hasTurn = ice.cloudflareConfigured() or GetConvar('sd_phone_turn_url', '') ~= ''
 if config.Phone.WarnAboutTurn ~= false and not hasTurn then
-    boot.warn('^3[sd-phone]^0 no TURN relay set: video calls and Live only connect between players on the same network.')
+    boot.warn('^3[sd-phone]^0 no TURN relay set: video calls only connect between players on the same network.')
     boot.warn('^3[sd-phone]^0 set sd_cf_turn_token_id + sd_cf_turn_api_token (free, see the docs), or WarnAboutTurn = false in configs/phone.lua.')
 end
 

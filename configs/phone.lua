@@ -127,7 +127,10 @@ return {
     -- Without one they get a connected call with a black picture, while their own self-view
     -- still looks fine, because the self-view never leaves their machine.
     --
-    -- One TURN setup serves everything (video calls, nearby-voice capture, Live, bodycams).
+    -- TURN is only for video calls and nearby-voice capture, the two things that talk browser to
+    -- browser. Live broadcasts and MDT bodycams do NOT need it: Live sends its picture through the
+    -- game server, and a bodycam is drawn on the watching terminal itself.
+    --
     -- Configure it once in configs/voice.lua; the free Cloudflare path is two convars:
     --     set sd_cf_turn_token_id  "your-cloudflare-turn-token-id"
     --     set sd_cf_turn_api_token "your-cloudflare-turn-api-token"
