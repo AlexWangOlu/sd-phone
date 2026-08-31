@@ -89,6 +89,8 @@ The Camera, Photos and Voice Memos apps need somewhere to store what they captur
 
 **A free Fivemanage Media API token is required for photo, video and voice-note uploads to work.** In the Fivemanage dashboard open the Tokens tab, create a token of type **Media**, and paste it into `configs/server/apikeys.lua` under `FivemanageMedia`. Without a key the camera and recorders still open, but nothing uploads or saves.
 
+Already on a [Qbox Dashboard](https://dashboard.qbox.re) plan? You can point uploads at the Qbox CDN instead: set `Provider = 'qbox'` in `configs/photos.lua` and put your token in `QboxCdn`. See the [installation docs](https://docs.samueldev.shop/resources/phone/installation#choosing-a-media-provider) for the details.
+
 <a href="https://refer.fivemanage.com/samuel"><img src="https://img.shields.io/badge/Get%20started%20with%20Fivemanage-%E2%86%92-0D0D0D?style=for-the-badge" alt="Get started with Fivemanage" /></a>
 
 <sub>The free tier is plenty for most servers.</sub>
@@ -256,7 +258,8 @@ In `configs/server/apikeys.lua`:
 
 | Key | Needed for |
 | --- | --- |
-| `FivemanageMedia` | **Required.** Camera, Photos and Voice Memos uploads. Create a free [Fivemanage](https://refer.fivemanage.com/samuel) token of type **Media**. Without it those apps open, but nothing uploads or saves. |
+| `FivemanageMedia` | **Required** on the default provider. Camera, Photos and Voice Memos uploads. Create a free [Fivemanage](https://refer.fivemanage.com/samuel) token of type **Media**. Without it those apps open, but nothing uploads or saves. |
+| `QboxCdn` | Optional. Used only when `Provider = 'qbox'` in `configs/photos.lua`. A CDN token from the [Qbox Dashboard](https://dashboard.qbox.re) (free tier includes 2 GB). |
 | `Giphy` | Optional. The GIF picker in Messages. Free key from [developers.giphy.com](https://developers.giphy.com). |
 
 ### 4. Video calls between networks (TURN)
