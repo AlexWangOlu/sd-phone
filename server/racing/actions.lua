@@ -8,6 +8,8 @@ local store  = require 'server.racing.store'
 local config = require 'configs.racing'
 ---@type table Toast bridge (bridge.server.notify): a live nudge for a creator who is online now.
 local notify = require 'bridge.server.notify'
+---@type table Notifications module (server.notifications.init): identity-addressed banner routing.
+local notifications = require 'server.notifications.init'
 
 ---@type table Actions module; the table returned at end of file.
 local actions = {}
@@ -380,7 +382,7 @@ function actions.bootstrap(src)
         local body = notif.notification_type == 'approved'
             and 'Your track passed review and is now live!'
             or ('Rejected: ' .. (notif.rejection_reason or 'See details in app'))
-        exports['sd-phone']:notifyCid(cid, {
+        notifications.notifyCid(cid, {
             app   = 'Racing',
             appId = 'racing',
             title = title,
