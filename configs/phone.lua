@@ -51,11 +51,12 @@ return {
         -- lengths, and both keep working everywhere.
         Length = 10,
 
-        -- Area code for new numbers. Blank (the default) means every digit is
-        -- random. '555' hands out numbers like 5551234567. It cannot start with
-        -- 0 or 1, and has to leave at least 4 digits random; if it does not, it
-        -- is ignored and the reason is printed on boot. Existing numbers keep
-        -- the shape they already have.
+        -- Area code for new numbers, blank by default. It is part of Length
+        -- rather than added to it: '555' with Length 10 gives 555 plus 7 random
+        -- digits, so 5551234567. Formats below are unaffected.
+        --
+        -- It cannot start with 0 or 1 and must leave 4 digits random; break
+        -- either rule and it is ignored, with the reason printed on boot.
         Prefix = '',
 
         -- How a number is displayed, keyed by how many digits it has. Each X is
