@@ -213,12 +213,13 @@ interface DevPendingTrack {
     gates:            number;
     citizenid:        string;
     createdAt:        number;
+    route:            RoutePoint[];
     rejectionReason?: string | null;
 }
 
 let DEV_PENDING_TRACKS: DevPendingTrack[] = [
-    { id: 9001, name: 'Backstreet Blitz',   author: 'RaceBuilder99', mode: 'sprint',  gates: 7,  citizenid: 'RB1701', createdAt: nowSec - 3600 * 2 },
-    { id: 9002, name: 'Canal District Loop', author: 'TurboMax',     mode: 'circuit', gates: 9,  citizenid: 'TM4402', createdAt: nowSec - 3600 * 26 },
+    { id: 9001, name: 'Backstreet Blitz',   author: 'RaceBuilder99', mode: 'sprint',  gates: 7,  citizenid: 'RB1701', createdAt: nowSec - 3600 * 2,  route: devRoute(devRun({ x: 190, y: -960, z: 30 }, 7, 170, 27)) },
+    { id: 9002, name: 'Canal District Loop', author: 'TurboMax',     mode: 'circuit', gates: 9,  citizenid: 'TM4402', createdAt: nowSec - 3600 * 26, route: devRoute(devRun({ x: -320, y: -1420, z: 26 }, 9, 195, 41)) },
 ];
 
 function devTrackRow(track: DevTrack): TrackRow {
@@ -522,7 +523,11 @@ export async function racingTrack(trackId: number): Promise<TrackDetail | null> 
 }
 
 export async function racingTrackRoute(trackId: number): Promise<RoutePoint[]> {
-    if (!isFiveM) return devTrackById(trackId)?.route.map(point => ({ ...point })) ?? [];
+    if (!isFiveM) {
+        const route = devTrackById(trackId)?.route
+            ?? DEV_PENDING_TRACKS.find(track => track.id === trackId)?.route;
+        return route?.map(point => ({ ...point })) ?? [];
+    }
     return (await apiData<{ points: RoutePoint[] }>('sd-phone:racing:trackRoute', { trackId }))?.points ?? [];
 }
 

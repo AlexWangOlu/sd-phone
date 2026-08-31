@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { BadgeCheck, Check, Clock, Flag, Star, Trash2, X } from 'lucide-react';
+import { BadgeCheck, Check, Clock, Flag, Map, Star, Trash2, X } from 'lucide-react';
 import clsx from 'clsx';
 
 import {
@@ -9,13 +9,40 @@ import {
     racingAdminRejectTrack,
     racingAdminSetFlag,
     racingAdminTracks,
+    racingTrackRoute,
 } from '@/apps/racing/racingApi';
 import type { AdminTrackRow, PendingTrackRow, TrackFlag } from '@/apps/racing/data';
-import { Badge, Btn, Card, CenterNote, ConfirmModal, Input, PromptModal, Spinner } from '../ui';
+import { RouteMapView } from '@/apps/racing/RouteMapView';
+import { useAsyncData } from '@/hooks/useAsyncData';
+import { Badge, Btn, Card, CenterNote, ConfirmModal, Input, Modal, PromptModal, Spinner } from '../ui';
 
 const PAGE_SIZE = 25;
 
 type Tab = 'published' | 'pending';
+
+interface MapTarget {
+    id:   number;
+    name: string;
+}
+
+function TrackMapModal({ track, onClose }: { track: MapTarget; onClose: () => void }) {
+    const { data, settled } = useAsyncData(() => racingTrackRoute(track.id), [track.id]);
+    const route = data ?? [];
+
+    return (
+        <Modal title={track.name} onClose={onClose} width="w-[720px]">
+            <div className="dark relative h-[420px] overflow-hidden rounded-lg bg-black/40 ring-1 ring-white/10">
+                {!settled && <div className="flex h-full items-center justify-center"><Spinner /></div>}
+                {settled && route.length === 0 && (
+                    <div className="flex h-full items-center justify-center px-8 text-center text-[13px] text-zinc-500">
+                        This track has no usable gates, so there is no route to draw.
+                    </div>
+                )}
+                {settled && route.length > 0 && <RouteMapView points={route} />}
+            </div>
+        </Modal>
+    );
+}
 
 function modeLabel(mode: string): string {
     return mode === 'sprint' ? 'Sprint' : 'Circuit';
@@ -60,6 +87,7 @@ function PublishedTab({ onToast }: { onToast: (text: string, error?: boolean) =>
     const [settled, setSettled] = useState(false);
     const [busy, setBusy]       = useState<number | null>(null);
     const [confirm, setConfirm] = useState<AdminTrackRow | null>(null);
+    const [mapTrack, setMapTrack] = useState<MapTarget | null>(null);
 
     useEffect(() => {
         const id = window.setTimeout(() => { setTerm(query.trim()); setPage(1); }, 250);
@@ -126,52 +154,67 @@ function PublishedTab({ onToast }: { onToast: (text: string, error?: boolean) =>
                 </CenterNote>
             )}
 
-            {rows.map(row => (
-                <Card key={row.id}>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                        <span className="flex min-w-0 flex-1 flex-col">
-                            <span className="flex min-w-0 items-center gap-2">
-                                <span className="truncate text-[14px] font-semibold text-zinc-100">{row.name}</span>
-                                {row.verified && <Badge tone="green">Verified</Badge>}
-                                {row.featured && <Badge tone="amber">Featured</Badge>}
-                                {!row.published && <Badge tone="red">Unpublished</Badge>}
-                            </span>
-                            <span className="truncate text-[12px] text-zinc-500">
-                                {[
-                                    modeLabel(row.mode),
-                                    `${row.gates} checkpoints`,
-                                    `${row.plays} plays`,
-                                    row.author,
-                                ].filter(Boolean).join('  ·  ')}
-                            </span>
-                        </span>
+            {rows.length > 0 && (
+                <Card>
+                    {rows.map(row => (
+                        <div key={row.id} className="border-t border-white/[0.05] px-4 py-3.5 first:border-t-0">
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+                                <span className="flex min-w-0 flex-1 flex-col gap-1">
+                                    <span className="flex min-w-0 flex-wrap items-center gap-2">
+                                        <span className="truncate text-[14px] font-semibold text-zinc-100">{row.name}</span>
+                                        {row.verified && <Badge tone="green">Verified</Badge>}
+                                        {row.featured && <Badge tone="amber">Featured</Badge>}
+                                        {!row.published && <Badge tone="red">Unpublished</Badge>}
+                                    </span>
+                                    <span className="truncate text-[12px] text-zinc-500">
+                                        {[
+                                            modeLabel(row.mode),
+                                            `${row.gates} checkpoints`,
+                                            `${row.plays} plays`,
+                                            row.author,
+                                        ].filter(Boolean).join('  ·  ')}
+                                    </span>
+                                </span>
 
-                        <FlagBtn
-                            on={row.verified}
-                            label="Verified"
-                            icon={<BadgeCheck size={13} />}
-                            busy={busy === row.id}
-                            onToggle={() => void toggleFlag(row, 'verified', !row.verified)}
-                        />
-                        <FlagBtn
-                            on={row.featured}
-                            label="Featured"
-                            icon={<Star size={13} />}
-                            busy={busy === row.id}
-                            onToggle={() => void toggleFlag(row, 'featured', !row.featured)}
-                        />
-                        <Btn
-                            variant="danger"
-                            disabled={busy === row.id}
-                            onClick={() => setConfirm(row)}
-                            title="Delete this track"
-                        >
-                            <Trash2 size={13} />
-                            Delete
-                        </Btn>
-                    </div>
+                                <span className="flex shrink-0 items-center justify-center gap-2">
+                                    <Btn
+                                        onClick={() => setMapTrack({ id: row.id, name: row.name })}
+                                        title="View this track on the map"
+                                        className="min-w-[104px]"
+                                    >
+                                        <Map size={13} />
+                                        View on map
+                                    </Btn>
+                                    <FlagBtn
+                                        on={row.verified}
+                                        label="Verified"
+                                        icon={<BadgeCheck size={13} />}
+                                        busy={busy === row.id}
+                                        onToggle={() => void toggleFlag(row, 'verified', !row.verified)}
+                                    />
+                                    <FlagBtn
+                                        on={row.featured}
+                                        label="Featured"
+                                        icon={<Star size={13} />}
+                                        busy={busy === row.id}
+                                        onToggle={() => void toggleFlag(row, 'featured', !row.featured)}
+                                    />
+                                    <Btn
+                                        variant="danger"
+                                        disabled={busy === row.id}
+                                        onClick={() => setConfirm(row)}
+                                        title="Delete this track"
+                                        className="min-w-[92px]"
+                                    >
+                                        <Trash2 size={13} />
+                                        Delete
+                                    </Btn>
+                                </span>
+                            </div>
+                        </div>
+                    ))}
                 </Card>
-            ))}
+            )}
 
             {pages > 1 && (
                 <div className="flex items-center justify-center gap-2 pt-1">
@@ -191,6 +234,8 @@ function PublishedTab({ onToast }: { onToast: (text: string, error?: boolean) =>
                     onClose={() => setConfirm(null)}
                 />
             )}
+
+            {mapTrack && <TrackMapModal track={mapTrack} onClose={() => setMapTrack(null)} />}
         </div>
     );
 }
@@ -206,6 +251,7 @@ function PendingTab({ onToast, onCountChange }: {
     const [settled, setSettled] = useState(false);
     const [busy, setBusy]       = useState<number | null>(null);
     const [rejecting, setRejecting] = useState<PendingTrackRow | null>(null);
+    const [mapTrack, setMapTrack]   = useState<MapTarget | null>(null);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -262,45 +308,61 @@ function PendingTab({ onToast, onCountChange }: {
                 </CenterNote>
             )}
 
-            {rows.map(row => (
-                <Card key={row.id}>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                        <span className="flex min-w-0 flex-1 flex-col">
-                            <span className="flex min-w-0 items-center gap-2">
-                                <span className="truncate text-[14px] font-semibold text-zinc-100">{row.name}</span>
-                                <Badge tone="amber">Pending</Badge>
-                            </span>
-                            <span className="truncate text-[12px] text-zinc-500">
-                                {[
-                                    modeLabel(row.mode),
-                                    `${row.gates} checkpoints`,
-                                    row.author,
-                                    relTime(row.createdAt),
-                                ].filter(Boolean).join('  ·  ')}
-                            </span>
-                        </span>
+            {rows.length > 0 && (
+                <Card>
+                    {rows.map(row => (
+                        <div key={row.id} className="border-t border-white/[0.05] px-4 py-3.5 first:border-t-0">
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+                                <span className="flex min-w-0 flex-1 flex-col gap-1">
+                                    <span className="flex min-w-0 flex-wrap items-center gap-2">
+                                        <span className="truncate text-[14px] font-semibold text-zinc-100">{row.name}</span>
+                                        <Badge tone="amber">Pending</Badge>
+                                    </span>
+                                    <span className="truncate text-[12px] text-zinc-500">
+                                        {[
+                                            modeLabel(row.mode),
+                                            `${row.gates} checkpoints`,
+                                            row.author,
+                                            relTime(row.createdAt),
+                                        ].filter(Boolean).join('  ·  ')}
+                                    </span>
+                                </span>
 
-                        <Btn
-                            variant="primary"
-                            disabled={busy === row.id}
-                            onClick={() => void approve(row)}
-                            title="Approve and publish this track"
-                        >
-                            <Check size={13} />
-                            Approve
-                        </Btn>
-                        <Btn
-                            variant="danger"
-                            disabled={busy === row.id}
-                            onClick={() => setRejecting(row)}
-                            title="Reject this track"
-                        >
-                            <X size={13} />
-                            Reject
-                        </Btn>
-                    </div>
+                                <span className="flex shrink-0 items-center justify-center gap-2">
+                                    <Btn
+                                        onClick={() => setMapTrack({ id: row.id, name: row.name })}
+                                        title="View this track on the map"
+                                        className="min-w-[104px]"
+                                    >
+                                        <Map size={13} />
+                                        View on map
+                                    </Btn>
+                                    <Btn
+                                        variant="primary"
+                                        disabled={busy === row.id}
+                                        onClick={() => void approve(row)}
+                                        title="Approve and publish this track"
+                                        className="min-w-[104px]"
+                                    >
+                                        <Check size={13} />
+                                        Approve
+                                    </Btn>
+                                    <Btn
+                                        variant="danger"
+                                        disabled={busy === row.id}
+                                        onClick={() => setRejecting(row)}
+                                        title="Reject this track"
+                                        className="min-w-[92px]"
+                                    >
+                                        <X size={13} />
+                                        Reject
+                                    </Btn>
+                                </span>
+                            </div>
+                        </div>
+                    ))}
                 </Card>
-            ))}
+            )}
 
             {pages > 1 && (
                 <div className="flex items-center justify-center gap-2 pt-1">
@@ -321,6 +383,8 @@ function PendingTab({ onToast, onCountChange }: {
                     onClose={() => setRejecting(null)}
                 />
             )}
+
+            {mapTrack && <TrackMapModal track={mapTrack} onClose={() => setMapTrack(null)} />}
         </div>
     );
 }
