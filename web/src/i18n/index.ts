@@ -93,6 +93,12 @@ let catalogVersion = 0;
 /** Select the active language (from config.Locale, or a player's saved pick).
  *  Falls back to English for an unknown code. Resolves once the catalog is
  *  applied; a newer setLocale call wins over a slower in-flight one. */
+function bundledCatalog(code: string): Promise<Record<string, unknown> | null> {
+    const loader = loaders[code];
+    if (!loader) return Promise.resolve(null);
+    return loader().then(m => m.default as Record<string, unknown>).catch(() => null);
+}
+
 export function setLocale(lang: string): Promise<void> {
     const known = Boolean(catalogs[lang] || loaders[lang] || runtimeCodes.has(lang));
     const code = known ? lang : 'en';
@@ -103,9 +109,9 @@ export function setLocale(lang: string): Promise<void> {
         return Promise.resolve();
     }
 
-    const load = loaders[code]
-        ? loaders[code]().then(m => m.default as Record<string, unknown>)
-        : fetchCatalog(code);
+    const load = isFiveM
+        ? fetchCatalog(code).then(data => data ?? bundledCatalog(code))
+        : bundledCatalog(code).then(data => data ?? fetchCatalog(code));
 
     return load
         .then(data => {
