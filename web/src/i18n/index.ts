@@ -147,3 +147,7 @@ export function t(key: string, fallback: string, vars?: Record<string, string | 
     }
     return s;
 }
+
+export function appLabel(app: { id: string; label: string }): string {
+    return t('apps.' + app.id, app.label);
+}
