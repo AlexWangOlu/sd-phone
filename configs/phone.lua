@@ -51,6 +51,13 @@ return {
         -- lengths, and both keep working everywhere.
         Length = 10,
 
+        -- Area code for new numbers. Blank (the default) means every digit is
+        -- random. '555' hands out numbers like 5551234567. It cannot start with
+        -- 0 or 1, and has to leave at least 4 digits random; if it does not, it
+        -- is ignored and the reason is printed on boot. Existing numbers keep
+        -- the shape they already have.
+        Prefix = '',
+
         -- How a number is displayed, keyed by how many digits it has. Each X is
         -- replaced by the next digit and every other character is printed
         -- literally, so '+44 XXXX XXXXXX', 'XXX-XXXX' and '(XXX) XXX-XXXX' all
