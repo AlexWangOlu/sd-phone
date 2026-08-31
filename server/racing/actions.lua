@@ -385,13 +385,13 @@ function actions.bootstrap(src)
         row.name = name
     end
 
-    -- Fetch pending notifications, send via phone notification system, then mark as delivered
     local pending = store.pendingNotifications(cid)
     for i = 1, #pending do
-        local notif = pending[i]
-        local title = notif.notification_type == 'approved' and ('✓ ' .. notif.track_name) or ('✗ ' .. notif.track_name)
-        local body = notif.notification_type == 'approved'
-            and 'Your track passed review and is now live!'
+        local notif    = pending[i]
+        local approved = notif.notification_type == 'approved'
+        local title    = approved and ('Track approved: ' .. notif.track_name)
+            or ('Track rejected: ' .. notif.track_name)
+        local body = approved and 'Your track passed review and is now live.'
             or ('Rejected: ' .. (notif.rejection_reason or 'See details in app'))
         notifications.notifyCid(cid, {
             app   = 'Racing',
@@ -943,14 +943,12 @@ end
 local function notifyCreator(citizenid, trackId, trackName, notificationType, rejectionReason, toast, toastType)
     if type(citizenid) ~= 'string' or citizenid == '' then return end
 
-    -- Save to persistent notification queue for offline delivery
     store.saveNotification(citizenid, trackId, trackName, notificationType, rejectionReason)
 
-    -- Attempt mail delivery if they have mail accounts
     local subject, body
     if notificationType == 'approved' then
         subject = 'Track approved: ' .. trackName
-        body = ('Good news — your track "%s" passed review and is now live on the board.'):format(trackName)
+        body = ('Your track "%s" passed review and is now live on the board.'):format(trackName)
     else
         subject = 'Track rejected: ' .. trackName
         body = ('Your track "%s" was not approved.\n\nReason: %s\n\nYou can make another one with the track creator.'):format(trackName, rejectionReason or 'No reason provided')
@@ -968,12 +966,12 @@ local function notifyCreator(citizenid, trackId, trackName, notificationType, re
         })
     end
 
-    -- Toast for online players
     local src = player.getSourceByIdentifier(citizenid)
     if src then notify.to(src, toast, toastType) end
 end
 
----Gets a page of pending tracks awaiting admin approval.
+---One page of the approval queue. Kept apart from adminTracks because a pending track is held
+---out of every track list by design, the admin one included, so this is the only way to reach it.
 ---@param src integer player server id
 ---@param payload table { page }
 ---@return table envelope
@@ -1002,7 +1000,8 @@ function actions.adminPendingTracks(src, payload)
     return ok({ rows = out, total = int(total, #out) })
 end
 
----Approves a pending track, setting its status to published.
+---Publishes a track out of the approval queue and tells its creator. The store guards on the row
+---still being pending, so two admins tapping at once refuses the second rather than notifying twice.
 ---@param src integer player server id
 ---@param payload table { trackId }
 ---@return table envelope
@@ -1033,7 +1032,8 @@ function actions.adminApproveTrack(src, payload)
     return ok()
 end
 
----Rejects a pending track, setting its status to rejected with a reason.
+---Refuses a track out of the approval queue, with a reason the creator is told. The reason is
+---required: a refusal the creator cannot act on is worse than no answer at all.
 ---@param src integer player server id
 ---@param payload table { trackId, reason }
 ---@return table envelope

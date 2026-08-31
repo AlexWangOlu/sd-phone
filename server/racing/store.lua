@@ -438,7 +438,8 @@ function store.softDeleteTrack(trackId)
     return changed > 0
 end
 
----Approve a pending track: sets its publish_status to 'published'.
+---Approve a pending track. Guarded on publish_status = 'pending', so an approval can only ever
+---move a track out of the queue and never resurrect one an admin has already rejected.
 ---@param trackId integer|string
 ---@return boolean changed
 function store.approveTrack(trackId)
@@ -979,7 +980,8 @@ function store.saveNotification(citizenid, trackId, trackName, notificationType,
     return id and id > 0 or false
 end
 
----Fetches undelivered notifications for a citizen.
+---Undelivered decisions for one creator, newest first. Read when the Racing app opens, which is
+---what lets a decision made while they were offline still reach them.
 ---@param citizenid string
 ---@return table[] notifications with id, track_id, track_name, notification_type, rejection_reason, created_at
 function store.pendingNotifications(citizenid)
@@ -990,7 +992,7 @@ function store.pendingNotifications(citizenid)
     ) or {}
 end
 
----Marks a notification as delivered.
+---Marks one notification delivered, so the next time the app opens it is not shown again.
 ---@param notificationId integer
 ---@return boolean success
 function store.markNotificationDelivered(notificationId)
