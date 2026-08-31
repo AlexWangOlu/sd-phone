@@ -295,14 +295,15 @@ return {
 
         -- Who may open the track creator (the /createtrack command and the phone's
         -- "+" button both read this):
-        --   'ace'      - only players holding the Ace above. Their tracks publish
-        --                immediately, exactly like every version of this feature
-        --                before approval existed.
-        --   'everyone' - any player may create a track. A creator who holds the Ace
-        --                is trusted and still publishes immediately; everyone else's
-        --                track is queued as pending until an admin approves or
-        --                rejects it from the phone's admin panel.
-        Access = 'ace',
+        --   'everyone' - any player may create a track. Admins, and anyone holding
+        --                the Ace above, are trusted: their track publishes the
+        --                moment they save it. Everyone else's is queued as pending
+        --                until an admin approves or rejects it from the phone's
+        --                admin panel.
+        --   'ace'      - only players holding the Ace above may create at all, and
+        --                their tracks publish immediately. Nothing is ever queued,
+        --                which is how the creator behaved before approval existed.
+        Access = 'everyone',
     },
 
     -- The live race: what the client draws, and what counts as passing a gate.

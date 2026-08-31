@@ -350,13 +350,24 @@ end
 ---@return boolean
 actions.canCreate = canCreate
 
+---Whether a creator's tracks skip the queue and publish the moment they are saved. Admins are
+---trusted because they are the same people the queue would send the track to, so making them wait
+---on their own review buys nothing. The creator Ace stays a second trusted path, for a server that
+---wants named track makers publishing straight away without handing them the admin panel too.
+---@param src integer player server id
+---@return boolean
+local function isTrustedCreator(src)
+    if actions.isAdmin(src) then return true end
+    return hasCreatorAce(src)
+end
+
 ---Whether a track src is about to create needs admin approval before it goes live: true only when
----Access is 'everyone' and this particular caller does not hold the Ace. An 'ace' server never
----reaches this with a false ace check in the first place, so this is the whole rule.
+---Access is 'everyone' and this particular caller is not a trusted creator. An 'ace' server gates
+---creation on the Ace up front, so nobody who reaches the creator there is ever untrusted.
 ---@param src integer player server id
 ---@return boolean
 local function needsApproval(src)
-    return CREATOR.Access == 'everyone' and not hasCreatorAce(src)
+    return CREATOR.Access == 'everyone' and not isTrustedCreator(src)
 end
 
 ---Everything the tablet needs to render its shell: the caller's driver card, their HUD, the two
