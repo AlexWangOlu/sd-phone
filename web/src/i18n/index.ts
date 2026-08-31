@@ -133,13 +133,11 @@ export function getCatalogVersion(): number {
 }
 
 const LOCALE_TAGS: Record<string, string> = {
-    en: 'en-US', fr: 'fr-FR', es: 'es-ES', de: 'de-DE', it: 'it-IT',
-    pt: 'pt-PT', nl: 'nl-NL', pl: 'pl-PL', da: 'da-DK', no: 'nb-NO', ru: 'ru-RU',
+    en: 'en-US', pt: 'pt-PT', no: 'nb-NO', zh: 'zh-CN',
 };
 
-/** BCP-47 tag for the active locale, for Intl/toLocaleDateString calls. */
 export function getLocaleTag(): string {
-    return LOCALE_TAGS[currentCode] ?? 'en-US';
+    return LOCALE_TAGS[currentCode] ?? currentCode ?? 'en-US';
 }
 
 export function t(key: string, fallback: string, vars?: Record<string, string | number>): string {
