@@ -15,6 +15,7 @@ import { AppDetail } from './AppDetail';
 import { getCustomApp } from '@/stores/customAppsStore';
 import { t, appLabel } from '@/i18n';
 import type { AppDef } from '@/core/types';
+import { StatusBarSpacer } from '@/ui/StatusBarSpacer';
 
 function getDescriptions(): Record<string, string> {
     return {
@@ -129,7 +130,7 @@ export function AppStore({ onClose: _onClose, apps, installed, onInstall, onOpen
 
     return (
         <div className="absolute inset-0 flex flex-col bg-base font-sf">
-            <div className="h-[58px] shrink-0" aria-hidden />
+            <StatusBarSpacer />
 
             <h1 className="px-5 pb-2 pt-1 text-[32px] font-bold tracking-tight text-black dark:text-white">{t('appstore.title', 'Apps')}</h1>
 
@@ -158,7 +159,7 @@ export function AppStore({ onClose: _onClose, apps, installed, onInstall, onOpen
                             const isQueued = status === 'queued';
                             const locked = !isInstalled && lockedNetwork(a) !== null;
                             return (
-                                <div key={a.id} className={`flex items-center gap-3.5 py-2.5 pl-3.5 ${i < list.length - 1 ? 'border-b border-black/10 dark:border-white/10' : ''}`}>
+                                <div key={a.id} className={`flex items-center gap-3.5 py-2.5 pl-3.5 ${i < list.length - 1 ? 'border-b border-hairline/10' : ''}`}>
                                     <button type="button" onClick={() => setSelectedId(a.id)} aria-label={t('appstore.appDetails', '{label} details', { label: appLabel(a) })} className="shrink-0 active:opacity-60">
                                         <StoreIcon icon={a.icon} />
                                     </button>
