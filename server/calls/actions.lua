@@ -387,6 +387,11 @@ local function eventRing(ring)
     }
 end
 
+---@type table<string, boolean> Teardown reasons that leave the caller free to record a message.
+---Anything else was either the caller's own doing (hangup) or the network's (coverage loss), and
+---neither is a line that "went to voicemail".
+local VOICEMAIL_REASONS <const> = { declined = true, ['no-answer'] = true, busy = true }
+
 ---Tears a call down: drops both sides from voice, persists both recents rows, notifies both
 ---clients, and fires the 'sd-phone:server:call:ended' lifecycle event. Idempotent.
 ---@param channel number
@@ -444,7 +449,18 @@ local function endCall(channel, reason, endedBy)
     -- Only the missed-call count can have moved, and a full snapshot is seven store reads.
     if not answered then badges.pushApp(s.callee.src, 'phone') end
 
-    TriggerClientEvent('sd-phone:client:call:ended', s.caller.src, { channel = channel, reason = reason })
+    -- A call the callee never picked up is the one the caller may leave a message on. The offer
+    -- rides the caller's teardown rather than being worked out on the phone, because only the
+    -- server knows the number reached a real mailbox and not a payphone or a company line.
+    local mailbox = (not answered)
+        and VOICEMAIL_REASONS[reason]
+        and s.payphoneSide ~= 'caller'
+        and s.callee.cid ~= nil
+        and s.callee.number ~= ''
+        and { number = s.callee.number, name = contactNameFor(s.caller.cid, s.callee.number) }
+        or nil
+
+    TriggerClientEvent('sd-phone:client:call:ended', s.caller.src, { channel = channel, reason = reason, voicemail = mailbox })
     TriggerClientEvent('sd-phone:client:call:ended', s.callee.src, { channel = channel, reason = reason })
 
     -- Server-local lifecycle event: the call ended.
@@ -613,15 +629,29 @@ function actions.dial(source, payload)
         return fail('calls.numberNotService', 'Number not in service')
     end
 
+    -- The number resolved to a real character, so every refusal from here down is the callee
+    -- being unavailable rather than the number being wrong: each one carries the mailbox the
+    -- phone may offer to record onto. A blocked caller is told the same thing as an offline one
+    -- and may still record, because the refusal is the only place a block could be read from.
+    -- The contact lookup is a query, so it is paid on the refusal path only.
+    ---@param key string catalogue key for the refusal
+    ---@param message string English refusal text
+    ---@return table refusal envelope carrying data.voicemail
+    local function unavailable(key, message)
+        local res = fail(key, message)
+        res.data = { voicemail = { number = dialed, name = contactNameFor(cid, dialed) } }
+        return res
+    end
+
     -- Any-phone resolver: a call rings the target even when the dialed number sits on the
     -- OTHER phone in their pocket (unlike UI pushes, which only land on the active phone).
     local targetSrc = player.getAnySourceByIdentifier(targetCid)
-    if not targetSrc then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
-    if not reachable(targetSrc) then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
-    if settings.isAirplane(targetCid) then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
-    if not service.allows(targetSrc, 'call') then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
-    if contacts.isBlocked(targetCid, digits(myNumber)) then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
-    if sessionForSource(targetSrc) or ringForSource(targetSrc) then return fail('calls.lineBusy', 'Line busy') end
+    if not targetSrc then return unavailable('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
+    if not reachable(targetSrc) then return unavailable('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
+    if settings.isAirplane(targetCid) then return unavailable('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
+    if not service.allows(targetSrc, 'call') then return unavailable('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
+    if contacts.isBlocked(targetCid, digits(myNumber)) then return unavailable('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
+    if sessionForSource(targetSrc) or ringForSource(targetSrc) then return unavailable('calls.lineBusy', 'Line busy') end
 
     local channel = nextChannel
     nextChannel = nextChannel + 1

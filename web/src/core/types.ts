@@ -214,6 +214,9 @@ interface CallPush {
 interface CallEndedPush {
     channel: number;
     reason:  string;
+    /** Present on the caller's teardown when the callee never answered and the number they
+     *  dialled owns a mailbox, so the call screen can offer to record a message. */
+    voicemail?: { number: string; name?: string };
 }
 
 interface FriendsUpdatePush {
@@ -424,6 +427,7 @@ export type NuiMessage =
     | { action: 'sd-phone:callrec:added';     data: { id: string; peerNumber: string; peerName?: string | null; direction: 'incoming' | 'outgoing'; oneSided: boolean; url: string; duration: number; date: string } }
     | { action: 'sd-phone:callrec:failed';    data: { message: string } }
     | { action: 'sd-phone:voice:added';        data: { id: string; name: string; url: string; duration: number; date: string } }
+    | { action: 'sd-phone:voicemail:new';      data: { id: string; number: string; name?: string | null; url: string; duration: number; listened: boolean; date: string } }
     | { action: 'sd-phone:notes:added';        data: { id: string; body: string; sketches: string[]; images: string[]; createdAt: string; updatedAt: string } }
     | { action: 'sd-phone:documents:added';    data: { doc: DocFile } }
     | { action: 'sd-phone:documents:receive';  data: { doc: DocFile; fromName?: string } }
