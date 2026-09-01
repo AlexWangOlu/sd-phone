@@ -3,6 +3,7 @@ import type { PointerEvent as ReactPointerEvent, MouseEvent as ReactMouseEvent, 
 import { Camera, Check, Delete, Flashlight, Lock, Music, Pause, Play, ScanFace, SkipForward } from 'lucide-react';
 
 import { formatClockTime, formatLongDate, useDisplayClock } from '@/hooks/useClock';
+import { useAsyncData } from '@/hooks/useAsyncData';
 import { useKeypadInput } from '@/hooks/useKeypadInput';
 import { fetchNui, isFiveM } from '@/core/nui';
 import { resolveWallpaper } from './wallpapers';
@@ -15,6 +16,8 @@ import { useLockscreenWidgets } from './LockscreenWidgetsContext';
 import { LockscreenWidgetFrame } from './LockscreenWidgetFrame';
 import { useMusic } from '@/apps/music/MusicContext';
 import { coverUrl } from '@/apps/music/data';
+import { apiMedicalId } from '@/apps/health/medicalApi';
+import { MedicalIdSheet } from '@/apps/health/MedicalIdSheet';
 import { t } from '@/i18n';
 
 const NOW_PLAYING_H = 84;
@@ -46,6 +49,9 @@ export function Lockscreen({ use24h, showDate, wallpaper, unlockTrigger, onUnloc
     const lockscreenWidgets = useLockscreenWidgets();
     const [customizing, setCustomizing] = useState(false);
     const [authMode, setAuthMode] = useState<null | 'face' | 'passcode'>(null);
+    const [medicalOpen, setMedicalOpen] = useState(false);
+
+    const { data: medical } = useAsyncData(apiMedicalId, [], { enabled: passcode !== null });
 
     const lpTimer = useRef<number | null>(null);
     const lpStart = useRef({ x: 0, y: 0 });
@@ -211,9 +217,15 @@ export function Lockscreen({ use24h, showDate, wallpaper, unlockTrigger, onUnloc
                             expected={passcode}
                             onSuccess={() => latest.current.runPending()}
                             onCancel={() => setAuthMode(null)}
+                            showMedicalId={medical?.showOnLock === true}
+                            onMedicalId={() => setMedicalOpen(true)}
                         />
                     )}
                 </div>
+            )}
+
+            {medicalOpen && medical && (
+                <MedicalIdSheet record={medical} onClose={() => setMedicalOpen(false)} />
             )}
         </div>
     );
@@ -283,8 +295,9 @@ const PASSCODE_KEYS: { d: string; l: string }[] = [
     { d: '7', l: 'P Q R S' }, { d: '8', l: 'T U V' }, { d: '9', l: 'W X Y Z' },
 ];
 
-function PasscodeEntry({ wallpaper, expected, onSuccess, onCancel }: {
+function PasscodeEntry({ wallpaper, expected, onSuccess, onCancel, showMedicalId, onMedicalId }: {
     wallpaper: string; expected: string; onSuccess: () => void; onCancel: () => void;
+    showMedicalId: boolean; onMedicalId: () => void;
 }) {
     const [pin, setPin]     = useState('');
     const [shake, setShake] = useState(false);
@@ -349,7 +362,17 @@ function PasscodeEntry({ wallpaper, expected, onSuccess, onCancel }: {
 
                 <div className="grid grid-cols-3 gap-x-[24px] gap-y-[24px]" style={{ width: 330 }}>
                     {PASSCODE_KEYS.map(k => <Key key={k.d} digit={k.d} letters={k.l} onPress={() => press(k.d)} />)}
-                    <div />
+                    <div className="flex h-[94px] items-center justify-center">
+                        {showMedicalId && (
+                            <button
+                                type="button"
+                                onClick={onMedicalId}
+                                className="whitespace-nowrap text-[16px] font-normal text-white/90 active:opacity-60"
+                            >
+                                {t('medical.title', 'Medical ID')}
+                            </button>
+                        )}
+                    </div>
                     <Key digit="0" letters="" onPress={() => press('0')} />
                     <div className="flex h-[94px] items-center justify-center">
                         {pin.length > 0 ? (
