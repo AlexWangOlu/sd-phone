@@ -136,6 +136,7 @@ local gameclock = require 'client.gameclock'
 -- server proxies.
 require 'client.apps.groups'
 require 'client.apps.health'
+require 'client.apps.medical'
 require 'client.apps.mail'
 require 'client.apps.messages'
 require 'client.apps.camera'
