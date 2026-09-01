@@ -545,7 +545,8 @@ local DIAL_WINDOW = 30000
 local DIAL_PER_WINDOW = 10
 
 ---Starts a call to a dialed number. Rejects when the caller is mid-call/ring or in airplane
----mode, the number is unassigned, or the callee is unreachable, blocked, or busy.
+---mode, the number is unassigned, or the callee is unreachable, silenced by Focus, blocked, or
+---busy.
 ---@param source number caller server id
 ---@param payload { number?: string, video?: boolean } video places it as a video call rather than a voice call
 ---@return table
@@ -619,6 +620,7 @@ function actions.dial(source, payload)
     if not targetSrc then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
     if not reachable(targetSrc) then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
     if settings.isAirplane(targetCid) then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
+    if settings.isDnd(targetCid) then return fail('calls.unavailable', 'Unavailable') end
     if not service.allows(targetSrc, 'call') then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
     if contacts.isBlocked(targetCid, digits(myNumber)) then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
     if sessionForSource(targetSrc) or ringForSource(targetSrc) then return fail('calls.lineBusy', 'Line busy') end
@@ -750,6 +752,7 @@ function actions.addCall(source, payload)
     if not targetSrc then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
     if not reachable(targetSrc) then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
     if settings.isAirplane(targetCid) then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
+    if settings.isDnd(targetCid) then return fail('calls.unavailable', 'Unavailable') end
     if not service.allows(targetSrc, 'call') then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
     if contacts.isBlocked(targetCid, myNumber) then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
     if sessionForSource(targetSrc) or ringForSource(targetSrc) or boothRingForSource(targetSrc) then return fail('calls.lineBusy', 'Line busy') end
@@ -801,6 +804,7 @@ function actions.dialPayphone(source, payload)
     if not targetSrc then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
     if not reachable(targetSrc) then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
     if settings.isAirplane(targetCid) then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
+    if settings.isDnd(targetCid) then return fail('calls.unavailable', 'Unavailable') end
     if not service.allows(targetSrc, 'call') then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
     if callerNumber ~= '' and contacts.isBlocked(targetCid, callerNumber) then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
     if sessionForSource(targetSrc) or ringForSource(targetSrc) then return fail('calls.lineBusy', 'Line busy') end
@@ -884,7 +888,7 @@ function actions.callGroup(source, targets, displayName, displayNumber)
     for _, t in ipairs(targets) do
         if t.src and t.src ~= source
             and not sessionForSource(t.src) and not ringForSource(t.src)
-            and not settings.isAirplane(t.cid) and reachable(t.src)
+            and not settings.isAirplane(t.cid) and not settings.isDnd(t.cid) and reachable(t.src)
             and service.allows(t.src, 'call') then
             ringTargets[t.src] = {
                 src    = t.src,

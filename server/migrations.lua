@@ -46,6 +46,9 @@ local COLUMNS = {
         device            = "device VARCHAR(16) NOT NULL DEFAULT 'phone'",
         home_density      = 'home_density VARCHAR(12) NULL',
         home_icon_scale   = 'home_icon_scale SMALLINT NULL',
+        dnd               = 'dnd TINYINT(1) NOT NULL DEFAULT 0',
+        low_power         = 'low_power TINYINT(1) NOT NULL DEFAULT 0',
+        rotation_lock     = 'rotation_lock TINYINT(1) NOT NULL DEFAULT 0',
     },
 
     -- Verification tier shown next to a handle: blue (individual), gold (business), grey

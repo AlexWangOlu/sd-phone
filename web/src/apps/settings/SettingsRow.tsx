@@ -1,5 +1,5 @@
 import {
-    Accessibility, Antenna, Bell, Bluetooth, Calendar,
+    Accessibility, Antenna, BatteryLow, Bell, Bluetooth, Calendar,
     ChevronRight, Compass, CreditCard, Fingerprint, Gamepad2, Grid2x2, Hourglass,
     Image as ImageIcon, Key, Languages, LayoutGrid, ListTodo, Lock, Mail,
     MapPin, MessageCircle, Mic, Moon, Newspaper, PawPrint, Phone, Plane, Search,
@@ -13,7 +13,7 @@ import { Toggle } from '@/ui/Toggle';
 import { useTheme } from '@/stores/themeStore';
 
 const ICONS: Record<IconName, LucideIcon> = {
-    Plane, Wifi, Bluetooth, Antenna, Key, Bell, Volume2, Moon, Hourglass,
+    Plane, Wifi, Bluetooth, Antenna, Key, Bell, Volume2, Moon, Hourglass, BatteryLow,
     Settings2, SlidersHorizontal, Sun, LayoutGrid, Accessibility, Search,
     Image: ImageIcon, Sparkles, Fingerprint, Siren,
     ShoppingBag, CreditCard, Gamepad2, Lock, Mail, User, Calendar, StickyNote,
@@ -24,7 +24,12 @@ const ICONS: Record<IconName, LucideIcon> = {
 export function SettingsRow({ row, divider, onPress }: { row: SettingsRowDef; divider: boolean; onPress?: () => void }) {
     const Icon = ICONS[row.icon];
     const hasSubtitle = Boolean(row.subtitle);
-    const { airplaneMode, setAirplaneMode } = useTheme('airplaneMode', 'setAirplaneMode');
+    const { airplaneMode, setAirplaneMode, focus, setFocus, lowPower, setLowPower } = useTheme('airplaneMode', 'setAirplaneMode', 'focus', 'setFocus', 'lowPower', 'setLowPower');
+    const inlineToggle =
+        row.id === 'airplane'    ? { on: airplaneMode, onChange: setAirplaneMode }
+        : row.id === 'focus'     ? { on: focus,        onChange: setFocus }
+        : row.id === 'low-power' ? { on: lowPower,     onChange: setLowPower }
+        : null;
     return (
         <button
             type="button"
@@ -62,8 +67,8 @@ export function SettingsRow({ row, divider, onPress }: { row: SettingsRowDef; di
                 )}
             </div>
 
-            {row.id === 'airplane' ? (
-                <Toggle on={airplaneMode} onChange={setAirplaneMode} />
+            {inlineToggle ? (
+                <Toggle on={inlineToggle.on} onChange={inlineToggle.onChange} />
             ) : (
                 <>
                     {row.status && (
