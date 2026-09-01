@@ -356,6 +356,8 @@ export type NuiMessage =
     | { action: 'sd-phone:holdem:state';   data: HoldemStatePush }
     | { action: 'sd-phone:holdem:hand';    data: HoldemHandEnd }
     | { action: 'sd-phone:mail:received';         data: unknown }
+    | { action: 'sd-phone:calendar:invited';      data: { event?: unknown } }
+    | { action: 'sd-phone:calendar:refresh';      data: { eventId?: string } }
     | { action: 'sd-phone:camera:key';            data: { key: string } }
     | { action: 'sd-phone:camera:lock';           data: { on: boolean } }
     | { action: 'sd-phone:camera:faceCam';        data: { on: boolean } }

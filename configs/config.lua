@@ -38,6 +38,7 @@ local config = {
     VoiceMemos  = require 'configs.voicememos',     -- voice notes + Fivemanage
     Share       = require 'configs.share',          -- nearby share sheet
     Notes       = require 'configs.notes',         -- per-character notes
+    Calendar    = require 'configs.calendar',      -- per-character events + shared invites with RSVP
     Documents   = require 'configs.documents',     -- Files: per-character documents + folders
     Id          = require 'configs.id',            -- ID: identity cards from framework records + nearby show
     Housing     = require 'configs.housing',       -- property list (multi-system)
