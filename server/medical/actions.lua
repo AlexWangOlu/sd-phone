@@ -141,7 +141,7 @@ end
 ---@return table envelope { record }
 function actions.lookup(src, payload)
     local me = access.identity(src)
-    if not me or access.domain(me) ~= 'ems' then
+    if not me or access.domain(me) ~= 'ems' or not access.can(src, 'patients.view') then
         return fail('medical.noMedicalAccess', 'You do not have access to medical records')
     end
     payload = type(payload) == 'table' and payload or {}

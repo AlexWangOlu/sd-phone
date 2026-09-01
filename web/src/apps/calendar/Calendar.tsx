@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Users } from 'lucide-react';
 
+import { isFiveM } from '@/core/nui';
 import { useTheme } from '@/stores/themeStore';
 import { useAsyncData } from '@/hooks/useAsyncData';
 import { useNuiEvent } from '@/hooks/useNuiEvent';
@@ -9,7 +10,7 @@ import { useDeckActive } from '@/shell/deckActive';
 import { Spinner } from '@/ui/Spinner';
 import { calendarDelete, calendarList, calendarSave } from './calendarApi';
 import {
-    addMonths, dayKey, formatLongDate, formatTime, isShared, loadDayNotes, saveDayNotes, sortEvents,
+    addMonths, clearLegacyEvents, dayKey, formatLongDate, formatTime, isShared, loadDayNotes, readLegacyEvents, saveDayNotes, sortEvents,
 } from './data';
 import type { CalEvent, CalEventDraft } from './data';
 import { EventEditor } from './EventEditor';
@@ -29,6 +30,23 @@ export function Calendar({ onClose }: { onClose: () => void }) {
     const [editing, setEditing]   = useState<CalEvent | 'new' | null>(null);
 
     const { settled, refetch } = useAsyncData(calendarList, [], { onData: setEvents });
+
+    const importedLegacy = useRef(false);
+    useEffect(() => {
+        if (!settled || importedLegacy.current || !isFiveM) return;
+        importedLegacy.current = true;
+        const legacy = readLegacyEvents();
+        if (legacy.length === 0) return;
+        void (async () => {
+            let allSaved = true;
+            for (const draft of legacy) {
+                const res = await calendarSave(draft);
+                if (res.error) allSaved = false;
+            }
+            if (allSaved) clearLegacyEvents();
+            refetch();
+        })();
+    }, [settled, refetch]);
 
     useNuiEvent('sd-phone:calendar:refresh', refetch);
     useNuiEvent('sd-phone:calendar:invited', refetch);

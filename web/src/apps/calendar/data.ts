@@ -49,7 +49,46 @@ export function loadDayNotes(): Record<string, string> {
 }
 
 export function saveDayNotes(dayNotes: Record<string, string>): void {
-    writeJson(STORAGE_KEY, { dayNotes });
+    const raw = readJson<Record<string, unknown>>(STORAGE_KEY) ?? {};
+    writeJson(STORAGE_KEY, { ...raw, dayNotes });
+}
+
+interface LegacyEvent {
+    id?:       unknown;
+    dayKey?:   unknown;
+    title?:    unknown;
+    allDay?:   unknown;
+    start?:    unknown;
+    end?:      unknown;
+    location?: unknown;
+    notes?:    unknown;
+    color?:    unknown;
+}
+
+export function readLegacyEvents(): CalEventDraft[] {
+    const raw = readJson<{ events?: unknown }>(STORAGE_KEY);
+    const list = Array.isArray(raw?.events) ? raw.events as LegacyEvent[] : [];
+    return list
+        .filter(e => e && typeof e.id === 'string' && typeof e.dayKey === 'string' && typeof e.title === 'string')
+        .map(e => ({
+            id:       String(e.id),
+            dayKey:   String(e.dayKey),
+            title:    String(e.title),
+            allDay:   e.allDay === true,
+            start:    typeof e.start === 'string' ? e.start : null,
+            end:      typeof e.end === 'string' ? e.end : null,
+            location: typeof e.location === 'string' ? e.location : '',
+            notes:    typeof e.notes === 'string' ? e.notes : '',
+            color:    typeof e.color === 'string' ? e.color : '',
+        }));
+}
+
+export function clearLegacyEvents(): void {
+    const raw = readJson<Record<string, unknown>>(STORAGE_KEY);
+    if (!raw || !('events' in raw)) return;
+    const rest: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(raw)) if (k !== 'events') rest[k] = v;
+    writeJson(STORAGE_KEY, rest);
 }
 
 export const STATUS_DOT: Record<RsvpStatus, string> = {

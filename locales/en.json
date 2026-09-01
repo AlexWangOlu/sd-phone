@@ -1663,6 +1663,7 @@
   "findmy": {
     "deviceNotFound": "Device not found",
     "deviceOffline": "That device is not switched on",
+    "passcodeRequired": "Set a 4 to 6 digit passcode so you can unlock it again",
     "playerNotFound": "Player not found",
     "soundTooSoon": "Wait a moment before playing another sound",
     "tooManyAttempts": "Too many attempts. Wait a moment.",
@@ -5502,6 +5503,10 @@
     "findMyLostOff": "Turn Off Lost Mode",
     "findMyLostOffFailed": "Could not turn off Lost Mode.",
     "findMyLostOn": "Mark As Lost",
+    "findMyLostPasscode": "Passcode",
+    "findMyLostPasscodeHint": "This device has no passcode. Lost Mode sets this one so you can unlock it again.",
+    "findMyLostPasscodeInvalid": "Enter a 4 to 6 digit passcode.",
+    "findMyLostPasscodePlaceholder": "4 to 6 digits",
     "findMyLostShowing": "Its lock screen is showing: {message}",
     "findMyLostTurnOn": "Turn On",
     "findMyMinsAgo": "{n}m ago",

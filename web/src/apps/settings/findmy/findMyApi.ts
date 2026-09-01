@@ -17,6 +17,7 @@ export interface FindMyDevice {
     lostAt:      number | null;
     isThis:      boolean;
     online:      boolean;
+    hasPasscode: boolean;
 }
 
 export interface FindMySnapshot {
@@ -40,6 +41,7 @@ function normalise(raw: RawDevice): FindMyDevice {
         lostAt:      raw.lostAt ?? null,
         isThis:      raw.isThis === true,
         online:      raw.online === true,
+        hasPasscode: raw.hasPasscode === true,
     };
 }
 
@@ -49,14 +51,14 @@ const DEV_DEVICES: FindMyDevice[] = [
     {
         key: 'dev:seed:phone', kind: 'phone', x: -1037, y: -2738, z: 20,
         seenAt: nowSec() - 240, lost: false, lostMessage: null, lostContact: null, lostAt: null,
-        isThis: device.id === 'phone', online: true,
+        isThis: device.id === 'phone', online: true, hasPasscode: true,
     },
     {
         key: 'dev:seed:tablet', kind: 'tablet', x: 195, y: -934, z: 30,
         seenAt: nowSec() - 7400, lost: true,
         lostMessage: 'Lost near Legion Square. Reward for its return.',
         lostContact: '2075550149', lostAt: nowSec() - 7200,
-        isThis: device.id === 'tablet', online: false,
+        isThis: device.id === 'tablet', online: false, hasPasscode: true,
     },
 ];
 
@@ -87,12 +89,12 @@ export async function playDeviceSound(key: string): Promise<Envelope> {
     return apiCall('sd-phone:findmy:playSound', { key });
 }
 
-export async function setDeviceLost(key: string, message: string, contact: string): Promise<Envelope> {
+export async function setDeviceLost(key: string, message: string, contact: string, passcode: string | null): Promise<Envelope> {
     if (!isFiveM) {
-        devPatch(key, { lost: true, lostMessage: message || null, lostContact: contact || null, lostAt: nowSec() });
+        devPatch(key, { lost: true, lostMessage: message || null, lostContact: contact || null, lostAt: nowSec(), hasPasscode: true });
         return { success: true };
     }
-    return apiCall('sd-phone:findmy:setLost', { key, message, contact });
+    return apiCall('sd-phone:findmy:setLost', { key, message, contact, passcode: passcode ?? undefined });
 }
 
 export async function clearDeviceLost(key: string): Promise<Envelope> {

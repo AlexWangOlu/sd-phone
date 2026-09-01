@@ -77,10 +77,10 @@ export function FindMyPage({ onBack }: { onBack: () => void }) {
         refetch();
     }
 
-    async function markLost(message: string, contact: string): Promise<string | null> {
+    async function markLost(message: string, contact: string, passcode: string | null): Promise<string | null> {
         const target = lostTarget;
         if (!target) return null;
-        const res = await setDeviceLost(target.key, message, contact);
+        const res = await setDeviceLost(target.key, message, contact, passcode);
         if (!res.success) return failText(res, t('settings.findMyLostFailed', 'Could not turn on Lost Mode.'));
         setLostTarget(null);
         refetch();
@@ -203,6 +203,7 @@ export function FindMyPage({ onBack }: { onBack: () => void }) {
                     deviceName={deviceLabel(lostTarget)}
                     initialMessage={lostTarget.lostMessage ?? ''}
                     initialContact={lostTarget.lostContact ?? ''}
+                    needsPasscode={!lostTarget.hasPasscode}
                     onCancel={() => setLostTarget(null)}
                     onConfirm={markLost}
                 />

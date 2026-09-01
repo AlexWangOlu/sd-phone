@@ -192,7 +192,10 @@ end
 ---@return table device
 local function serialize(row, thisKey)
     local lost = util.truthy(row.lost)
+    local profile, deviceKind = splitKey(row.device_key)
+    local security = profile and settings.getSecurity(profile, deviceKind) or nil
     return {
+        hasPasscode = security ~= nil and security.passcode ~= nil,
         key         = row.device_key,
         kind        = row.kind,
         x           = tonumber(row.x) or 0,
@@ -288,6 +291,16 @@ function actions.setLost(src, payload)
     local contact = util.digits(payload.contact):sub(1, 24)
     if contact == '' then contact = nil end
 
+    -- A lost phone with no passcode would have no way back in, so Lost Mode sets one first. The
+    -- owner types it here, exactly as iOS asks for a code when none is set.
+    local profile, deviceKind = splitKey(row.device_key)
+    local security = profile and settings.getSecurity(profile, deviceKind) or nil
+    if not (security and security.passcode) then
+        local pin = type(payload.passcode) == 'string' and payload.passcode:match('^%d%d%d%d%d?%d?$') or nil
+        if not pin then return fail('findmy.passcodeRequired', 'Set a 4 to 6 digit passcode so you can unlock it again') end
+        if profile then settings.setSecurity(profile, pin, false, deviceKind) end
+    end
+
     store.setLost(row.device_key, message, contact, os.time())
 
     local target, kind = onlineSource(row.device_key)
@@ -315,6 +328,23 @@ function actions.clearLost(src, payload)
     local target, kind = onlineSource(row.device_key)
     if target then pushLost(target, kind, nil) end
     return ok()
+end
+
+---Turns Lost Mode off on every device a character owns. The recovery hatch for an owner who
+---locked themselves out; reached from the admin console command, never from a phone.
+---@param cid string owner citizenid
+---@return integer cleared devices that were in Lost Mode
+function actions.clearLostFor(cid)
+    local cleared = 0
+    for _, row in ipairs(store.devicesFor(cid)) do
+        if util.truthy(row.lost) then
+            store.clearLost(row.device_key)
+            cleared = cleared + 1
+            local target, kind = onlineSource(row.device_key)
+            if target then pushLost(target, kind, nil) end
+        end
+    end
+    return cleared
 end
 
 ---Wipes a device the caller owns: its settings row goes back to factory, which takes its

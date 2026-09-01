@@ -21,6 +21,24 @@ CreateThread(function()
     boot.schemaReady()
 end)
 
+---/findmyclear <citizenid> - turns Lost Mode off on every device that character owns. The
+---recovery hatch for a player locked out of their own phone; admins only.
+---@param source integer caller server id
+---@param args table parsed command args { citizenid: string }
+lib.addCommand('findmyclear', {
+    help = 'Turn Lost Mode off on every device a character owns',
+    params = { { name = 'citizenid', type = 'string', help = 'The owner citizenid' } },
+    restricted = 'group.admin',
+}, function(source, args)
+    local cleared = actions.clearLostFor(tostring(args.citizenid))
+    local msg = ('Lost Mode cleared on %d device(s).'):format(cleared)
+    if source == 0 then
+        print('[sd-phone:findmy] ' .. msg)
+    else
+        TriggerClientEvent('ox_lib:notify', source, { title = 'Find My', description = msg, type = 'success' })
+    end
+end)
+
 ---Register one Find My callback under the app's 'sd-phone:server:findmy:' prefix.
 ---@param action string callback name suffix
 ---@param fn function handler fun(src, payload?): table

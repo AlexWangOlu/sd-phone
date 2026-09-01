@@ -9,22 +9,28 @@ const MAX_MESSAGE = 120;
 const FIELD =
     'w-full rounded-[10px] bg-surface px-3.5 py-3 text-[16px] text-black outline-none placeholder:text-ios-gray dark:text-white';
 
-export function LostModeSheet({ deviceName, initialMessage, initialContact, onCancel, onConfirm }: {
+export function LostModeSheet({ deviceName, initialMessage, initialContact, needsPasscode, onCancel, onConfirm }: {
     deviceName:     string;
     initialMessage: string;
     initialContact: string;
+    needsPasscode:  boolean;
     onCancel:       () => void;
-    onConfirm:      (message: string, contact: string) => Promise<string | null>;
+    onConfirm:      (message: string, contact: string, passcode: string | null) => Promise<string | null>;
 }) {
-    const [message, setMessage] = useState(initialMessage);
-    const [contact, setContact] = useState(initialContact);
-    const [error,   setError]   = useState<string | null>(null);
-    const [saving,  setSaving]  = useState(false);
+    const [message,  setMessage]  = useState(initialMessage);
+    const [contact,  setContact]  = useState(initialContact);
+    const [passcode, setPasscode] = useState('');
+    const [error,    setError]    = useState<string | null>(null);
+    const [saving,   setSaving]   = useState(false);
 
     async function confirm(close: () => void) {
         if (saving) return;
+        if (needsPasscode && !/^\d{4,6}$/.test(passcode)) {
+            setError(t('settings.findMyLostPasscodeInvalid', 'Enter a 4 to 6 digit passcode.'));
+            return;
+        }
         setSaving(true);
-        const failure = await onConfirm(message.trim(), contact.trim());
+        const failure = await onConfirm(message.trim(), contact.trim(), needsPasscode ? passcode : null);
         setSaving(false);
         if (failure) { setError(failure); return; }
         close();
@@ -78,6 +84,25 @@ export function LostModeSheet({ deviceName, initialMessage, initialContact, onCa
                                 className={FIELD}
                             />
                         </div>
+
+                        {needsPasscode && (
+                            <div className="flex flex-col gap-1.5">
+                                <span className="px-1 text-[13px] uppercase tracking-wider text-ios-gray">
+                                    {t('settings.findMyLostPasscode', 'Passcode')}
+                                </span>
+                                <input
+                                    value={passcode}
+                                    inputMode="numeric"
+                                    maxLength={6}
+                                    onChange={e => { setPasscode(e.target.value.replace(/\D/g, '')); setError(null); }}
+                                    placeholder={t('settings.findMyLostPasscodePlaceholder', '4 to 6 digits')}
+                                    className={FIELD}
+                                />
+                                <span className="px-1 text-[12px] leading-snug text-ios-gray">
+                                    {t('settings.findMyLostPasscodeHint', 'This device has no passcode. Lost Mode sets this one so you can unlock it again.')}
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     {error && (
