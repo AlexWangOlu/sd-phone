@@ -8,7 +8,7 @@ export type IconName =
     | 'ShoppingBag' | 'CreditCard' | 'Gamepad2' | 'Lock' | 'Mail'
     | 'User' | 'Calendar' | 'StickyNote' | 'ListTodo' | 'Mic'
     | 'Phone' | 'MessageCircle' | 'Video' | 'Compass' | 'Newspaper'
-    | 'Languages' | 'MapPin' | 'Zap' | 'PawPrint' | 'Grid2x2' | 'BatteryLow';
+    | 'Languages' | 'MapPin' | 'Zap' | 'PawPrint' | 'Grid2x2' | 'BatteryLow' | 'Radar';
 
 export interface SettingsRowDef {
     id:        string;
@@ -70,6 +70,7 @@ export function getSettingsGroups(): SettingsGroup[] {
             rows: [
                 { id: 'phone', icon: 'Phone', iconBg: '#34c759', label: t('settings.phone', 'Phone'), subtitle: t('settings.phoneSub', 'Caller ID, blocking and call privacy') },
                 { id: 'sim',   icon: 'Antenna', iconBg: '#0a84ff', label: t('settings.simBackup', 'SIM & Backup'), subtitle: t('settings.simBackupSub', 'SIM card, number and cloud backup') },
+                { id: 'find-my', icon: 'Radar', iconBg: '#30d158', label: t('settings.findMy', 'Find My'), subtitle: t('settings.findMySub', 'Locate your devices and turn on Lost Mode') },
             ],
         },
     ];
