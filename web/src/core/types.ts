@@ -1,6 +1,6 @@
 
 import type { GameClock } from '@/stores/gameClockStore';
-import type { BirdyMessage } from '@/apps/birdy/data';
+import type { BirdyMessage, BirdyPollCounts } from '@/apps/birdy/data';
 import type { CrashBust, CrashSettled, CrashSnapshot, CrashTick } from '@/apps/casino/crash/data';
 import type { HoldemHandEnd, HoldemStatePush } from '@/apps/casino/holdem/data';
 import type { DocFile } from '@/apps/documents/data';
@@ -380,7 +380,7 @@ export type NuiMessage =
         reactions: Reaction[];
       } }
     | { action: 'sd-phone:birdy:notification' }
-    | { action: 'sd-phone:birdy:feedChanged' }
+    | { action: 'sd-phone:birdy:feedChanged'; data: { postId?: string; poll?: BirdyPollCounts } }
     | { action: 'sd-phone:darkchat:message'; data: {
         roomId:  string;
         message: {
