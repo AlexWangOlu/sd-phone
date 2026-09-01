@@ -40,7 +40,7 @@ local ok, fail, digits, trim, initialsFor, formatNumber = util.ok, util.fail, ut
 ---@param conversation string thread key
 local function trimThread(cid, conversation)
     if store.threadCount(cid, conversation) > cfg.MessagesPerThread then
-        trimThread(cid, conversation)
+        store.pruneThread(cid, conversation, cfg.MessagesPerThread)
     end
 end
 
