@@ -435,6 +435,8 @@ export type NuiMessage =
     | { action: 'sd-phone:messages:reaction';  data: { conversation: string; id: string; reactions: { emoji: string; count: number; mine: boolean }[] } }
     | { action: 'sd-phone:messages:removed';   data: { conversation: string } }
     | { action: 'sd-phone:messages:meta';      data: { conversation: string; id: string; requestStatus?: 'pending' | 'paid' | 'declined' | 'accepted' } }
+    | { action: 'sd-phone:messages:typing';    data: { conversation: string; from: string; on: boolean } }
+    | { action: 'sd-phone:messages:seen';      data: { conversation: string; seenAt: number } }
     | { action: 'sd-phone:cherry:message';     data: { matchId: string; message: unknown } }
     | { action: 'sd-phone:cherry:match';       data: unknown }
     | { action: 'sd-phone:cherry:reaction';    data: { matchId: string; id: string; reactions: { emoji: string; count: number; mine: boolean }[] } }
