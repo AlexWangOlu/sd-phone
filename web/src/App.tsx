@@ -218,7 +218,7 @@ function AppContent() {
     // Tone/volume fields are deliberately NOT subscribed here — they're only
     // read inside event callbacks (via useThemeStore.getState()), so slider
     // drags in Control Center don't re-render the whole tree from the root.
-    const { theme, darkTheme, lightTheme, accent, customPalettes, wallpaperLock, wallpaperHome, setTheme, setWallpaper, statusLightOverride, statusBarAutoLight, hideHomeIndicator, airplaneMode, hour24, setHour24, setSecurity, appLabels, homeDensity, dockStyle } = useTheme('theme', 'darkTheme', 'lightTheme', 'accent', 'wallpaperLock', 'wallpaperHome', 'setTheme', 'setWallpaper', 'statusLightOverride', 'statusBarAutoLight', 'hideHomeIndicator', 'airplaneMode', 'hour24', 'setHour24', 'setSecurity', 'customPalettes', 'appLabels', 'homeDensity', 'dockStyle');
+    const { theme, darkTheme, lightTheme, accent, customPalettes, wallpaperLock, wallpaperHome, setTheme, setWallpaper, statusLightOverride, statusBarAutoLight, hideHomeIndicator, airplaneMode, focus, lowPower, rotationLock, hour24, setHour24, setSecurity, appLabels, homeDensity, dockStyle } = useTheme('theme', 'darkTheme', 'lightTheme', 'accent', 'wallpaperLock', 'wallpaperHome', 'setTheme', 'setWallpaper', 'statusLightOverride', 'statusBarAutoLight', 'hideHomeIndicator', 'airplaneMode', 'focus', 'lowPower', 'rotationLock', 'hour24', 'setHour24', 'setSecurity', 'customPalettes', 'appLabels', 'homeDensity', 'dockStyle');
     const activeThemeId = theme === 'dark' ? darkTheme : lightTheme;
     const themeVars = useMemo(() => {
         const vars: Record<string, string> = accentVars(theme === 'dark' ? 'dark' : 'light', accent);
@@ -826,6 +826,14 @@ function AppContent() {
         return refitLayout(savedLayout, from, gridForDock(homeDensity, dockStyle === 'hidden'), homeDensity);
     }, [savedLayout, homeDensity, dockStyle]);
 
+    const applyLandscape = useCallback((v: boolean) => {
+        setLandscape(v && !useThemeStore.getState().rotationLock);
+    }, []);
+
+    useEffect(() => {
+        if (rotationLock) setLandscape(false);
+    }, [rotationLock]);
+
     // Stable-ish context handed to every deck app instance. Memoized so unrelated
     // App re-renders (notifications, battery, island state) don't rebuild app nodes;
     // it only changes when the app list / install set / stable callbacks change.
@@ -837,8 +845,8 @@ function AppContent() {
         installedApps,
         onInstall:         startDownload,
         onOpenApp:         openAppCentered,
-        onLandscapeChange: setLandscape,
-    }), [handleCloseApp, view, customDefs, installedApps, startDownload, openAppCentered]);
+        onLandscapeChange: applyLandscape,
+    }), [handleCloseApp, view, customDefs, installedApps, startDownload, openAppCentered, applyLandscape]);
 
     useEffect(() => () => {
         if (downloadTimer.current !== undefined) clearInterval(downloadTimer.current);
@@ -983,21 +991,22 @@ function AppContent() {
         if (data.quietInApp && target && target === currentAppRef.current) return;
         const pref = target ? prefFor(target) : DEFAULT_PREF;
         if (!pref.enabled) return;
+        const dnd = useThemeStore.getState().focus;
         const item: NotificationItem = {
             ...data,
             id: data.id ?? `n-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         };
-        if (phoneOpenRef.current && !lockedRef.current) {
+        if (phoneOpenRef.current && !lockedRef.current && !dnd) {
             setNotifs(prev => [item, ...prev.filter(n => n.id !== item.id)].slice(0, 4));
         }
-        if (!phoneOpenRef.current && !ringingAlarmRef.current) {
+        if (!phoneOpenRef.current && !ringingAlarmRef.current && !dnd) {
             setPeekNotif(item);
             setPeekColor(data.otherPhone ? (data.phoneColor ?? null) : null);
             setPeek('in');
             if (peekTimer.current) window.clearTimeout(peekTimer.current);
             peekTimer.current = window.setTimeout(() => { if (!callOngoingRef.current) setPeek('out'); }, 4200);
         }
-        if (pref.sounds) {
+        if (pref.sounds && !dnd) {
             const tones = useThemeStore.getState();
             playOnce(
                 resolveTone('notification', pref.tone ?? tones.notificationTone, tones.customNotificationTones).url,
@@ -1480,6 +1489,8 @@ function AppContent() {
                             wifiBars={wifiBars}
                             battery={battery}
                             airplane={airplaneMode}
+                            focus={focus}
+                            lowPower={lowPower}
                             noSim={noSim}
                             noService={noService || noServiceArea}
                             light
@@ -1592,6 +1603,8 @@ function AppContent() {
                         wifiBars={wifiBars}
                         battery={battery}
                         airplane={airplaneMode}
+                        focus={focus}
+                        lowPower={lowPower}
                         noSim={noSim}
                         noService={noService || noServiceArea}
                         light={noSim ? true : (showSetup ? false : (cameraMode ? true : (statusLightOverride ?? statusBarAutoLight ?? statusLight)))}

@@ -633,6 +633,7 @@
     "playerNotFound": "Player not found",
     "slowDown": "Slow down",
     "theyAlreadyCall": "They are already on this call",
+    "unavailable": "Unavailable",
     "waitCallConnect": "Wait for the call to connect"
   },
   "camera": {
@@ -5293,6 +5294,8 @@
     "faceScan": "Face Scan",
     "faceScanPasscode": "Face Scan & Passcode",
     "faceScanPasscodeSub": "Lock and unlock options",
+    "focus": "Focus",
+    "focusSub": "Silence calls and alerts",
     "general": "General",
     "generalSub": "Device info, storage and language",
     "glyphAppstoreCloud": "Cloud Download",
@@ -5714,6 +5717,8 @@
     "lightStoneHint": "Cool grey with a blue lean. Crisper than Silver.",
     "lockScreen": "Lock Screen",
     "looksGood": "Looks good 👍",
+    "lowPowerMode": "Low Power Mode",
+    "lowPowerModeSub": "Slow the battery drain",
     "measurement": "Measurement",
     "measurementImperial": "Imperial",
     "motionFull": "Normal",
