@@ -42,12 +42,21 @@ return {
     -- Notifications returned per alerts-tab load.
     NotificationLimit = 50,
 
-    -- Notify a player whenever someone they follow posts. On, every new post alerts each of the
-    -- author's followers and badges their Squawk icon, the way a real feed app does. Off, posts
-    -- land silently in the feed and only likes, replies, reposts and follows still notify.
-    -- Worth turning off on a busy server, where a prolific poster can fill their followers'
-    -- notification list on their own.
-    PostNotifications = true,
+    -- Who a new post notifies.
+    --   'followers' - each of the author's followers, the way a real feed app does
+    --   'everyone'  - every Squawk account on the server, so nobody misses a post
+    --   false       - nobody; posts land silently and only likes, replies, reposts and follows
+    --                 still notify
+    -- (`true` is still read as 'followers'.)
+    --
+    -- 'everyone' writes one notification row per account per post, so it scales as posts times
+    -- players: fine for a small or news-driven server, heavy on a busy one where a prolific poster
+    -- alerts the whole map every time they type.
+    --
+    -- A PROTECTED account always notifies its followers only, whatever this is set to. The alert
+    -- carries a preview of the post body, so sending it server-wide would publish the very posts
+    -- that account chose to keep to its followers.
+    PostNotifications = 'followers',
 
     -- Account field bounds, mirrored by the React register/login forms.
     MaxNameLength     = 32,

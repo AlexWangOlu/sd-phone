@@ -23,6 +23,8 @@ local watchers = require('server.watchers').of('birdy')
 
 ---@type table Birdy config (config.Birdy): field bounds + feed/notification limits.
 local birdyCfg = config.Birdy or require 'configs.birdy'
+---@type table Post-audience rule (shared.postnotify): reads the PostNotifications mode.
+local postnotify = require 'shared.postnotify'
 
 ---@type table Actions module; the table returned at end of file.
 local actions = {}
@@ -676,12 +678,15 @@ function actions.create(source, payload)
     -- with Birdy in the foreground: every other player only refetched to discard the result.
     watchers.push('sd-phone:client:birdy:feedChanged', {})
 
-    if birdyCfg.PostNotifications == false then
+    local audience = postnotify.audience(birdyCfg.PostNotifications, prof.protected)
+    if audience == 'none' then
         return ok({ post = serializePost(store.getPost(id, prof.handle)) })
     end
 
     local preview   = body ~= '' and body:sub(1, 80) or 'shared a photo'
-    local followers = store.followerHandles(prof.handle)
+    local followers = audience == 'everyone'
+        and store.allHandles(prof.handle)
+        or store.followerHandles(prof.handle)
 
     if #followers == 0 then return ok({ post = serializePost(store.getPost(id, prof.handle)) }) end
 

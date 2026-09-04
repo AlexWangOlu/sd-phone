@@ -1133,9 +1133,20 @@ function store.isLiked(postId, handle)
     ) ~= nil
 end
 
----Handles of every account following `target`, for notification fan-out. Read-only.
+---Every registered handle except one, for a server-wide post notification fan-out. Read-only.
+---@param except string|nil handle to leave out, normally the posting author
+---@return string[] handles
+function store.allHandles(except)
+    local rows = MySQL.query.await(
+        'SELECT handle FROM phone_birdy_profiles WHERE handle <> ?', { except or '' }) or {}
+    local out = {}
+    for i = 1, #rows do out[#out + 1] = rows[i].handle end
+    return out
+end
+
+---Every handle following a given account. Read-only.
 ---@param target string
----@return string[]
+---@return string[] handles
 function store.followerHandles(target)
     local rows = MySQL.query.await('SELECT follower FROM phone_birdy_follows WHERE target = ?', { target }) or {}
     local out = {}
