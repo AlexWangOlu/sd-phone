@@ -228,6 +228,7 @@ function VehicleDetail({ v, showImages, customImages, valet, onBack, onDelivered
     const setWaypoint = () => { if (v.waypoint) void fetchNui('sd-phone:garages:waypoint', v.waypoint); };
 
     const [picking, setPicking] = useState(false);
+    const [removing, setRemoving] = useState(false);
     const [imageBusy, setImageBusy] = useState(false);
     const [imageError, setImageError] = useState<string | null>(null);
 
@@ -412,7 +413,7 @@ function VehicleDetail({ v, showImages, customImages, valet, onBack, onDelivered
                             {v.customImage && (
                                 <button
                                     type="button"
-                                    onClick={() => void applyImage(null)}
+                                    onClick={() => setRemoving(true)}
                                     disabled={imageBusy}
                                     className="flex w-full items-center gap-2.5 border-t border-black/[0.06] px-4 py-3.5 text-left active:bg-black/[0.04] disabled:opacity-50 dark:border-white/[0.08] dark:active:bg-white/[0.06]"
                                 >
@@ -431,6 +432,17 @@ function VehicleDetail({ v, showImages, customImages, valet, onBack, onDelivered
                     initialSelectedUrls={v.customImage ? [v.customImage] : undefined}
                     onSelect={p => { setPicking(false); void applyImage(p.url); }}
                     onClose={() => setPicking(false)}
+                />
+            )}
+
+            {removing && (
+                <AlertDialog
+                    title={t('garages.removePhotoTitle', 'Remove photo')}
+                    message={t('garages.removePhotoConfirm', 'Your {model} goes back to its standard picture.', { model: v.model })}
+                    confirmLabel={t('garages.removePhotoAction', 'Remove')}
+                    destructive
+                    onCancel={() => setRemoving(false)}
+                    onConfirm={() => { setRemoving(false); void applyImage(null); }}
                 />
             )}
 
