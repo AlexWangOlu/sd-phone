@@ -373,8 +373,8 @@ export function ChatView({ conv, totalUnread, contacts, myNumber, onBack, onSend
                         const { lead, time } = fmtChatSeparator(item.ts);
                         return (
                             <div key={`sep-${i}`} className="flex justify-center pb-3 pt-4">
-                                <span className="text-[13px] tracking-wide text-black/40 dark:text-white/40">
-                                    <span className="font-semibold text-black/55 dark:text-white/55">{lead}</span> {time}
+                                <span className="text-[15px] font-medium tracking-wide text-black/75 dark:text-white/75">
+                                    <span className="font-bold text-black/90 dark:text-white/90">{lead}</span> {time}
                                 </span>
                             </div>
                         );
