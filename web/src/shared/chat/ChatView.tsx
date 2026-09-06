@@ -70,6 +70,7 @@ interface ChatViewProps {
     onTyping?:    (on: boolean) => void;
     typingFrom?:  string;
     animateIn?:   boolean;
+    loading?:     boolean;
 }
 
 interface LocShareStatus {
@@ -85,7 +86,7 @@ function readTime(ts: number): string {
     return format12h(d.getHours(), d.getMinutes());
 }
 
-export function ChatView({ conv, totalUnread, contacts, myNumber, onBack, onSend, onReact, onPayRequest, onLocationRespond, onAddMembers, onUpdateGroup, onRemoveMember, onSaveContact, onTyping, typingFrom, animateIn = true }: ChatViewProps) {
+export function ChatView({ conv, totalUnread, contacts, myNumber, onBack, onSend, onReact, onPayRequest, onLocationRespond, onAddMembers, onUpdateGroup, onRemoveMember, onSaveContact, onTyping, typingFrom, animateIn = true, loading = false }: ChatViewProps) {
     const { theme } = useTheme('theme');
     const isDark    = theme === 'dark';
 
@@ -367,7 +368,7 @@ export function ChatView({ conv, totalUnread, contacts, myNumber, onBack, onSend
             </div>
 
             <div ref={listRef} className="imsg-list min-h-0 flex-1 overflow-y-auto no-scrollbar px-4 py-2">
-                {items.map((item, i) => {
+                {(loading ? [] : items).map((item, i) => {
                     if (item.kind === 'separator') {
                         const { lead, time } = fmtChatSeparator(item.ts);
                         return (
