@@ -21,11 +21,25 @@ const STATUS: Record<StandingStatus, { tone: PillTone; label: () => string }> = 
     failed:       { tone: 'red',   label: () => t('banking.standingStatusFailed', 'Failed') },
 };
 
+function untilLabel(seconds: number): string {
+    const left = Math.floor(seconds - Date.now() / 1000);
+    if (left <= 0) return t('banking.standingDueNow', 'due now');
+    const days  = Math.floor(left / 86400);
+    const hours = Math.floor((left % 86400) / 3600);
+    const mins  = Math.floor((left % 3600) / 60);
+    const parts = days > 0
+        ? [t('time.daysShort', '{n}d', { n: days }), hours > 0 ? t('time.hoursShort', '{n}h', { n: hours }) : '']
+        : hours > 0
+            ? [t('time.hoursShort', '{n}h', { n: hours }), mins > 0 ? t('time.minutesShort', '{n}m', { n: mins }) : '']
+            : [t('time.minutesShort', '{n}m', { n: Math.max(mins, 1) })];
+    return t('banking.standingIn', 'in {span}', { span: parts.filter(Boolean).join(' ') });
+}
+
 function OrderRow({ order, onPress }: { order: StandingOrder; onPress: () => void }) {
     const { color } = getCategories().standing;
     const status = order.lastStatus ? STATUS[order.lastStatus] : null;
     const schedule = order.active
-        ? `${intervalLabel(order.interval)} · ${t('banking.standingNextRun', 'Next {when}', { when: whenLabel(order.nextRun) })}`
+        ? `${intervalLabel(order.interval)} · ${whenLabel(order.nextRun)}`
         : `${intervalLabel(order.interval)} · ${t('banking.standingPausedRow', 'Paused')}`;
 
     return (
@@ -40,7 +54,8 @@ function OrderRow({ order, onPress }: { order: StandingOrder; onPress: () => voi
             <div className="min-w-0 flex-1">
                 <div className="truncate text-[18.5px] font-semibold leading-tight">{order.label}</div>
                 <div className="mt-1 truncate text-[16px]">{order.recipientName ?? formatPhone(order.recipient)}</div>
-                <div className="mt-0.5 truncate text-[15px] text-ios-gray">{schedule}</div>
+                <div className="mt-0.5 text-[15px] leading-snug text-ios-gray">{schedule}</div>
+                {order.active && <div className="mt-0.5 truncate text-[15px] text-ios-gray">{untilLabel(order.nextRun)}</div>}
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1.5">
                 <span className="text-[19px] font-semibold tabular-nums tracking-tight">{formatMoney(order.amount, { whole: true })}</span>
