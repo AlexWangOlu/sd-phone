@@ -11,6 +11,7 @@ import { registerRuntimeLocales, setAppLabelSource, t } from '@/i18n';
 import { CallLayer } from '@/apps/phone/CallLayer';
 import { CallPeekBanner } from '@/apps/phone/CallPeekBanner';
 import { useCallRing } from '@/apps/phone/calls/useCallRing';
+import { applyNearbyRings } from '@/apps/phone/calls/nearbyRing';
 import { NotificationHost, type NotificationItem } from '@/shell/Notifications';
 import { AirShareCard, type AirShareRequest } from '@/shared/AirShare';
 import { SignRequestLayer, type SignRequestData } from '@/apps/documents/SignRequestLayer';
@@ -960,6 +961,9 @@ function AppContent() {
     const callerNumber = useCallStore(s => s.number);
 
     useCallRing(device.calls);
+    useNuiEvent('sd-phone:ring:nearby', useCallback((data) => {
+        applyNearbyRings(data.rings ?? []);
+    }, []));
     const callOngoingRef = useRef(callOngoing);
     callOngoingRef.current = callOngoing;
     const callPeekRef = useRef(false);
