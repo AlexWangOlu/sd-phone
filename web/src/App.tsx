@@ -12,7 +12,7 @@ import { CallLayer } from '@/apps/phone/CallLayer';
 import { CallPeekBanner } from '@/apps/phone/CallPeekBanner';
 import { useCallRing } from '@/apps/phone/calls/useCallRing';
 import { applyNearbyRings } from '@/apps/phone/calls/nearbyRing';
-import { NotificationHost, type NotificationItem } from '@/shell/Notifications';
+import { NotificationHost, resolveNotifText, type NotificationItem } from '@/shell/Notifications';
 import { AirShareCard, type AirShareRequest } from '@/shared/AirShare';
 import { SignRequestLayer, type SignRequestData } from '@/apps/documents/SignRequestLayer';
 import { ReceivedIdLayer } from '@/shell/ReceivedIdLayer';
@@ -1001,6 +1001,7 @@ function AppContent() {
         const dnd = useThemeStore.getState().focus;
         const item: NotificationItem = {
             ...data,
+            ...resolveNotifText(data),
             id: data.id ?? `n-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         };
         if (phoneOpenRef.current && !lockedRef.current && !dnd) {
