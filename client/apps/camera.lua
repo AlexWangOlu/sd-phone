@@ -273,15 +273,18 @@ RegisterNUICallback('sd-phone:camera:close', function(_, cb)
     cb({ success = true })
 end)
 
--- Shutter relay: captured media arrives as a base64 data-URL and is forwarded to the server
--- over a latent event.
+-- Shutter relay: captured media arrives as base64 and is forwarded to the server over latent
+-- events. A photo is one data-URL and goes in a single event; a video is sliced by the Camera app
+-- and arrives here a slice at a time, because a whole clip is megabytes and one event that size
+-- blocks the net thread while it is reassembled - which reads to everyone on the server as packet
+-- loss climbing, not as one player saving a video.
 ---@type integer Latent-event throttle for photos (bytes/sec).
 local PHOTO_BPS <const> = 256 * 1024
----@type integer Latent-event throttle for videos (bytes/sec).
+---@type integer Latent-event throttle for one video slice (bytes/sec).
 local VIDEO_BPS <const> = 2 * 1024 * 1024
 
----React -> Lua: shutter pressed - relays the captured media to the server. The image must be a
----non-empty string and the kind is coerced onto the photo/video whitelist.
+---React -> Lua: shutter pressed on a photo - relays the captured image to the server. The image
+---must be a non-empty string; videos never come through here.
 RegisterNUICallback('sd-phone:camera:capture', function(data, cb)
     local image = data and data.image
     if type(image) ~= 'string' or image == '' then
@@ -289,10 +292,35 @@ RegisterNUICallback('sd-phone:camera:capture', function(data, cb)
         return
     end
 
-    local kind = (data and data.kind == 'video') and 'video' or 'photo'
-    local bps  = kind == 'video' and VIDEO_BPS or PHOTO_BPS
+    TriggerLatentServerEvent('sd-phone:server:photos:upload', PHOTO_BPS, image)
+    cb({ success = true })
+end)
 
-    TriggerLatentServerEvent('sd-phone:server:photos:upload', bps, image, kind)
+---React -> Lua: a finished clip is coming, and how many slices it is split into.
+RegisterNUICallback('sd-phone:camera:captureBegin', function(data, cb)
+    TriggerServerEvent('sd-phone:server:photos:uploadBegin', {
+        mime  = data and data.mime,
+        total = data and data.total,
+    })
+    cb({ success = true })
+end)
+
+---React -> Lua: one slice of a finished clip. Latent, so it is paced onto the wire; the sequence
+---number travels with it because latent events are not guaranteed to arrive in order.
+RegisterNUICallback('sd-phone:camera:captureSlice', function(data, cb)
+    local part = type(data) == 'table' and data.part or nil
+    if type(part) == 'string' and part ~= '' then
+        TriggerLatentServerEvent('sd-phone:server:photos:uploadSlice', VIDEO_BPS, {
+            seq  = data.seq,
+            part = part,
+        })
+    end
+    cb({ success = true })
+end)
+
+---React -> Lua: give up on a clip that was part-way sent.
+RegisterNUICallback('sd-phone:camera:captureCancel', function(_, cb)
+    TriggerServerEvent('sd-phone:server:photos:uploadCancel')
     cb({ success = true })
 end)
 
