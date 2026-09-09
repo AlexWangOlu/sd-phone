@@ -28,11 +28,6 @@ local PRESIGN_URL <const> = 'https://api.fivemanage.com/api/v3/file/presigned-ur
 ---@type string Host every claimed URL must sit under, trailing slash included.
 local CDN_HOST <const> = 'https://r2.fivemanage.com/'
 
----@type integer Largest object a claim may point at, in raw bytes. The sliced path caps a clip at
----32 MB of base64, which is 24 MB of file; the direct path must never be the more permissive of
----the two, or turning the fallback on would start rejecting clips that used to save.
-local MAX_DIRECT_BYTES <const> = 24 * 1024 * 1024
-
 ---@type integer Longest URL a claim may carry. phone_photos.url is VARCHAR(512).
 local MAX_URL_CHARS <const> = 512
 
@@ -195,8 +190,11 @@ end
 ---anything the client chose to call the file.
 ---@param src number player making the claim
 ---@param url any URL the client reports, entirely untrusted
+---@param maxBytes integer largest object this caller will accept. The Camera and the MDT bodycam
+---have ceilings an order of magnitude apart - a clip against a five-minute recording - so the
+---limit belongs to whoever is claiming rather than to this module.
 ---@param cb fun(url: string|nil, code: 'no-slot'|'expired'|'foreign-url'|'duplicate'|'probe-failed'|'bad-type'|'too-large'|nil, bytes: integer|nil)
-function presign.claim(src, url, cb)
+function presign.claim(src, url, maxBytes, cb)
     local slot = slots[src]
     if not slot then
         cb(nil, 'no-slot')
@@ -239,18 +237,15 @@ function presign.claim(src, url, cb)
         return
     end
 
-    -- A GET, and deliberately so. The obvious probe is a HEAD, which would cost nothing: this
-    -- only needs the type and the size, not the file. FiveM cannot send one - PerformHttpRequest
-    -- answers status 0 for HEAD - and R2 ignores a Range header and returns the whole object
-    -- anyway, so there is no cheap way to ask. The server therefore pulls the object once to
-    -- weigh it.
-    --
-    -- That is still less traffic than this replaces: the sliced path has the server sending the
-    -- whole clip to Fivemanage as base64, about a third larger again than what is downloaded
-    -- here, and none of it crosses the game network either way. The player's packet loss - the
-    -- thing this change exists for - is untouched by any of it.
+    -- One byte, not the file. A HEAD would be the natural probe and FiveM cannot send one at all
+    -- (PerformHttpRequest answers status 0), but R2 honours Range: asking for `bytes=0-0` returns
+    -- 206 with a single byte and a `content-range` naming the object's true length, which is all
+    -- this needs. Downloading the object instead would cost the server 94 MB per bodycam
+    -- recording, trading the packet loss this change removes for bandwidth somewhere else.
     PerformHttpRequest(url, function(status, body, headers)
-        if status ~= 200 then
+        -- 206 is the expected answer. 200 means the range was ignored - a cached response does
+        -- that - and the whole object arrived instead, which still answers both questions.
+        if status ~= 206 and status ~= 200 then
             print(('^1[sd-phone:photos]^0 [PRESIGN] src=%s claimed an object that is not there: HTTP %s')
                 :format(tostring(src), tostring(status)))
             cb(nil, 'probe-failed')
@@ -268,14 +263,17 @@ function presign.claim(src, url, cb)
             return
         end
 
-        -- What actually arrived, not what a header claimed: the bytes are in hand, so there is no
-        -- reason to take the CDN's word for their number.
-        local bytes = type(body) == 'string' and #body or 0
+        -- `content-range: bytes 0-0/98304000` states the whole object's length, which is the
+        -- number the cap is about. Only when the range was ignored does the body's own length
+        -- stand in for it, and then the body really is the whole object.
+        local range = header(headers, 'content-range')
+        local total = range and tonumber(range:match('/(%d+)%s*$')) or nil
+        local bytes = total or (type(body) == 'string' and #body or 0)
         if bytes <= 0 then
             cb(nil, 'probe-failed')
             return
         end
-        if bytes > MAX_DIRECT_BYTES then
+        if bytes > maxBytes then
             cb(nil, 'too-large')
             return
         end
@@ -284,7 +282,7 @@ function presign.claim(src, url, cb)
         -- the row that was going to hold it never saves.
         ledger.record(url)
         cb(url, nil, bytes)
-    end, 'GET', '', {})
+    end, 'GET', '', { ['Range'] = 'bytes=0-0' })
 end
 
 ---Drops a source's slot. Called when a player leaves, so a slot cannot outlive them and be spent
