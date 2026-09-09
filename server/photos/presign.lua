@@ -5,6 +5,9 @@ local uploader = require 'server.photos.uploader'
 ---@type table Photos persistence layer (server.photos.store): the global URL read and the
 ---video/still classifier a claimed URL is checked against.
 local store    = require 'server.photos.store'
+---@type table Media URL ledger (server.media.ledger): every URL this server has ever hosted, for
+---any app, which is what a claim is really measured against.
+local ledger   = require 'server.media.ledger'
 
 ---@type table Presign module; the table returned at end of file. Mints one-shot upload slots so a
 ---client can put media straight into Fivemanage over ordinary HTTPS, and decides whether the URL
@@ -127,6 +130,9 @@ end
 ---@return boolean
 function presign.available()
     if PHOTOS.DirectUpload == false then return false end
+    -- Shut until the ledger knows what already exists: a claim answered from a half-filled ledger
+    -- would accept the very URLs it is there to refuse.
+    if not ledger.ready() then return false end
     if uploader.provider() ~= 'fivemanage' then return false end
     return uploader.mediaKey() ~= ''
 end
@@ -226,7 +232,9 @@ function presign.claim(src, url, cb)
         return
     end
 
-    if store.urlExistsAnywhere(url) then
+    -- Both, and in this order. The ledger covers every app that has ever hosted media here; the
+    -- phone_photos read covers URLs that arrived some other way, such as an allowlisted import.
+    if ledger.has(url) or store.urlExistsAnywhere(url) then
         cb(nil, 'duplicate')
         return
     end
@@ -272,6 +280,9 @@ function presign.claim(src, url, cb)
             return
         end
 
+        -- Recorded before the caller is told, so the object is known to every later claim even if
+        -- the row that was going to hold it never saves.
+        ledger.record(url)
         cb(url, nil, bytes)
     end, 'GET', '', {})
 end

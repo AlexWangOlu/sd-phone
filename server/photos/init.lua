@@ -11,6 +11,8 @@ local actions  = require 'server.photos.actions'
 local uploader = require 'server.photos.uploader'
 ---@type table Presigned upload slots (server.photos.presign): mint + claim for the direct path.
 local presign  = require 'server.photos.presign'
+---@type table Media URL ledger (server.media.ledger): schema + one-time backfill at boot.
+local ledger   = require 'server.media.ledger'
 ---@type table Player bridge (bridge.server.player): citizenid for the shared upload budget.
 local player   = require 'bridge.server.player'
 ---@type table Shared media-upload budget (server.photos.mediaLimit): cooldown + rolling byte cap.
@@ -32,11 +34,18 @@ if not uploader.configured() then
         or '^3[sd-phone]^0 set FivemanageMedia in configs/server/apikeys.lua (free at fivemanage.com, token type "Media").')
 end
 
----Bootstraps the schema in a thread, pcall-guarded.
+---Bootstraps the schema in a thread, pcall-guarded. The URL ledger goes up with it: presign
+---refuses to mint a slot until the ledger can say what this server has already hosted, so the
+---direct-upload path is simply off until this has run.
 CreateThread(function()
     local ok, err = pcall(store.ensureSchema)
     if not ok then
         boot.schemaFailed('photos', err)
+        return
+    end
+    local okLedger, ledgerErr = pcall(ledger.ensureSchema)
+    if not okLedger then
+        boot.schemaFailed('media ledger', ledgerErr)
         return
     end
     boot.schemaReady()
