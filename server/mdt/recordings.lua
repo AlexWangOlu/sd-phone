@@ -500,7 +500,9 @@ if ENABLED then
         payload = type(payload) == 'table' and payload or {}
 
         local p = promise.new()
-        presign.claim(src, payload.url, MAX_DIRECT_BYTES, function(url, code, bytes)
+        presign.claim(src, payload.url,
+            { maxBytes = MAX_DIRECT_BYTES, kinds = { video = true } },
+            function(url, code, bytes)
             p:resolve({ url = url, code = code, bytes = bytes })
         end)
         local res = Citizen.Await(p)
