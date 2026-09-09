@@ -9,8 +9,9 @@ export async function uploadDirect(
     blob: Blob,
     filename: string,
     actions: DirectUploadActions,
+    slotPayload?: unknown,
 ): Promise<string | null> {
-    const slot = await apiData<{ url: string }>(actions.slot);
+    const slot = await apiData<{ url: string }>(actions.slot, slotPayload);
     if (!slot || typeof slot.url !== 'string' || slot.url === '') return null;
 
     let hosted: string;
