@@ -27,6 +27,14 @@ local function mediaKey()
     return GetConvar(CONVAR_KEY, '')
 end
 
+---The Fivemanage Media token, for the one caller that needs to authenticate a request this module
+---does not make itself: server.photos.presign mints upload slots against the same account. Kept
+---server-side like every other read of it, and never handed to a client.
+---@return string key the media token, or '' when unconfigured
+function uploader.mediaKey()
+    return mediaKey()
+end
+
 ---Which CDN this server uploads to. Anything other than 'qbox' stays on Fivemanage, so a typo
 ---never silently sends media somewhere the owner did not choose.
 ---@return 'fivemanage'|'qbox'
