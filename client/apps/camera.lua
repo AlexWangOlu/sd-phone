@@ -1,3 +1,5 @@
+---@type table sd-phone config root (configs/config.lua): Photos.UploadBytesPerSec.
+local config = require 'configs.config'
 ---@type table On-screen keybind hints (client.hints): placement config shared with the video call.
 local hints = require 'client.hints'
 ---@type table Scripted phone camera (client.phonecam): owns the view whenever this surface is
@@ -278,10 +280,16 @@ end)
 -- and arrives here a slice at a time, because a whole clip is megabytes and one event that size
 -- blocks the net thread while it is reassembled - which reads to everyone on the server as packet
 -- loss climbing, not as one player saving a video.
----@type integer Latent-event throttle for photos (bytes/sec).
-local PHOTO_BPS <const> = 256 * 1024
----@type integer Latent-event throttle for one video slice (bytes/sec).
-local VIDEO_BPS <const> = 2 * 1024 * 1024
+-- One rate for both, from configs/photos.lua. It used to be 2 MB/s for video against 256 KB/s for
+-- photos, on the theory that a bigger payload should move faster. That is backwards: the rate is
+-- shared with the player's own game traffic, so the faster setting is the one that saturates their
+-- uplink and times them out mid-upload. Photos never showed the problem precisely because they
+-- were the slow one.
+---@type table Photos config (configs/photos.lua): the capture upload throttle.
+local CFG = config.Photos or require 'configs.photos'
+---@type integer Latent-event throttle for a capture (bytes/sec), floored so a typo cannot stall
+---an upload outright.
+local UPLOAD_BPS <const> = math.max(32768, math.floor(tonumber(CFG.UploadBytesPerSec) or 262144))
 
 ---React -> Lua: shutter pressed on a photo - relays the captured image to the server. The image
 ---must be a non-empty string; videos never come through here.
@@ -292,7 +300,7 @@ RegisterNUICallback('sd-phone:camera:capture', function(data, cb)
         return
     end
 
-    TriggerLatentServerEvent('sd-phone:server:photos:upload', PHOTO_BPS, image)
+    TriggerLatentServerEvent('sd-phone:server:photos:upload', UPLOAD_BPS, image)
     cb({ success = true })
 end)
 
@@ -307,14 +315,25 @@ end)
 
 ---React -> Lua: one slice of a finished clip. Latent, so it is paced onto the wire; the sequence
 ---number travels with it because latent events are not guaranteed to arrive in order.
+---
+---The reply is held back for as long as this slice needs at UPLOAD_BPS before it is sent. The
+---page awaits this callback before reading the next slice, so holding it is what keeps roughly
+---one transfer in flight. Answering immediately - which is the obvious thing to do, and what this
+---did at first - lets the page push every slice at once: a latent event paces ITSELF, not the
+---others beside it, so twenty-odd concurrent slices each run at the full rate and the upload
+---lands harder than the single oversized event this replaced.
 RegisterNUICallback('sd-phone:camera:captureSlice', function(data, cb)
     local part = type(data) == 'table' and data.part or nil
-    if type(part) == 'string' and part ~= '' then
-        TriggerLatentServerEvent('sd-phone:server:photos:uploadSlice', VIDEO_BPS, {
-            seq  = data.seq,
-            part = part,
-        })
+    if type(part) ~= 'string' or part == '' then
+        cb({ success = true })
+        return
     end
+
+    TriggerLatentServerEvent('sd-phone:server:photos:uploadSlice', UPLOAD_BPS, {
+        seq  = data.seq,
+        part = part,
+    })
+    Wait(math.ceil((#part / UPLOAD_BPS) * 1000))
     cb({ success = true })
 end)
 
