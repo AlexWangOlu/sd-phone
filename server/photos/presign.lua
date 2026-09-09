@@ -34,18 +34,31 @@ local MAX_URL_CHARS <const> = 512
 ---@type integer How often expired slots are swept, in ms.
 local SWEEP_MS <const> = 60000
 
----@type table<string, 'image'|'video'> Extensions a claim may end in, and the kind each stands
----for. The provider names the stored object and takes the extension from a content sniff, not
----from the filename sent with the upload - probing it on 2026-09-09 with a `.jpg` filename around
----text bytes returned a `.txt` object - so an extension here is the provider's verdict on the
----content and a `.html` can only appear if the bytes really are one.
+---@type table<string, table<string, boolean>> Extensions a claim may end in, each mapped to the
+---kinds that extension can legitimately be. The provider names the stored
+---object and takes the extension from a content sniff, not from the filename sent with the upload
+---- probing it on 2026-09-09 with a `.jpg` filename around text bytes returned a `.txt` object -
+---so an extension here is the provider's verdict on the content, and a `.html` can only appear if
+---the bytes really are one.
 ---
----It has to stay a subset of what the app can render: store.isVideoUrl reads the same extension
----to decide whether a row is a clip or a still, so admitting one it does not know would save a
----row that renders as a broken image.
-local KIND_BY_EXT <const> = {
-    jpg = 'image', jpeg = 'image', png = 'image', webp = 'image', gif = 'image',
-    mp4 = 'video', webm = 'video', mov  = 'video', m4v  = 'video',
+---This says only whether the phone hosts that sort of file. WHICH kind a given object is comes
+---from the content type, because the extension cannot always say: MediaRecorder writes both a
+---video clip and a voice memo into `.webm`, and only `video/webm` against `audio/webm` tells them
+---apart.
+---
+---It has to stay a subset of what the apps can render: store.isVideoUrl reads the same extension
+---to decide whether a photo row is a clip or a still, so admitting one it does not know would
+---save a row that renders as a broken image.
+local MEDIA_EXT <const> = {
+    jpg  = { image = true }, jpeg = { image = true }, png = { image = true },
+    webp = { image = true }, gif  = { image = true },
+    mp4  = { video = true }, mov  = { video = true }, m4v = { video = true },
+    mp3  = { audio = true }, m4a  = { audio = true }, wav = { audio = true },
+    oga  = { audio = true }, weba = { audio = true },
+    -- The two containers that carry either. MediaRecorder writes a clip and a voice memo into the
+    -- same `.webm`, so this pair is why the kind cannot be read off the extension alone.
+    webm = { video = true, audio = true },
+    ogg  = { video = true, audio = true },
 }
 
 ---@type table<number, { teamId: string, exp: integer }> The outstanding upload slot for each
@@ -190,11 +203,16 @@ end
 ---anything the client chose to call the file.
 ---@param src number player making the claim
 ---@param url any URL the client reports, entirely untrusted
----@param maxBytes integer largest object this caller will accept. The Camera and the MDT bodycam
----have ceilings an order of magnitude apart - a clip against a five-minute recording - so the
----limit belongs to whoever is claiming rather than to this module.
+---@param opts { maxBytes: integer, kinds: table<'image'|'video'|'audio', boolean> } what this
+---caller will accept. Both belong to the caller rather than to this module: the Camera and the
+---MDT bodycam have ceilings an order of magnitude apart, and they take different kinds - Voice
+---Memos wants audio and only audio, while a camera claim admitting an mp3 would drop a sound file
+---into somebody's photo gallery.
 ---@param cb fun(url: string|nil, code: 'no-slot'|'expired'|'foreign-url'|'duplicate'|'probe-failed'|'bad-type'|'too-large'|nil, bytes: integer|nil)
-function presign.claim(src, url, maxBytes, cb)
+function presign.claim(src, url, opts, cb)
+    opts = type(opts) == 'table' and opts or {}
+    local maxBytes = math.floor(tonumber(opts.maxBytes) or 0)
+    local kinds    = type(opts.kinds) == 'table' and opts.kinds or {}
     local slot = slots[src]
     if not slot then
         cb(nil, 'no-slot')
@@ -224,8 +242,8 @@ function presign.claim(src, url, maxBytes, cb)
     -- CDN produces: a single object name. Anything looser and `team7/../other/x.mp4` sits under
     -- the prefix here yet resolves outside the bucket the moment a browser normalises it.
     local name, ext = url:sub(#prefix + 1):match('^([%w%-_]+)%.([%a%d]+)$')
-    local kind = ext and KIND_BY_EXT[ext:lower()] or nil
-    if not name or not kind then
+    local extKinds = name and MEDIA_EXT[(ext or ''):lower()] or nil
+    if not extKinds then
         cb(nil, 'foreign-url')
         return
     end
@@ -252,12 +270,19 @@ function presign.claim(src, url, maxBytes, cb)
             return
         end
 
-        -- Checked even though the extension already implies it. The provider derives BOTH from
-        -- one content sniff, so they agree by construction and this is a second look at the same
-        -- verdict - cheap insurance against the day that stops being true.
+        -- The content type is what decides the kind, and it is the CDN's own verdict on the bytes
+        -- rather than anything the client chose. The extension above only said the phone hosts
+        -- this sort of file at all; it cannot say which sort, because `.webm` is both a clip and
+        -- a voice memo.
         local ctype = header(headers, 'content-type')
-        if type(ctype) ~= 'string' or not ctype:find('^' .. kind .. '/') then
-            print(('^1[sd-phone:photos]^0 [PRESIGN] src=%s claimed a .%s that the CDN serves as %s')
+        local kind  = type(ctype) == 'string' and ctype:match('^(%a+)/') or nil
+        -- Both tests, and each catches what the other cannot. `kinds` is what this caller hosts,
+        -- so a camera claim never takes an mp3. `extKinds` is what the name can honestly be, so a
+        -- .jpg served as video/mp4 is refused rather than stored as a row store.isVideoUrl reads
+        -- as a still and renders broken.
+        kind = kind and kind:lower() or nil
+        if not kind or not kinds[kind] or not extKinds[kind] then
+            print(('^1[sd-phone:photos]^0 [PRESIGN] src=%s claimed a .%s the CDN serves as %s, which this caller does not take')
                 :format(tostring(src), ext, tostring(ctype)))
             cb(nil, 'bad-type')
             return

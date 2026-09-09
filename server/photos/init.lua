@@ -355,7 +355,9 @@ lib.callback.register('sd-phone:server:photos:uploadDone', function(src, payload
     -- must never be the more permissive of the two, or turning the fallback on would start
     -- rejecting captures that used to save.
     local p = promise.new()
-    presign.claim(src, payload.url, math.floor(MAX_VIDEO_BYTES * 0.75), function(url, code, bytes)
+    presign.claim(src, payload.url,
+        { maxBytes = math.floor(MAX_VIDEO_BYTES * 0.75), kinds = { image = true, video = true } },
+        function(url, code, bytes)
         p:resolve({ url = url, code = code, bytes = bytes })
     end)
     local res = Citizen.Await(p)
