@@ -1,3 +1,5 @@
+---@type table sd-phone config root (configs/config.lua): Photos.LogUploads.
+local config = require 'configs.config'
 ---@type table Boot reporter (server.boot): one console summary instead of per-module prints.
 local boot = require 'server.boot'
 
@@ -64,6 +66,31 @@ local function uploadFailed(src, code, detail)
     TriggerClientEvent('sd-phone:client:photos:uploadFailed', src, { code = code })
 end
 
+---@type boolean Whether to report each upload's size and throughput (configs/photos.lua LogUploads).
+local LOG_UPLOADS = (config.Photos or require 'configs.photos').LogUploads == true
+
+---One console line per capture, for diagnosing uploads that cost players packet loss. Reports what
+---actually crossed the wire and how fast, so a report comes back as numbers rather than an
+---impression of slowness.
+---@param src number
+---@param kind string 'photo' or 'clip'
+---@param bytes integer data-URL size that arrived
+---@param slices integer slice count, 1 for a photo
+---@param startedAt integer|nil GetGameTimer() when the clip was announced, nil for a photo
+local function logUpload(src, kind, bytes, slices, startedAt)
+    if not LOG_UPLOADS then return end
+    -- A photo arrives in one event with nothing to time it against, so it reports size only
+    -- rather than a throughput figure invented from a single instant.
+    if not startedAt then
+        print(('^5[sd-phone:photos]^0 [UPLOAD] src=%s %s %.2f MB'):format(tostring(src), kind, bytes / 1048576))
+        return
+    end
+    local ms   = math.max(1, GetGameTimer() - startedAt)
+    local kbps = (bytes / 1024) / (ms / 1000)
+    print(('^5[sd-phone:photos]^0 [UPLOAD] src=%s %s %.2f MB in %d slice(s), %d ms, %.0f KB/s')
+        :format(tostring(src), kind, bytes / 1048576, slices, ms, kbps))
+end
+
 ---Takes one complete capture: validates the data-URL shape and byte cap, uploads it, saves the
 ---row, and pushes photos:added - or, on any failure, photos:uploadFailed with the reason. Reached
 ---directly by a photo and by the last slice of a clip, so both arrive here already whole.
@@ -122,7 +149,9 @@ end
 ---one event is fine; clips take the sliced path below.
 ---@param image string base64 data-URL (data:image/...)
 RegisterNetEvent('sd-phone:server:photos:upload', function(image)
-    startUpload(source, image, false)
+    local src = source
+    if type(image) == 'string' then logUpload(src, 'photo', #image, 1, nil) end
+    startUpload(src, image, false)
 end)
 
 -- Sliced clip upload. A whole clip is megabytes, and one latent event that size blocks the net
@@ -136,7 +165,7 @@ local ASSEMBLY_TTL_MS <const> = 120000
 ---@type integer How often the abandoned-assembly sweep runs.
 local SWEEP_MS <const> = 30000
 
----@type table<number, { total: integer, received: integer, bytes: integer, slices: table<integer, string>, mime: string, at: integer }>
+---@type table<number, { total: integer, received: integer, bytes: integer, slices: table<integer, string>, mime: string, at: integer, started: integer }>
 ---Clip assemblies in flight, keyed by source.
 local assembling = {}
 
@@ -158,7 +187,9 @@ local function finishClip(src)
 
     -- Every slice but the last is the base64 of a byte run whose length divides by 3, so none of
     -- them carries padding and concatenating the strings reproduces the base64 of the whole file.
-    startUpload(src, ('data:%s;base64,%s'):format(job.mime, table.concat(parts)), true)
+    local dataUrl = ('data:%s;base64,%s'):format(job.mime, table.concat(parts))
+    logUpload(src, 'clip', #dataUrl, job.total, job.started)
+    startUpload(src, dataUrl, true)
 end
 
 ---React -> server: a finished clip is coming, and how many slices it is split into.
@@ -181,7 +212,8 @@ RegisterNetEvent('sd-phone:server:photos:uploadBegin', function(payload)
     local mime = util.limitedString(payload.mime, 64) or 'video/webm'
     if not mime:find('^video/') then mime = 'video/webm' end
 
-    assembling[src] = { total = total, received = 0, bytes = 0, slices = {}, mime = mime, at = GetGameTimer() }
+    local now = GetGameTimer()
+    assembling[src] = { total = total, received = 0, bytes = 0, slices = {}, mime = mime, at = now, started = now }
 end)
 
 ---React -> server: one slice of a finished clip. Latent events are not guaranteed to arrive in
