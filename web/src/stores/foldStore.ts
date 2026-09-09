@@ -95,14 +95,6 @@ export function useFoldOpen(): boolean {
     return useFoldStore(s => s.foldable && s.open);
 }
 
-export function useFoldSettled(): boolean {
-    return useFoldStore(s => s.w === targetW(s));
-}
-
 export function useScreenW(): number {
     return useFoldStore(s => s.w);
-}
-
-export function screenW(): number {
-    return useFoldStore.getState().w;
 }
