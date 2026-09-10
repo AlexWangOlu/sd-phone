@@ -38,8 +38,15 @@ for (const path in catalogFiles) {
 
 export interface LocaleOption { code: string; name: string }
 
+// Hardcoded self-names for codes that are not standard BCP-47 language subtags
+// (Intl.DisplayNames cannot resolve them, e.g. 'cn' renders as 'CN').
+const NATIVE_NAMES: Record<string, string> = {
+    cn: '中文',
+};
+
 // A language's name for itself from the browser's own Intl data, e.g. 'fr' -> 'Français'.
 function nativeName(code: string): string {
+    if (NATIVE_NAMES[code]) return NATIVE_NAMES[code];
     try {
         const raw = new Intl.DisplayNames([code], { type: 'language' }).of(code);
         if (raw && raw !== code) return raw.charAt(0).toUpperCase() + raw.slice(1);
@@ -133,7 +140,7 @@ export function getCatalogVersion(): number {
 }
 
 const LOCALE_TAGS: Record<string, string> = {
-    en: 'en-US', pt: 'pt-PT', no: 'nb-NO', zh: 'zh-CN',
+    en: 'en-US', pt: 'pt-PT', no: 'nb-NO', zh: 'zh-CN', cn: 'zh-CN',
 };
 
 export function getLocaleTag(): string {

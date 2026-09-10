@@ -1,270 +1,283 @@
 -- Standing orders - the SOPs a department publishes to its own terminal.
+-- 标准作业程序（SOP）——部门发布到自己终端上的规程。
 --
 -- A STATIC config, like the penal code. These are policy documents, not records: they are written
 -- once by whoever runs the department and read by everyone else, so there is nothing to store and
 -- nothing to sync. Edit this file and restart to publish.
+-- 与刑法典一样，这是静态配置。这些是政策文件而非业务记录：由部门管理者编写一次，其余人只阅读，
+-- 因此没有任何内容需要存储，也没有任何内容需要同步。编辑本文件并重启资源即可发布。
 --
 --   code      the reference the SOP is cited by on a report; must be unique
+--   code      报告中引用该 SOP 时使用的编号；必须唯一
 --   title     what the order is called
+--   title     规程的名称
 --   terminal  'leo' | 'ems' - which terminal it appears on. Omit to publish it on both.
+--   terminal  'leo'（警方）| 'ems'（医疗）——显示在哪个终端上。留空则两个终端都发布。
 --   jobs      optional list of framework job names. When present ONLY those departments see it,
 --             which is how one force keeps its own orders off another's terminal.
+--   jobs      可选的框架职业名列表。填写后只有对应部门能看到，
+--             这样一个警队就能把自己的规程挡在其他部门的终端之外。
 --   category  groups the list. Any string; the terminal builds its filter from what it finds.
+--   category  对列表进行分组。任意字符串均可；终端会根据实际找到的值自动生成筛选器。
 --   summary   one line shown in the list
+--   summary   列表中显示的一行摘要
 --   revised   free text, shown under the title so a reader can tell how current it is
+--   revised   自由文本，显示在标题下方，让读者判断内容的新旧程度
 --   body      the order itself. Supports the same formatting as a report narrative:
 --             **bold**, *italic*, __underline__, ~~strike~~, `code`, and "- " bullet lines.
+--   body      规程正文。支持与报告陈述相同的排版格式：
+--             **粗体**、*斜体*、__下划线__、~~删除线~~、`代码`，以及 "- " 开头的列表行。
 
 return {
     ----------------------------------------------------------------------------
-    -- Police
+    -- Police 警方
     ----------------------------------------------------------------------------
     {
-        code = 'SOP 100', terminal = 'leo', category = 'Conduct', revised = 'Revision 4',
-        title = 'Use of Force',
-        summary = 'The force continuum, and what has to be reported afterwards.',
+        code = 'SOP 100', terminal = 'leo', category = '行为规范', revised = '第4次修订',
+        title = '武力使用',
+        summary = '武力层级，以及事后必须上报的内容。',
         body = [[
-Force used must be **objectively reasonable** for the resistance actually met, and it stops the moment the resistance does.
+使用的武力必须与实际遭遇的反抗相对应，做到**客观合理**；反抗一旦停止，武力立即停止。
 
-The continuum, in order:
-- Presence and verbal direction
-- Soft empty hand control
-- Hard empty hand control
-- Intermediate weapons
-- Deadly force
+武力层级依次为：
+- 到场威慑与口头指令
+- 轻度徒手控制
+- 强力徒手控制
+- 中间型武器（警械）
+- 致命武力
 
-Deadly force is authorised only against an immediate threat of death or serious bodily harm to yourself or another person. A fleeing suspect is not, by itself, that threat.
+致命武力仅在你或他人面临死亡或严重人身伤害的即时威胁时方可使用。嫌疑人正在逃跑这一事实本身，并不构成此种威胁。
 
-**After any force above verbal direction:**
-- Render or summon medical aid before anything else
-- Notify a supervisor on the air, not afterwards in person
-- File a report the same shift, naming every officer present
-- Do not review body camera footage with another involved officer before your statement is written
+**任何超出口头指令的武力使用之后：**
+- 首先提供或呼叫医疗救助
+- 通过无线电当场通知主管，而不是事后当面汇报
+- 在当班期间提交报告，列明在场的每一名警官
+- 在书面陈述完成之前，不得与其他涉事警官一同回看执法记录仪画面
 ]],
     },
     {
-        code = 'SOP 101', terminal = 'leo', category = 'Conduct', revised = 'Revision 2',
-        title = 'Vehicle Pursuits',
-        summary = 'When a pursuit may start, when it must be called off.',
+        code = 'SOP 101', terminal = 'leo', category = '行为规范', revised = '第2次修订',
+        title = '车辆追捕',
+        summary = '追捕何时可以开始、何时必须中止。',
         body = [[
-A pursuit is justified only when the offence in hand is **serious enough to outweigh the risk** the pursuit itself creates. Speeding alone is not.
+只有当手头的罪行**严重到足以压过追捕本身所造成的风险**时，追捕才是正当的。仅凭超速并不够。
 
-Before you call it in, decide:
-- What you are pursuing for
-- Road, traffic and weather conditions
-- Whether the suspect is already identified, in which case a pursuit is rarely worth it
+呼叫追捕之前，先判断：
+- 你为何而追捕
+- 道路、交通与天气状况
+- 嫌疑人是否已被确认身份——若已确认，追捕通常得不偿失
 
-The primary unit calls the pursuit and gives direction, speed and street names. The secondary handles the radio. **No more than two units** join without supervisory approval.
+主追捕车负责发起追捕并报告方向、车速与路名。副追捕车负责无线电通讯。未经主管批准，**参与车辆不得超过两辆**。
 
-A supervisor may terminate at any time, and a termination is absolute: acknowledge it and disengage, do not shadow the vehicle.
+主管可随时下令终止，而终止令是绝对的：确认收到并立即脱离，不得尾随盯梢。
 
-Terminate on your own initiative when speeds outrun conditions, when you lose sight for a sustained period, or when the pursuit enters a crowded area.
+当车速超出路况允许、长时间失去视线，或追捕进入人群密集区域时，应主动终止追捕。
 ]],
     },
     {
-        code = 'SOP 102', terminal = 'leo', category = 'Patrol', revised = 'Revision 1',
-        title = 'Traffic Stops',
-        summary = 'Positioning, approach, and what to call in before you leave the car.',
+        code = 'SOP 102', terminal = 'leo', category = '巡逻', revised = '第1次修订',
+        title = '交通临检',
+        summary = '车位停靠、接近方式，以及下车前必须上报的内容。',
         body = [[
-Call the stop in **before** you leave the vehicle: your location, the plate, and the number of occupants.
+**下车之前**先呼叫报备临检：你的位置、车牌以及车内人数。
 
-Position with an offset to the driver side and turn the wheels away from the lane. Approach on the passenger side where traffic makes the driver side unsafe.
+停车时与驾驶座一侧保持偏移角度，并把车轮打向偏离车道的方向。当车流使驾驶座一侧不安全时，从副驾驶一侧接近。
 
-State the reason for the stop first. A driver who knows why they were stopped argues less.
+先说明拦停原因。知道自己为何被拦停的司机更少争辩。
 
-Escalate to a felony stop for a stolen vehicle, an occupied vehicle linked to a violent offence, or a confirmed warrant on an occupant. In that case: do not approach, direct the occupants back to you one at a time, and wait for a second unit.
+遇以下情况升级为重罪临检：被盗车辆、与暴力犯罪有关的在载车辆，或车内人员已确认持有通缉令。此时：不要接近，命令车内人员逐一退向你，并等待第二辆警车支援。
 ]],
     },
     {
-        code = 'SOP 103', terminal = 'leo', category = 'Custody', revised = 'Revision 3',
-        title = 'Arrest and Booking',
-        summary = 'From cuffs to cell, and the paperwork each step needs.',
+        code = 'SOP 103', terminal = 'leo', category = '羁押', revised = '第3次修订',
+        title = '逮捕与收押登记',
+        summary = '从上铐到入监，以及每一步所需的文书。',
         body = [[
-Search every arrestee before they enter a vehicle, including one arrested by another officer. **Never accept that somebody else already searched them.**
+每名被捕者在进入车辆之前都必须搜身，包括由其他警官逮捕的人。**绝不轻信"别人已经搜过了"。**
 
-Cuffs go on double locked and checked for fit. A complaint about tightness is checked, not argued with.
+手铐必须双重上锁并检查松紧。嫌犯抱怨太紧时要去检查，而不是与其争辩。
 
-Read the caution before any questioning. If the arrestee asks for an attorney, questioning stops there.
+任何讯问之前必须宣读警告词（米兰达警告）。被捕者要求律师时，讯问立即停止。
 
-At booking:
-- Photograph and record the arrest on the person record
-- List every charge from the penal code, not from memory
-- A sentence and fine are what the terminal calculates; they are not negotiated at the desk
-- Property is inventoried in front of the arrestee
+收押登记时：
+- 拍照并在人员档案中记录本次逮捕
+- 依据刑法典逐条列明指控，不得凭记忆
+- 刑期与罚金由终端计算，不得在登记台前讨价还价
+- 随身物品须在被捕者当面清点登记入册
 
-Medical clearance is required before booking anyone who was subject to force, who is injured, or who appears intoxicated to the point of risk.
+对遭受过武力、受伤，或醉态明显到构成风险的人，收押之前必须取得医疗许可。
 ]],
     },
     {
-        code = 'SOP 104', terminal = 'leo', category = 'Investigations', revised = 'Revision 2',
-        title = 'Evidence Handling',
-        summary = 'Chain of custody, and what breaks it.',
+        code = 'SOP 104', terminal = 'leo', category = '调查', revised = '第2次修订',
+        title = '物证处理',
+        summary = '监管链，以及什么会破坏它。',
         body = [[
-Evidence is photographed **in place** before it is moved. A photograph taken after the fact proves nothing about where the item was found.
+物证在移动之前必须**原地**拍照。事后补拍的照片无法证明物品是在哪里发现的。
 
-Every transfer is recorded: who had it, who took it, and when. An unexplained gap in that chain is what a defence attorney is looking for, and it is usually enough.
+每一次移交都要记录：谁持有、谁接收、何时交接。监管链中无法解释的断档，正是辩护律师要找的东西，而且通常足以翻案。
 
-Attach media to the report it belongs to rather than storing it loose. A report is the container the court reads.
+媒体资料应附在所属的报告上，而不是零散存放。报告才是法庭会阅读的容器。
 
-Firearms are made safe by a second officer present as a witness, and the serial recorded before the weapon is bagged.
+枪支须由第二名警官在场见证并确认安全，在装袋之前记录序列号。
 ]],
     },
     {
-        code = 'SOP 105', terminal = 'leo', category = 'Communications', revised = 'Revision 1',
-        title = 'Radio Discipline',
-        summary = 'Callsigns, status codes and priority traffic.',
+        code = 'SOP 105', terminal = 'leo', category = '通讯', revised = '第1次修订',
+        title = '无线电纪律',
+        summary = '呼号、状态代码与优先通讯。',
         body = [[
-Identify with your callsign first, then the message. Listen before transmitting; stepping on priority traffic is worse than waiting.
+先报呼号，再讲内容。发射之前先倾听；打断优先通讯比等待更糟糕。
 
-Status codes:
-- `10-8` available
-- `10-6` busy on a call
-- `10-7` out of service
-- `10-90` emergency, all other traffic stops
+状态代码：
+- `10-8` 待命可用
+- `10-6` 忙于处置呼叫
+- `10-7` 停止服务
+- `10-90` 紧急情况，其他所有通讯停止
 
-`10-90` is for an officer in immediate danger. Using it for anything else trains everybody to ignore it.
+`10-90` 仅用于警官面临即时危险时。把它用在别的事情上，只会训练所有人无视它。
 
-Keep plain language for anything a code does not cover exactly. A misunderstood code costs more than a longer sentence.
+代码无法精确涵盖的内容，一律使用平实语言。一个被误解的代码，代价比一句更长的话更高。
 ]],
     },
     {
-        code = 'SOP 106', terminal = 'leo', category = 'Conduct', revised = 'Revision 1',
-        title = 'Mental Health Calls',
-        summary = 'De-escalation first, and when a crisis is not a crime.',
+        code = 'SOP 106', terminal = 'leo', category = '行为规范', revised = '第1次修订',
+        title = '精神健康类求助',
+        summary = '先降温降级，以及当危机并非犯罪时。',
         body = [[
-Slow the call down. Time is the tool that works; there is rarely a reason to force a resolution in the first minute.
+让处置慢下来。时间是最有效的工具；几乎没有理由在第一分钟就强行解决问题。
 
-- One officer speaks, the others stay back
-- Turn off the lights and siren on approach where it is safe to
-- Do not argue with a delusion and do not agree with one either
-- Ask what would help, and mean it
+- 一名警官负责交谈，其余人退后
+- 在安全的情况下，接近时关闭警灯与警笛
+- 不与妄想争辩，也不附和妄想
+- 询问什么能帮到对方，并真心去做
 
-Rule out the physical causes that look like a crisis, low blood sugar and head injury among them, before you treat it as one. Request EMS early rather than late.
+在按精神危机处置之前，先排除那些看起来像危机的生理原因，其中包括低血糖和头部外伤。尽早呼叫 EMS，而不是拖到最后。
 
-Custody is the last option, not the first. Where no offence has been committed, the outcome should be care and not a cell.
+羁押是最后选项，而非第一选项。在没有犯罪行为发生的情况下，结果应当是照护，而不是牢房。
 ]],
     },
     {
-        code = 'SOP 107', terminal = 'leo', category = 'Records', revised = 'Revision 2',
-        title = 'Report Writing',
-        summary = 'What a narrative has to contain to survive a courtroom.',
+        code = 'SOP 107', terminal = 'leo', category = '档案', revised = '第2次修订',
+        title = '报告撰写',
+        summary = '一份陈述要包含什么，才能经得起法庭检验。',
         body = [[
-Write in the **first person, past tense, and in the order it happened**. Anything else reads as reconstruction.
+用**第一人称、过去时、按发生顺序**撰写。任何其他写法读起来都像事后重构。
 
-A narrative must answer: who, what, where, when, how you came to be there, and what you personally saw. Mark anything you were told rather than observed as exactly that.
+陈述必须回答：谁、什么事、在哪里、何时、你为何到场，以及你亲眼看到了什么。凡是被告知而非亲眼观察到的内容，必须如实标注为转述。
 
-Do not write conclusions. "He was nervous" is an opinion; "his hands were shaking and he looked repeatedly at the passenger footwell" is evidence.
+不要写结论。"他很紧张"是观点；"他双手发抖，并反复看向副驾驶脚部空间"才是证据。
 
-Charges are attached from the penal code, and the terminal totals the sentence. Never write a figure into the narrative by hand: it will disagree with the record eventually, and the disagreement is what gets read out in court.
+指控从刑法典中勾选附加，刑期由终端汇总。绝不在陈述里手写任何数字：它迟早会与档案记录不一致，而这个不一致会在法庭上被当庭宣读。
 
-Attach every photograph, clip and document to the report itself rather than describing it.
+把每张照片、每段片段和每份文件附到报告本身，而不是用文字描述它们。
 ]],
     },
 
     ----------------------------------------------------------------------------
-    -- Medical
+    -- Medical 医疗
     ----------------------------------------------------------------------------
     {
-        code = 'SOP 200', terminal = 'ems', category = 'Scene', revised = 'Revision 3',
-        title = 'Scene Safety and Approach',
-        summary = 'The scene comes before the patient, every time.',
+        code = 'SOP 200', terminal = 'ems', category = '现场', revised = '第3次修订',
+        title = '现场安全与接近',
+        summary = '任何时候，现场都排在病人之前。',
         body = [[
-**You are no use to the patient as a second casualty.** Do not enter a scene that is not safe, and do not let a bystander pressure you into it.
+**你成了第二个伤员，对病人就毫无用处。** 不要进入不安全的现场，也不要让旁观者施压逼你进入。
 
-Stage away and request police for any scene involving a weapon, a threat of violence, or an unsecured hostile crowd. Staging is not abandoning the patient.
+凡涉及武器、暴力威胁或未受控的敌对人群，在远处待命并请求警方支援。待命不是抛弃病人。
 
-On arrival, before touching anyone:
-- Note the number of patients and call for more units early
-- Identify the mechanism of injury
-- Identify your exit
+到达之后，在接触任何人之前：
+- 清点病人数量，尽早请求增援
+- 判明受伤机制
+- 确认你的撤离路线
 
-Hazards travel. Traffic, fuel, live electricity and unstable structures do not stop being dangerous because a patient is in the middle of them.
+危险会移动。车流、燃油、带电电线和不稳的建筑结构，不会因为病人身处其中就不再危险。
 ]],
     },
     {
-        code = 'SOP 201', terminal = 'ems', category = 'Scene', revised = 'Revision 2',
-        title = 'Triage and Multiple Casualties',
-        summary = 'Sorting when there are more patients than hands.',
+        code = 'SOP 201', terminal = 'ems', category = '现场', revised = '第2次修订',
+        title = '检伤分类与多人伤亡',
+        summary = '病人多过人手时如何分拣。',
         body = [[
-The first unit on a multiple casualty scene **does not treat**. It counts, sorts and reports. Treating the first patient you reach is the most common way a mass casualty scene goes wrong.
+多人伤亡现场的第一支队伍**不实施救治**。它负责清点、分拣和上报。抓住第一个碰到的病人就治，是大规模伤亡现场最常见的失误。
 
-Sort into:
-- Immediate, life threat that can be fixed now
-- Urgent, will deteriorate without care but has time
-- Delayed, walking wounded
-- Expectant, injuries not survivable with the resources present
+分拣为：
+- 立即处理：存在生命威胁但现在就可以处置
+- 紧急：不救治会恶化但尚有时间
+- 延迟：可自行行走的轻伤者
+- 期待疗法：以现有资源无法存活的伤情
 
-Report the count and the breakdown before you begin treating. The count is what decides how many units come.
+开始救治之前，先上报总数与分类。数量决定了会来多少支援。
 
-Re-triage on every pass. A delayed patient becomes an immediate one without warning.
+每轮巡查都要重新检伤。延迟类病人会毫无预兆地变成立即类。
 ]],
     },
     {
-        code = 'SOP 202', terminal = 'ems', category = 'Legal', revised = 'Revision 4',
-        title = 'Consent, Refusal and Capacity',
-        summary = 'When a patient may say no, and what you record when they do.',
+        code = 'SOP 202', terminal = 'ems', category = '法律', revised = '第4次修订',
+        title = '同意、拒绝与行为能力',
+        summary = '病人何时可以说不，以及他们拒绝时你要记录什么。',
         body = [[
-A competent adult may refuse **any** treatment, including treatment that will save them. That refusal is theirs to make and yours to record.
+有行为能力的成年人可以拒绝**任何**治疗，包括能救他命的治疗。拒绝是他的权利，记录是你的职责。
 
-Capacity is decision specific and time specific. Establish that the patient understands what is wrong, what you are offering, and what happens if they decline. Intoxication does not automatically remove capacity, and being calm does not automatically prove it.
+行为能力是针对具体决定、具体时点的。要确认病人理解：他出了什么问题、你要提供什么、拒绝会发生什么。醉酒并不自动丧失行为能力，情绪平静也不自动证明具备行为能力。
 
-Consent is implied for a patient who is unconscious or otherwise unable to give it. Treat.
+对无意识或无法作出表示的病人，视为默示同意。实施救治。
 
-Every refusal is documented in a Patient Care report with:
-- What you found and what you offered
-- The risks you explained, in the words you used
-- That you advised them to call again if anything changed
+每一次拒绝都要在病人护理报告中记录：
+- 你的发现与你提供的方案
+- 你解释过的风险，用你当时的原话
+- 你已建议对方如有变化随时再次呼叫
 
-The report is the protection for both of you.
+这份报告是对你们双方的保护。
 ]],
     },
     {
-        code = 'SOP 203', terminal = 'ems', category = 'Legal', revised = 'Revision 1',
-        title = 'Death on Scene',
-        summary = 'Recognition of life extinct, and the scene that follows.',
+        code = 'SOP 203', terminal = 'ems', category = '法律', revised = '第1次修订',
+        title = '现场死亡',
+        summary = '生命终结的认定，以及之后的现场处置。',
         body = [[
-Resuscitation is not started where injuries are **incompatible with life**, where rigor or lividity is established, or where a valid DNR is presented.
+当伤情**与生命无法共存**、已出现尸僵或尸斑，或出示了有效的 DNR（放弃复苏声明）时，不开始心肺复苏。
 
-Once recognised:
-- Record the time of recognition, not the time of the incident
-- Stop moving anything you do not have to move
-- Hand the location over to police and stay until they arrive
-- File the report under the Death type
+一旦认定死亡：
+- 记录认定时间，而非事发时间
+- 停止移动任何不必移动的东西
+- 将现场移交警方，并留守直到他们到达
+- 报告按"死亡"类型归档
 
-Treat every unattended death as a scene until police say otherwise. What looks obvious at three in the morning has been wrong before.
+在警方确认之前，把每一起无人在场的死亡都当作案件现场处理。凌晨三点看起来显而易见的事，以前就出过错。
 ]],
     },
     {
-        code = 'SOP 204', terminal = 'ems', category = 'Clinical', revised = 'Revision 2',
-        title = 'Handover',
-        summary = 'The structured handover the receiving team expects.',
+        code = 'SOP 204', terminal = 'ems', category = '临床', revised = '第2次修订',
+        title = '交接',
+        summary = '接收方期待的结构化交接。',
         body = [[
-Hand over once, to the person taking the patient, without being interrupted. Ask for that thirty seconds if it is not offered.
+向接收病人的人完整交接一次，中途不被打断。如果没人给你这三十秒，主动要求。
 
-In order:
-- Age and sex
-- What happened, briefly
-- What you found, including the first set of observations
-- What you did and what it changed
-- What they need to know right now
+按顺序：
+- 年龄与性别
+- 发生了什么，简述
+- 你的发现，包括第一组生命体征
+- 你做了什么、带来了什么变化
+- 他们此刻需要知道的事
 
-Times matter more than adjectives. "Tourniquet on at 04:12" is worth more than "significant bleeding controlled".
+时间比形容词更有价值。"04:12 上止血带"比"大量出血已控制"更有用。
 
-Leave the written record with them before you leave the department.
+离开科室之前，把书面记录留给他们。
 ]],
     },
     {
-        code = 'SOP 205', terminal = 'ems', category = 'Clinical', revised = 'Revision 1',
-        title = 'Controlled Drugs',
-        summary = 'Two signatures, every time, no exceptions.',
+        code = 'SOP 205', terminal = 'ems', category = '临床', revised = '第1次修订',
+        title = '管制药品',
+        summary = '双人签字，每次如此，没有例外。',
         body = [[
-Every controlled drug is drawn, checked and administered with a **second responder witnessing**, and both names go on the record.
+每一支管制药品的领取、核对与给药，都必须有**第二名急救人员在场见证**，两人姓名都记入记录。
 
-Record the drug, the dose, the route and the time at the moment of administration and not at the end of the shift.
+在给药的当时记录药品、剂量、给药途径与时间，而不是等到下班。
 
-Wastage is witnessed and recorded the same way. An unexplained discrepancy is an Internal Affairs matter for the service, and it is treated as one.
+药品报废同样需要见证并按相同方式记录。无法解释的出入对本机构而言是内务调查事件，并照此处理。
 
-Never carry a controlled drug off duty, and never leave one in an unattended vehicle.
+绝不在下班时携带管制药品，也绝不把管制药品留在无人看管的车辆里。
 ]],
     },
 }

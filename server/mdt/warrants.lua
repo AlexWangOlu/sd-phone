@@ -318,4 +318,45 @@ warrants.void = access.audited('warrants.void', function(_, payload, me)
     }
 end)
 
+---External wanted-state bridge（YES_MDT 通缉令批准／撤销同步）。
+---wanted=true 由系统签发一条通缉（幂等：已在通缉则直接成功）；
+---wanted=false 将该市民的全部未过期通缉置为过期（与终端关闭语义一致，记录保留供审计）。
+---@param citizenid string
+---@param wanted boolean
+---@param meta { subject?, reason?, issuedBy?, days? }|nil
+---@return boolean applied
+function warrants.setWanted(citizenid, wanted, meta)
+    if type(citizenid) ~= 'string' or citizenid == '' then return false end
+    meta = type(meta) == 'table' and meta or {}
+    local now = os.time()
+
+    if wanted then
+        if warrants.isWanted(citizenid) then return true end
+        local ref = store.nextRef('warrant')
+        if not ref then return false end
+        local days = math.max(1, math.min(MAX_DAYS, math.floor(tonumber(meta.days) or DEFAULT_DAYS)))
+        MySQL.insert.await([[
+            INSERT INTO phone_mdt_warrants
+                (ref, citizenid, subject_name, report_id, report_ref, charges, felonies, misdemeanors,
+                 infractions, bond, issued_cid, issued_name, issued_callsign, department, issued_at, expiry)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ]], {
+            ref, citizenid, meta.subject or citizenid, nil, nil, '[]',
+            0, 0, 0, 0,
+            'system:yes_mdt', meta.issuedBy or 'YES_MDT 通缉同步', nil, 'police', now, now + (days * DAY),
+        })
+        announce(citizenid, true)
+        return true
+    end
+
+    local changed = MySQL.update.await([[
+        UPDATE phone_mdt_warrants SET expiry = ? WHERE citizenid = ? AND expiry > ?
+    ]], { now, citizenid, now })
+    if changed and changed > 0 then
+        announce(citizenid, false)
+        return true
+    end
+    return false
+end
+
 return warrants

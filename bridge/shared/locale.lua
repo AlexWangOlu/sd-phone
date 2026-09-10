@@ -86,7 +86,7 @@ end)
 ---@type string[] Language codes probed for a catalogue, since FiveM leaves the manifest glob
 ---unexpanded and offers no directory listing. Add a code here when shipping an unusual locale.
 local CANDIDATES = {
-    'af', 'ar', 'bg', 'bs', 'ca', 'cs', 'da', 'de', 'el', 'en', 'es', 'et', 'fa', 'fi', 'fr',
+    'af', 'ar', 'bg', 'bs', 'ca', 'cn', 'cs', 'da', 'de', 'el', 'en', 'es', 'et', 'fa', 'fi', 'fr',
     'he', 'hi', 'hr', 'hu', 'id', 'is', 'it', 'ja', 'ko', 'lt', 'lv', 'ms', 'nb', 'nl', 'no',
     'pl', 'pt', 'ro', 'ru', 'sk', 'sl', 'sq', 'sr', 'sv', 'th', 'tr', 'uk', 'vi', 'zh',
 }

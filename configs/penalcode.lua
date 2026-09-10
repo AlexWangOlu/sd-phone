@@ -1,19 +1,34 @@
 -- Penal code - the charge catalogue the MDT sentences against.
+-- 刑法典——MDT 量刑时所依据的罪名目录。
 --
 -- This is a STATIC config, not a database table. An officer picking charges on a report resolves
 -- them from here, and the report then stores its own copy of every line it used (code, label,
 -- class, months, fine). That denormalised copy is what makes editing this file safe: retune a
 -- charge and every report already filed keeps the numbers it was filed under, so a sentence is
 -- never quietly rewritten under a case that has already been decided.
+-- 这是静态配置，不是数据库表。警官在报告上勾选罪名时从这里读取，报告随后会把所用每一条的
+-- 副本（code、label、class、months、fine）存入自身。正是这份反范式副本让编辑本文件变得安全：
+-- 调整某个罪名后，所有已提交的报告仍保留提交时的数值，已决案件的量刑绝不会被悄悄改写。
 --
 --   code         the reference an officer types and a warrant cites; must be unique
+--   code         警官输入、逮捕令引用的编号；必须唯一
 --   label        what the charge is called
+--   label        罪名的名称（纯显示文本，服主可自行翻译）
 --   class        'felony' | 'misdemeanor' | 'infraction' - drives the counters and the colour
+--   class        'felony'（重罪）| 'misdemeanor'（轻罪）| 'infraction'（违警）——决定计数与配色，
+--                功能键，切勿翻译
 --   months       custodial term this charge contributes, per count
+--   months       该罪名每项指控对应的监禁月数
 --   fine         monetary penalty this charge contributes, per count
+--   fine         该罪名每项指控对应的罚金数额
 --   description  one line explaining what the charge covers, shown in the penal code browser
+--   description  解释该罪名涵盖范围的一行说明，显示在刑法典浏览器中（纯显示文本，服主可自行翻译）
 --
 -- Order does not matter: the terminal groups by class and sorts by code.
+-- 顺序无关紧要：终端会按 class 分组、按 code 排序。
+--
+-- 【汉化说明】label 与 description 为纯显示值，服主可按需翻译为中文；code 与 class 是功能键，
+-- 改动会导致量刑统计、配色与报告引用异常，务必保持原样。
 
 return {
     -- Felonies

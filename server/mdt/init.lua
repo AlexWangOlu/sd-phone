@@ -314,6 +314,17 @@ exports('mdtMirrorCall', function(call)
     return ingest.mirrorCall(call)
 end)
 
+---External wanted-state bridge (exports['sd-phone']:mdtSetWanted). YES_MDT 通缉令批准/撤销时
+---同步手机端通缉状态：wanted=true 系统签发一条通缉；false 置过期。幂等。
+---@param citizenid string
+---@param wanted boolean
+---@param meta { subject?, reason?, issuedBy?, days? }|nil
+---@return boolean applied
+exports('mdtSetWanted', function(citizenid, wanted, meta)
+    if not ENABLED then return false end
+    return warrants.setWanted(citizenid, wanted, meta)
+end)
+
 ---Whether a citizen has an active warrant (exports['sd-phone']:mdtIsWanted). The cheap predicate
 ---plate readers and NPC patrols read.
 ---@param citizenid string

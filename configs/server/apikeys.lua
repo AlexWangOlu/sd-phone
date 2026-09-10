@@ -4,27 +4,51 @@
 -- of files{}; a broad glob like `configs/**.lua` would re-expose every key here to clients.
 -- config.lua merges this in server-side only (behind IsDuplicityVersion), reachable as
 -- config.ApiKeys.
+-- 仅服务端使用的 API 密钥 - 第三方密钥唯一存放处。本文件刻意不列入 fxmanifest 的
+-- files{}（其中用的是 `configs/*.lua`，永远匹配不到这个子文件夹），因此它只留在
+-- 服务端，绝不会下发给已连接的客户端。请让 configs/server/ 保持在 files{} 之外；
+-- 若使用 `configs/**.lua` 这类宽泛通配，会把这里的所有密钥重新暴露给客户端。
+-- config.lua 仅在服务端合并此文件（在 IsDuplicityVersion 判断之后），可通过
+-- config.ApiKeys 访问。
 --
 -- GIPHY (Messages GIF picker). Get a free key:
+-- GIPHY（短信应用的 GIF 选择器）。免费申请密钥：
 --   1. https://developers.giphy.com -> sign up / log in
+--      1. 打开 https://developers.giphy.com -> 注册 / 登录
 --   2. Create an App -> choose "API" (not "SDK")
+--      2. 创建应用（Create an App）-> 选择 "API"（不要选 "SDK"）
 --   3. Copy the API Key
+--      3. 复制 API Key
 -- Left blank, the GIF picker shows a "set up GIPHY" hint.
+-- 留空时，GIF 选择器会显示"配置 GIPHY"的提示。
 --
 -- Fivemanage Media (photo, video + voice-note uploads) - REQUIRED for the Camera, Photos and
 -- Voice Memos apps. Without it those apps open but nothing uploads or saves. Get a token:
+-- Fivemanage 媒体服务（照片、视频和语音备忘录上传）- 相机、相册和语音备忘录
+-- 应用必需。没有它，这些应用能打开但无法上传或保存任何内容。申请令牌：
 --   1. https://fivemanage.com -> sign up / log in
+--      1. 打开 https://fivemanage.com -> 注册 / 登录
 --   2. Open the "Tokens" tab -> Create Token
+--      2. 打开 "Tokens"（令牌）标签页 -> 创建令牌
 --   3. Pick token type "Media", then paste it below
+--      3. 令牌类型选择 "Media"（媒体），然后粘贴到下面
 -- Left blank here, the uploader falls back to the legacy `sd_fivemanage_key` server convar
 -- (set in server.cfg) so existing setups keep working; new servers can just paste it below.
+-- 这里留空时，上传器会回退到旧版 `sd_fivemanage_key` 服务端 convar（在
+-- server.cfg 中设置），因此旧配置仍可工作；新服务器直接把令牌粘贴在下面即可。
 --
 -- Qbox CDN (the alternative to Fivemanage). Only read when Provider = 'qbox' in configs/photos.lua.
 -- Get a token:
+-- Qbox CDN（Fivemanage 的替代方案）。仅当 configs/photos.lua 中 Provider = 'qbox'
+-- 时才会读取。申请令牌：
 --   1. https://dashboard.qbox.re -> sign in with Discord
+--      1. 打开 https://dashboard.qbox.re -> 用 Discord 登录
 --   2. Open CDN -> API -> generate an API token
+--      2. 打开 CDN -> API -> 生成 API 令牌
 --   3. Paste it below (it looks like qbox_live_...)
+--      3. 粘贴到下面（格式类似 qbox_live_...）
 -- Left blank here, the uploader falls back to the `sd_qbox_cdn_key` server convar.
+-- 这里留空时，上传器会回退到 `sd_qbox_cdn_key` 服务端 convar。
 return {
     Giphy           = '',
     FivemanageMedia = '',
