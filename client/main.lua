@@ -601,11 +601,14 @@ local function OpenPhone()
     CreateThread(PushInstalledApps)
 end
 
----Fetches the acting profile's installed apps + home layout and pushes them into the open NUI.
----Runs as the open follow-up and again after a cloud-backup restore replaces the profile data.
+---Fetches the acting profile's installed apps + home layout and pushes them into the NUI of
+---whichever device is on screen. Runs as the open follow-up and again after a cloud-backup
+---restore replaces the profile data.
 function PushInstalledApps()
     local installedRes = lib.callback.await('sd-phone:server:apps:list', false)
-    if not phoneState.open then return end
+    -- Re-checked after the round-trip: the device may have been put away while the server
+    -- answered, and a push into a screen nobody is looking at reopens it on stale apps.
+    if not (phoneState.open or companion.companionOpen) then return end
     SendNUIMessage({
         action = 'sd-phone:apps',
         data   = {
@@ -754,9 +757,9 @@ RegisterNetEvent('sd-phone:client:openFromItem', function(color, sim, simPending
     OpenPhone()
 end)
 
----Live SIM state push (SIM inserted/ejected/moved). Keeps the local snapshot fresh and, while
----the phone is open, swaps the NUI's "No SIM" screen in or out immediately.
----@param state { enabled: boolean, hasSim: boolean, number: string|nil, device: boolean|nil, profile: string|nil }
+---Live SIM state push (SIM inserted/ejected/moved). Keeps the local snapshot fresh and, while a
+---device is on screen, swaps the NUI's "No SIM" screen in or out immediately.
+---@param state { enabled: boolean, hasSim: boolean, number: string|nil, device: boolean|nil, profile: string|nil, color: string|nil }
 RegisterNetEvent('sd-phone:client:simState', function(state)
     if type(state) ~= 'table' then return end
     currentSimState = state.enabled and {
@@ -780,7 +783,10 @@ RegisterNetEvent('sd-phone:client:simState', function(state)
         -- so a skipped forward leaves closed-shell peeks wearing the wrong frame.
         SendNUIMessage({ action = 'sd-phone:frameColor', data = { color = state.color } })
     end
-    if phoneState.open then
+    -- A companion counts as on screen: with DataOwner 'sim' the SIM decides whose data the
+    -- device shows, so a swap made while only the tablet is up has to reach it too - otherwise
+    -- it keeps the old identity's "No SIM" wall, number and cached app data.
+    if phoneState.open or companion.companionOpen then
         SendNUIMessage({
             action = 'sd-phone:simState',
             data   = {
@@ -797,10 +803,11 @@ end)
 ---Cloud-backup restore replaced the acting profile's data in place: the NUI drops every cached
 ---trace (kept-alive apps, hydrated settings, data stores) and rehydrates. Forwarded even while
 ---the phone is closed - the NUI keeps running hidden and would otherwise reopen on stale state.
----The installed-apps follow-up re-runs too, since the restore changes apps + home layout.
+---The installed-apps follow-up re-runs too, since the restore changes apps + home layout, and it
+---goes to a companion on screen on the same terms as to our own frame.
 RegisterNetEvent('sd-phone:client:profileReset', function()
     SendNUIMessage({ action = 'sd-phone:profileReset' })
-    if phoneState.open then CreateThread(PushInstalledApps) end
+    if phoneState.open or companion.companionOpen then CreateThread(PushInstalledApps) end
 end)
 
 ---Admin wipe (server /wipemyphone): closes the phone and tells the React app to clear its local
@@ -983,6 +990,66 @@ exports('isLocked', phoneState.isLocked)
 exports('open',     OpenPhone)
 exports('close',    ClosePhone)
 exports('openApp',  OpenApp)
+
+---@type boolean Fold state mirror, so the toggle can report which way it went.
+local foldOpen = false
+---@type boolean Whether this phone has a hinge at all (configs/phone.lua Foldable). Off leaves the
+---NUI never told about a fold, so no rail control is drawn and nothing else changes.
+local FOLDABLE <const> = config.Phone.Foldable == true
+---@type integer Screen width unfolded. Twice the closed width, which is what makes the open state
+---two phones side by side rather than one stretched one.
+local FOLD_OPEN_W <const> = math.max(440, math.floor(tonumber(config.Phone.FoldOpenWidth) or 880))
+
+---Unfolds or folds the phone. A foldable body doubles its screen width, and the UI reflows into
+---the space rather than scaling up: more home-screen columns, and the list/detail apps showing
+---both panes at once. Dropped while the phone is away, since the fold is a thing you do to a
+---phone you are holding.
+---@param open boolean|nil true to unfold, false to fold, nil to toggle
+---@return boolean open the state it settled on
+local function SetFolded(open)
+    if not FOLDABLE or not phoneState.open then return foldOpen end
+    if open == nil then open = not foldOpen end
+    foldOpen = open == true
+    SendNUIMessage({
+        action = 'sd-phone:fold',
+        data   = { foldable = FOLDABLE, openW = FOLD_OPEN_W, open = foldOpen },
+    })
+    return foldOpen
+end
+
+-- Declares the hinge to the NUI without moving it, so the rail control is there to press the
+-- moment the phone is on screen. Folded is the state a phone is put away in, so opening always
+-- starts closed.
+local function AnnounceFold()
+    if not FOLDABLE then return end
+    foldOpen = false
+    SendNUIMessage({
+        action = 'sd-phone:fold',
+        data   = { foldable = true, openW = FOLD_OPEN_W, open = false },
+    })
+end
+
+-- The NUI outlives the shell (the keep-alive deck), so this handler is registered whether the
+-- phone is up or not and the announcement never races the mount.
+AddEventHandler('sd-phone:client:openState', function(open)
+    if open then AnnounceFold() end
+end)
+
+exports('setFolded', SetFolded)
+exports('isFolded',  function() return foldOpen end)
+
+-- Dev toggle while the fold is being built out. The shipping trigger is a hinge control on the
+-- chassis rail, which arrives with the foldable shell.
+if FOLDABLE then
+    RegisterCommand('fold', function()
+        if not phoneState.open then
+            print('^3[sd-phone]^0 open the phone first, then /fold')
+            return
+        end
+        print(('^2[sd-phone]^0 phone is now %s')
+            :format(SetFolded(nil) and ('unfolded (' .. FOLD_OPEN_W .. ')') or 'folded (440)'))
+    end, false)
+end
 
 ---Current cell service, 0 (dead zone) to 1 (standing at a mast). Always 1 when no towers are
 ---configured.
