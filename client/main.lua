@@ -560,6 +560,7 @@ local function OpenPhone()
         data   = {
             locale    = config.Locale,
             locales   = locale.available(),
+            forceLtr  = config.ForceLeftToRight == true,
             locked    = phoneState.locked,
             battery   = phoneState.battery,
             frameColor = currentFrameColor,
