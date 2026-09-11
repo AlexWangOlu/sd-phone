@@ -146,6 +146,28 @@ return {
     -- never been designed against.
     FoldOpenWidth = 880,
 
+    -- In-hand prop for the foldable body, streamed by sd-phone-props alongside the plain models.
+    -- Shut it is FoldPropPrefix .. <colour>, unfolded it adds FoldOpenSuffix, so the phone other
+    -- players see opens when the hinge is pressed instead of staying a slab. Only read while
+    -- Foldable is true - with it off the prop resolves through PropPrefix exactly as before, so
+    -- the original sd_phone_<colour> models are what everyone keeps holding.
+    FoldPropPrefix = 'sd_phone_fold_',
+    FoldOpenSuffix = '_open',
+
+    -- Where the SHUT foldable sits in the hand, added on top of PropOffset. The hinge makes this
+    -- body 16.5mm thick against the plain phone's 13.5mm, and the extra sits on the palm side,
+    -- so the grip clips the fingers that wrap the left edge unless it is lifted clear. Y is the
+    -- axis through the screen: MORE negative pushes it further off the palm.
+    FoldPropOffset = vec3(0.0, -0.0030, 0.0),
+
+    -- Where the UNFOLDED body sits in the hand, added on top of PropOffset and only while it is
+    -- open. The open phone is twice as wide, so leaving it centred like the shut one puts the
+    -- hand in the middle of the screen; shifting it slides the grip toward the bottom-right
+    -- corner, which is how a device that size is actually held. The screen texture runs u=0 at
+    -- -X to u=1 at +X, so -X is the viewer's left: go MORE negative to slide the body further
+    -- left of the hand, raise Z to grip lower down it, and lower Y to lift it off the palm.
+    FoldOpenPropOffset = vec3(-0.0392, -0.0173, 0.0200),
+
     -- Let the player walk around while the phone is open (the game keeps
     -- receiving input alongside the UI). Mouse-look, aiming, firing, melee and
     -- weapon switching are suppressed so the mouse only drives the on-screen
