@@ -91,11 +91,9 @@ let active = catalogs.en;
 let currentCode = 'en';
 let catalogVersion = 0;
 
-const RTL_LOCALES = new Set(['ar', 'fa', 'he', 'ur']);
-
 function applyDocumentLocale(code: string): void {
+    if (typeof document === 'undefined') return;
     document.documentElement.lang = code;
-    document.documentElement.dir = RTL_LOCALES.has(code.split('-')[0]) ? 'rtl' : 'ltr';
 }
 
 /** Select the active language (from config.Locale, or a player's saved pick).
