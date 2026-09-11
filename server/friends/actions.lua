@@ -60,9 +60,10 @@ end
 
 ---The full roster for a player: every added friend with display info, the two directional share
 ---flags, and live coords for online sharing friends; incoming requests come first. Read-only.
----A sharer who is no longer carrying a phone keeps their place in the roster but sends no coords:
----the share belongs to the character, so dropping the phone hides the pin and picking one back up
----shows it again without touching the stored share.
+---A sharer who is no longer carrying a phone keeps their place in the roster but sends no coords,
+---only `unavailable = true` so the list can say why the pin is gone: the share belongs to the
+---character, so dropping the phone hides the pin and picking one back up shows it again without
+---touching the stored share.
 ---@param src number player server id
 ---@param onlineCids? table<string, number> shared citizenid->src map; the tick loop builds it once
 ---and passes it to every watcher, nil = build it here (for one-off callback use)
@@ -180,6 +181,8 @@ function actions.snapshot(src, onlineCids, carrying)
                         local c = GetEntityCoords(ped)
                         entry.x, entry.y, entry.updatedAt = c.x, c.y, nowMs
                     end
+                elseif fsrc then
+                    entry.unavailable = true
                 end
             end
 

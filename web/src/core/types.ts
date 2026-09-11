@@ -232,6 +232,7 @@ interface FriendsUpdatePush {
         x?:         number;
         y?:         number;
         updatedAt?: number;
+        unavailable?: boolean;
     }[];
 }
 
