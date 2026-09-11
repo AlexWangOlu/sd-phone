@@ -154,6 +154,20 @@ return {
     FoldPropPrefix = 'sd_phone_fold_',
     FoldOpenSuffix = '_open',
 
+    -- Keep the original phone in hand while the foldable is SHUT. Off by default, so a shut
+    -- foldable is held as its own hinged model. Set true and the shut phone is the plain
+    -- sd_phone_<colour> model everyone held before - no hinge, no extra thickness, and
+    -- FoldPropOffset below is ignored. Unfolding still swaps in the open fold model unless
+    -- FoldPlainOpenProp is on as well.
+    FoldPlainShutProp = false,
+
+    -- Keep the original phone in hand while the foldable is UNFOLDED. Off by default, so pressing
+    -- the hinge swaps in the open fold model. Set true and the prop stays the plain
+    -- sd_phone_<colour> model when the phone is unfolded - the screen still opens wide, the held
+    -- phone just does not change - and FoldOpenPropOffset below is ignored. With both this and
+    -- FoldPlainShutProp on, the fold models are never used at all.
+    FoldPlainOpenProp = false,
+
     -- Where the SHUT foldable sits in the hand, added on top of PropOffset. The hinge makes this
     -- body 16.5mm thick against the plain phone's 13.5mm, and the extra sits on the palm side,
     -- so the grip clips the fingers that wrap the left edge unless it is lifted clear. Y is the
