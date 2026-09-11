@@ -293,9 +293,10 @@ local function broadcastHoldState()
         return
     end
     -- Widened from a bare colour so watchers weld the unfolded body too. A holder who is shut
-    -- still broadcasts the plain string, which is what every older reader understands.
+    -- still broadcasts the plain string, which is what every older reader understands, and so
+    -- does one whose fold never changes the prop, so watchers have no re-weld to do.
     LocalPlayer.state:set('sdPhone',
-        pose.isFolded() and { c = currentFrameColor, f = true } or currentFrameColor, true)
+        (pose.isFolded() and pose.foldChangesProp()) and { c = currentFrameColor, f = true } or currentFrameColor, true)
 end
 
 ---Pushes the current state into the pose module, which starts or stops the held clip to match,
