@@ -8,7 +8,9 @@ import { isDemo } from '@/core/demo';
 import { useTheme } from '@/stores/themeStore';
 import type { PhoneAlign } from '@/stores/themeStore';
 import { useCallStore } from '@/stores/callStore';
-import { useFoldOpen, useFoldStore, useFoldable, useScreenW } from '@/stores/foldStore';
+import { useFoldOpen, useFoldStore, useFoldable, useFoldSwing, useScreenW } from '@/stores/foldStore';
+import { FoldRig, spineInset, SPINE_OUT, SPINE_W, type FoldAnchor } from './FoldRig';
+import { requestFold, STAGE_ATTR } from './foldSnapshot';
 import { useBatteryStore } from '@/stores/batteryStore';
 import { IslandPet } from './IslandPet';
 import { fetchNui } from '@/core/nui';
@@ -26,6 +28,7 @@ import type { OpenAnim } from './shellLook';
 import type { ChassisMetrics, FacePart, RailButton } from './chassis';
 import { shellFor } from './shells';
 import { t } from '@/i18n';
+import { useDirection } from '@/stores/directionStore';
 
 
 const MI_MORPH =
@@ -207,7 +210,7 @@ function MusicIsland({ m, track, playing, expanded, closing, onToggle, onPlayPau
                     pointerEvents: expanded ? 'auto' : 'none',
                 }}
             >
-                <button type="button" onClick={stop(onOpenApp)} className="flex items-center gap-3 text-left">
+                <button type="button" onClick={stop(onOpenApp)} className="flex items-center gap-3 text-start">
                     <span
                         className="flex h-[52px] w-[52px] shrink-0 items-center justify-center overflow-hidden rounded-[12px]"
                         style={{ background: artBg }}
@@ -414,6 +417,9 @@ export function PhoneShell({ children, hidden = false, cameraActive = false, ent
     const foldW = useScreenW();
     const foldable = useFoldable();
     const foldOpen = useFoldOpen();
+    const foldSwing = useFoldSwing();
+    const direction = useDirection();
+    const foldOpenW = useFoldStore(s => s.openW);
     const m = useMemo(() => chassisMetrics(shellFor(shell, device.id), foldW), [shell, foldW]);
     const {
         SW, SH, W, H, SX, SY, BR, SR, SCREEN_MASK, BEZEL, hostsIsland, hasCutout, pillInCutout,
@@ -523,7 +529,11 @@ export function PhoneShell({ children, hidden = false, cameraActive = false, ent
     const effectiveAlign = peek ? peekAlign(phoneAlign) : phoneAlign;
     const flexClasses = ALIGN_MAP[effectiveAlign] ?? ALIGN_MAP['bottom-right'];
 
+    const spineBg = `linear-gradient(90deg, ${rail.s100} 0%, ${rail.s45} 38%, ${rail.s0} 72%, rgba(0,0,0,0.55) 100%)`;
+
     const align = phoneAlign ?? 'bottom-right';
+    const foldAnchor: FoldAnchor =
+        align.endsWith('left') ? 'left' : align.endsWith('center') ? 'center' : 'right';
     const reanchor = (H - W) / 2;
     const shiftX = align.includes('right') ? -reanchor : align.includes('left') ? reanchor : 0;
     const shiftY = align.includes('bottom') ? reanchor : align.includes('top') ? -reanchor : 0;
@@ -540,19 +550,37 @@ export function PhoneShell({ children, hidden = false, cameraActive = false, ent
             style={{ padding: EDGE_PADDING * stage, display: hidden ? 'none' : undefined }}
         >
             <div
-                className="shrink-0"
+                className="relative shrink-0"
                 style={{
                     transform:       tilt,
                     transformOrigin: 'center',
                     transition:      'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
                 }}
             >
+                {foldSwing && (
+                    <div
+                        className="pointer-events-none absolute inset-0"
+                        style={{ zoom: scale, overflow: 'visible' }}
+                    >
+                        <FoldRig
+                            swing={foldSwing}
+                            shell={shell}
+                            openW={foldOpenW}
+                            anchor={foldAnchor}
+                            spine={spineBg}
+                        />
+                    </div>
+                )}
                 <div
+                    {...{ [STAGE_ATTR]: '' }}
                     className="relative shrink-0"
                     style={{
                         width:  W,
                         height: stageH,
                         zoom: scale,
+                        opacity: foldSwing ? 0.002 : undefined,
+                        pointerEvents: foldSwing ? 'none' : undefined,
+                        willChange: 'transform',
                         ...({ '--hairline-w': `${1 / scale}px` } as React.CSSProperties),
                         animation: motionAnimation,
                         transform: !motionAnimation && landscape ? landscapeTransform : undefined,
@@ -562,6 +590,7 @@ export function PhoneShell({ children, hidden = false, cameraActive = false, ent
                 >
                     <div
                         data-phone-screen
+                        dir={direction}
                         className="absolute overflow-hidden"
                         style={{
                             left: SX, top: SY, width: SW, height: SH,
@@ -938,11 +967,30 @@ export function PhoneShell({ children, hidden = false, cameraActive = false, ent
                         />
                     )}
 
+                    {foldable && !foldOpen && !foldSwing && (
+                        <div
+                            aria-hidden
+                            className="pointer-events-none absolute"
+                            style={{
+                                left: -SPINE_OUT,
+                                top: spineInset(BR), bottom: spineInset(BR),
+                                width: SPINE_W,
+                                zIndex: 190,
+                                borderRadius: 4,
+                                background: spineBg,
+                                boxShadow: '-1px 0 2px rgba(0,0,0,0.45)',
+                            }}
+                        />
+                    )}
+
                     {FOLD_BTN && foldable && (
                         <button
                             type="button"
                             aria-label={foldOpen ? t('shell.fold','Fold') : t('shell.unfold','Unfold')}
-                            onClick={() => useFoldStore.getState().toggle()}
+                            onClick={() => {
+                                requestFold();
+                                void fetchNui('sd-phone:fold:set', { open: useFoldStore.getState().open });
+                            }}
                             className="absolute z-[300] cursor-pointer bg-transparent"
                             style={{ left: FOLD_BTN.x - 6, top: FOLD_BTN.y, width: FOLD_BTN.w + 12, height: FOLD_BTN.h }}
                         />
@@ -980,7 +1028,7 @@ export function PhoneShell({ children, hidden = false, cameraActive = false, ent
                             onClick={() => { useCallStore.getState().setMinimised(false); void fetchNui('sd-phone:requestOpen'); }}
                             compactX={DI_X} compactW={DI_W} expandedX={CALL_X} expandedW={CALL_W}
                         >
-                            <span className="absolute left-3 top-1/2 flex -translate-y-1/2 items-center gap-1.5">
+                            <span className="absolute start-3 top-1/2 flex -translate-y-1/2 items-center gap-1.5">
                                 <Phone className="h-[14px] w-[14px]" style={{ color: '#30D158' }} fill="currentColor" strokeWidth={0} />
                                 <span className="text-[13px] font-semibold tabular-nums" style={{ color: '#30D158' }}>
                                     {callStartedAt ? <RingDuration since={callStartedAt} /> : t('shell.mobile','Mobile')}
@@ -995,7 +1043,7 @@ export function PhoneShell({ children, hidden = false, cameraActive = false, ent
                             onClick={() => { if (radioOn) void fetchNui('sd-phone:radio:leave'); else void fetchNui('sd-phone:radio:set', { on: true }); }}
                             compactX={DI_X} compactW={DI_W} expandedX={CALL_X} expandedW={CALL_W}
                         >
-                            <span className="absolute left-3 top-1/2 flex -translate-y-1/2 items-center gap-1.5">
+                            <span className="absolute start-3 top-1/2 flex -translate-y-1/2 items-center gap-1.5">
                                 <Radio className={`h-[16px] w-[16px] ${radioOnAir ? 'animate-pulse' : ''}`} style={{ color: radioOn ? '#30D158' : '#FF453A', transition: 'color 0.2s ease' }} strokeWidth={2.4} />
                                 <span className="text-[13px] font-semibold tabular-nums" style={{ color: radioOn ? '#30D158' : '#FF453A', transition: 'color 0.2s ease' }}>{radioFreq.toFixed(1)}</span>
                             </span>
@@ -1007,7 +1055,7 @@ export function PhoneShell({ children, hidden = false, cameraActive = false, ent
                             active={alarmRinging && !callActive}
                             compactX={DI_X} compactW={DI_W} expandedX={CALL_X} expandedW={CALL_W}
                         >
-                            <span className="absolute left-3 top-1/2 flex -translate-y-1/2 items-center gap-1.5">
+                            <span className="absolute start-3 top-1/2 flex -translate-y-1/2 items-center gap-1.5">
                                 <AlarmClock className="h-[15px] w-[15px]" style={{ color: '#FF9F0A' }} strokeWidth={2.5} />
                                 <span className="text-[13px] font-semibold tabular-nums" style={{ color: '#FF9F0A' }}><RingDuration since={alarmSince} /></span>
                             </span>

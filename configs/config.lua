@@ -8,6 +8,11 @@ local config = {
     -- 语言文件位于 `locales/<Locale>.json`，缺失时回退到 `en`。cn = 简体中文。
     Locale = 'cn',
 
+    -- Keep the screen left-to-right even when the language reads right-to-left.
+    -- Arabic mirrors the whole interface by default, the way an Arabic iPhone does.
+    -- Turn this on only if you want the old left-to-right layout with Arabic text.
+    ForceLeftToRight = false,
+
     -- Debug / dev logging toggle.
     -- 调试 / 开发日志开关。
     Debug  = false,

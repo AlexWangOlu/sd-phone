@@ -22,4 +22,10 @@ return {
     -- 24 小时制或 12 小时制。iOS 默认跟随设备地区设置；这里由服务器
     -- 作者统一选择。
     Use24Hour = false,
+
+    -- Fail Face Unlock while a mask, bandana or hood covers the
+    -- player's face, the way a real phone refuses a face it cannot
+    -- read. The lockscreen falls back to the passcode. Turn this off
+    -- to let a covered face unlock the phone anyway.
+    MaskBlocksFaceUnlock = true,
 }

@@ -98,6 +98,11 @@ let active = catalogs.en;
 let currentCode = 'en';
 let catalogVersion = 0;
 
+function applyDocumentLocale(code: string): void {
+    if (typeof document === 'undefined') return;
+    document.documentElement.lang = code;
+}
+
 /** Select the active language (from config.Locale, or a player's saved pick).
  *  Falls back to English for an unknown code. Resolves once the catalog is
  *  applied; a newer setLocale call wins over a slower in-flight one. */
@@ -111,6 +116,7 @@ export function setLocale(lang: string): Promise<void> {
     const known = Boolean(catalogs[lang] || loaders[lang] || runtimeCodes.has(lang));
     const code = known ? lang : 'en';
     currentCode = code;
+    applyDocumentLocale(code);
     if (catalogs[code]) {
         active = catalogs[code];
         catalogVersion += 1;
@@ -153,10 +159,18 @@ export function getLocaleTag(): string {
     return LOCALE_TAGS[currentCode] ?? currentCode ?? 'en-US';
 }
 
+const RTL_CODES = new Set(['ar', 'fa', 'he', 'ur']);
+
+function isolated(value: string): string {
+    return RTL_CODES.has(currentCode.split('-')[0])
+        ? `⁨${value}⁩`
+        : value;
+}
+
 export function t(key: string, fallback: string, vars?: Record<string, string | number>): string {
     let s = active[key] ?? fallback;
     if (vars) {
-        for (const k in vars) s = s.split('{' + k + '}').join(String(vars[k]));
+        for (const k in vars) s = s.split('{' + k + '}').join(isolated(String(vars[k])));
     }
     return s;
 }

@@ -90,6 +90,8 @@ local inCall = false
 local callUi = true
 ---@type table<integer, true> Prop models this client has already failed to stream.
 local unavailableModels = {}
+---@type table<integer, true> Fold models already reported missing, so the fallback warns once each.
+local warnedFold = {}
 
 ---Whether our pose applies: the phone is out (or the torch is lit, or a call is live), and the
 ---native cell cam is not the one framing. That native animates its own pose and spawns its own
@@ -133,15 +135,88 @@ local function currentClip()
     return CLIPS[action][IsPedInAnyVehicle(cache.ped, true) and 'inCar' or 'onFoot']
 end
 
----Where the prop sits in the hand. Landscape lays the phone on its side for the wide viewfinder.
----@param wide boolean|nil
----@return vector3 offset, vector3 rotation
-local function propTransform(wide)
-    if wide then
-        return config.Phone.PropLandscapeOffset or config.Phone.PropOffset,
-               config.Phone.PropLandscapeRot or config.Phone.PropRot
+---@type boolean Whether this phone has a hinge at all (configs/phone.lua Foldable). Off resolves
+---the prop through PropPrefix, so the original sd_phone_<colour> models are what gets welded.
+local FOLDABLE <const> = config.Phone.Foldable == true
+---@type boolean Whether a shut foldable is held as the plain phone model rather than the hinged one
+---(configs/phone.lua FoldPlainShutProp).
+local PLAIN_SHUT <const> = config.Phone.FoldPlainShutProp == true
+---@type boolean Whether an unfolded foldable is still held as the plain phone model rather than the
+---open fold model (configs/phone.lua FoldPlainOpenProp).
+local PLAIN_OPEN <const> = config.Phone.FoldPlainOpenProp == true
+---@type boolean Whether the body in hand is currently unfolded. Only ever true on a foldable.
+local foldOpen = false
+
+---Whether the model welded for this body state is one of the fold models, which is what decides
+---both the model name and whether the fold grip offsets apply.
+---@param open boolean|nil true for the unfolded body
+---@return boolean
+local function usesFoldModel(open)
+    if not FOLDABLE then return false end
+    if open then return not PLAIN_OPEN end
+    return not PLAIN_SHUT
+end
+
+---The fold model for a frame colour in a body state. Both fold models share the closed phone's
+---origin and axes, so the grip transform is the same one either way.
+---@param frame string frame colour; must be a key of FRAME_COLORS
+---@param open boolean|nil true for the unfolded body
+---@return string model
+local function foldModel(frame, open)
+    return (config.Phone.FoldPropPrefix or 'sd_phone_fold_') .. frame
+        .. (open and (config.Phone.FoldOpenSuffix or '_open') or '')
+end
+
+---The models to weld for a body state, best first: the fold model when this body uses one, then the
+---plain phone. A server that has not installed the fold props streams only the plain ones, and the
+---phone in hand falls back to them instead of vanishing.
+---@param frame string frame colour; must be a key of FRAME_COLORS
+---@param open boolean|nil true for the unfolded body
+---@return { name: string, fold: boolean }[] candidates
+local function propCandidates(frame, open)
+    local plain = { name = config.Phone.PropPrefix .. frame, fold = false }
+    if not usesFoldModel(open) then return { plain } end
+    return { { name = foldModel(frame, open), fold = true }, plain }
+end
+
+---Whether folding or unfolding changes the prop in hand at all. False when both body states resolve
+---to the plain model, whether by config or because the fold models are known not to stream, so a
+---hinge press has nothing to re-weld and nothing to tell watchers about.
+---@return boolean
+function pose.foldChangesProp()
+    for _, open in ipairs({ true, false }) do
+        if usesFoldModel(open) and not unavailableModels[joaat(foldModel(color, open))] then return true end
     end
-    return config.Phone.PropOffset, config.Phone.PropRot
+    return false
+end
+
+---Whether the body in hand is unfolded right now.
+---@return boolean
+function pose.isFolded()
+    return foldOpen
+end
+
+---Where the prop sits in the hand. Landscape lays the phone on its side for the wide viewfinder,
+---and the unfolded body slides off-centre so the hand grips its corner rather than its middle.
+---@param wide boolean|nil
+---@param open boolean|nil true when the unfolded body is the one being welded
+---@param fold boolean whether the model being welded is a fold model rather than the plain phone
+---@return vector3 offset, vector3 rotation
+local function propTransform(wide, open, fold)
+    local off, rot
+    if wide then
+        off = config.Phone.PropLandscapeOffset or config.Phone.PropOffset
+        rot = config.Phone.PropLandscapeRot or config.Phone.PropRot
+    else
+        off, rot = config.Phone.PropOffset, config.Phone.PropRot
+    end
+    -- PropRot is zero on these models, so the bone axes the offset is measured in line up with
+    -- the prop's own - which is what lets a flat vec3 read as "along the screen" here.
+    if fold then
+        local shift = open and config.Phone.FoldOpenPropOffset or config.Phone.FoldPropOffset
+        if shift then off = off + shift end
+    end
+    return off, rot
 end
 
 ---Creates a colour-matched local phone prop, disables its collision, and rigidly welds it to the
@@ -155,25 +230,32 @@ end
 ---@param ped integer ped to attach the prop to
 ---@param frame string frame colour; must be a key of FRAME_COLORS
 ---@param wide boolean|nil weld it in the landscape grip
----@return integer? prop the welded prop entity, or nil if the model wouldn't stream
-function pose.createProp(ped, frame, wide)
-    local model = joaat(config.Phone.PropPrefix .. frame)
-    if unavailableModels[model] then return nil end
-
-    if not pcall(lib.requestModel, model, 1000) then
-        SetModelAsNoLongerNeeded(model)
-        unavailableModels[model] = true
-        return nil
+---@param open boolean|nil weld the unfolded body instead of the shut one
+---@return integer? prop the welded prop entity, or nil if no candidate model would stream
+function pose.createProp(ped, frame, wide, open)
+    for _, candidate in ipairs(propCandidates(frame, open)) do
+        local model = joaat(candidate.name)
+        if not unavailableModels[model] then
+            if pcall(lib.requestModel, model, 1000) then
+                local coords = GetEntityCoords(ped)
+                local obj = CreateObject(model, coords.x, coords.y, coords.z, false, true, true)
+                SetEntityCollision(obj, false, false)
+                local off, rot = propTransform(wide, open, candidate.fold)
+                AttachEntityToEntity(obj, ped, GetPedBoneIndex(ped, config.Phone.PropBone),
+                    off.x, off.y, off.z, rot.x, rot.y, rot.z, false, false, false, false, 2, true)
+                SetModelAsNoLongerNeeded(model)
+                return obj
+            end
+            SetModelAsNoLongerNeeded(model)
+            unavailableModels[model] = true
+        end
+        if candidate.fold and not warnedFold[model] then
+            warnedFold[model] = true
+            print(('^3[sd-phone]^0 fold prop %s is not streamed, so the plain phone is held instead. Update sd-phone-props to get the foldable models.')
+                :format(candidate.name))
+        end
     end
-
-    local coords = GetEntityCoords(ped)
-    local obj = CreateObject(model, coords.x, coords.y, coords.z, false, true, true)
-    SetEntityCollision(obj, false, false)
-    local off, rot = propTransform(wide)
-    AttachEntityToEntity(obj, ped, GetPedBoneIndex(ped, config.Phone.PropBone),
-        off.x, off.y, off.z, rot.x, rot.y, rot.z, false, false, false, false, 2, true)
-    SetModelAsNoLongerNeeded(model)
-    return obj
+    return nil
 end
 
 ---Attaches our own hand prop in the current frame colour and grip. No-op if one is already
@@ -184,7 +266,7 @@ local function attachProp(ped)
 
     weldSeq = weldSeq + 1
     local seq = weldSeq
-    local obj = pose.createProp(ped, color, landscape)
+    local obj = pose.createProp(ped, color, landscape, foldOpen)
     if not obj then return end
 
     if seq ~= weldSeq or not pose.shouldHold() or (prop and DoesEntityExist(prop)) then
@@ -288,6 +370,17 @@ function pose.reweld()
     if not pose.shouldHold() then return end
     pose.removeProp()
     attachProp(cache.ped)
+end
+
+---Swaps the shut body for the unfolded one in hand, or back. The two models share an origin, so
+---this is a re-weld and nothing else - no offset to re-derive, no clip to change. When both states
+---hold the plain model the prop in hand is already right, so nothing is torn down and rebuilt.
+---@param open any truthy to hold the unfolded body
+function pose.setFolded(open)
+    open = open and true or false
+    if not FOLDABLE or foldOpen == open then return end
+    foldOpen = open
+    if pose.foldChangesProp() then pose.reweld() end
 end
 
 ---Turns the phone on its side for the landscape viewfinder, or stands it back up. Swaps the held
