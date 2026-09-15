@@ -460,6 +460,10 @@ function races.beginRun(race, members, now)
         finishCount = 0,
         ratings     = ratings,
         racerCount  = #members,
+        -- Fixed at the flag: the prize gate reads this, not racerCount, which shrinks when someone
+        -- is withdrawn for never starting. Otherwise one withdrawal (or one spoofed notStarted call)
+        -- in a two-car event would strip the winner's payout after a race that legitimately ran.
+        starters    = #members,
         cpPerLap    = checkpointsPerLap(route, race),
         route       = route,
         laps        = math.max(1, math.floor(tonumber(race.laps) or 1)),
@@ -589,7 +593,7 @@ function races.finish(src, raceId, modelHash, clientMs)
 
     local payout = 0
     local share  = races.prizeShare(run.isCustom, place)
-    local prizeEligible = run.isCustom or run.racerCount >= MIN_RANKED_RACERS
+    local prizeEligible = run.isCustom or run.starters >= MIN_RANKED_RACERS
     if prizeEligible and share > 0 and run.prizePool > 0 then
         payout = lib.math.round(run.prizePool * share)
         if payout > 0 then money.add(src, CURRENCY, payout, 'Race prize') end
