@@ -176,8 +176,6 @@ The phone ships a full integration surface, documented at [docs.samueldev.shop](
 - [Custom apps](https://docs.samueldev.shop/resources/phone/custom-apps) for shipping your own apps on the phone, with ready-made [templates](https://github.com/Samuels-Development/sd-phone-app-templates) for plain JS, React, Vue and Svelte. Apps written for lb-phone register and run unmodified.
 - [First-party events](https://docs.samueldev.shop/resources/phone/events-server) on every lifecycle moment: messages, mail, calls, transactions, posts, contacts.
 - [lb-phone compatibility](https://docs.samueldev.shop/resources/phone/lb-phone-compatibility) covering exports, events, and `dependency 'lb-phone'` lines.
-- [MDT integrations](docs/mdt-integrations.md) covering the native SD MDT API and the deliberately
-  limited `lb-tablet` MDT compatibility surface.
 
 ```lua
 -- A taste: text a player from a job script

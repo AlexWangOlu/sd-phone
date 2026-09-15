@@ -56,10 +56,6 @@ dependencies {
 }
 
 provide 'lb-phone'
--- Holds the lb-tablet name so scripts that poll GetResourceState('lb-tablet') before calling its
--- dispatch exports see it started. The exports themselves are answered by server/compat/lbtablet
--- by event name, so the alias only serves that poll. A dead lb-tablet folder left in the
--- resources tree shadows it, so the old resource must be removed rather than only stopped.
 provide 'lb-tablet'
 provide 'yseries'
 
