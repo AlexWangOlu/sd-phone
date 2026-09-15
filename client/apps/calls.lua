@@ -119,7 +119,7 @@ end)
 ---@param data table { channel: number, name?: string, number: string, video?: boolean }
 RegisterNetEvent('sd-phone:client:call:incoming', function(data)
     if config.Phone.OpenOnIncomingCall then
-        exports['sd-phone']:open()
+        exports['sd-phone']:open({ silent = true })
         Wait(200)
     end
     pushCall('sd-phone:call:incoming', data)

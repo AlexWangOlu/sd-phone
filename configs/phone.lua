@@ -5,7 +5,9 @@ return {
     -- the prop model held in hand (PropPrefix .. colour). Add variants by
     -- shipping the matching `sd_phone_<colour>` prop and listing it here.
     -- Order matters: the keybind opens the first owned variant when the
-    -- last-used one isn't held. Set to {} to disable item-based opening.
+    -- last-used one isn't held. Every way of opening the phone (keybind, item,
+    -- exports, compat commands) requires one of these items, so {} means
+    -- nobody can open the phone.
     Items = {
         { item = 'phone_black',  color = 'black'  },
         { item = 'phone_blue',   color = 'blue'   },

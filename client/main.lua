@@ -513,10 +513,11 @@ local function seizesOpenPhone()
     return false
 end
 
----Opens the phone NUI onto the lockscreen, loads installed apps, focuses the NUI, and pushes a
+---Reveals the phone NUI onto the lockscreen, loads installed apps, focuses the NUI, and pushes a
 ---weather snapshot plus the session-start timestamp. Refuses while dead, downed, restrained,
----swimming, or disabled.
-local function OpenPhone()
+---swimming, or disabled. Does NOT check item ownership: only OpenPhone and the server's own
+---item-use event may call it.
+local function RevealPhone()
     if phoneState.open then return end
 
     if phoneDisabled then
@@ -651,16 +652,22 @@ function ClosePhone()
     debugPrint('phone closed')
 end
 
----Keybind toggle: closes when open, otherwise resolves ownership and colour via the server
----callback and opens. The returned colour is whitelist-checked against FRAME_COLORS. Under
----unique phones the server answers with a table carrying the SIM snapshot instead.
-local function TogglePhone()
-    if phoneState.open then ClosePhone() return end
+---Opens the phone for a player who carries a phone item. Every open path runs through here (the
+---keybind, the exports, the compat shims, the call island) except the server's item-use event,
+---which has already proven ownership. The server resolves ownership and the frame colour, which is
+---whitelist-checked against FRAME_COLORS; under unique phones it answers with a table carrying the
+---SIM snapshot instead.
+---@param silent boolean|nil true to refuse without the "no phone" toast (automatic opens)
+---@return boolean opened whether the phone is on screen afterwards
+local function OpenPhone(silent)
+    if phoneState.open then return true end
 
     local res = lib.callback.await('sd-phone:server:phone:resolveOpen', false, currentFrameColor)
     if not res then
-        notify.show({ description = locale.t('phone.noPhone', 'You don\'t have a phone.'), type = 'error' })
-        return
+        if not silent then
+            notify.show({ description = locale.t('phone.noPhone', 'You don\'t have a phone.'), type = 'error' })
+        end
+        return false
     end
     local color = res
     if type(res) == 'table' then
@@ -674,6 +681,13 @@ local function TogglePhone()
         currentSimState = nil
     end
     if FRAME_COLORS[color] then currentFrameColor = color end
+    RevealPhone()
+    return phoneState.open
+end
+
+---Keybind toggle: closes when open, otherwise opens through the ownership gate.
+local function TogglePhone()
+    if phoneState.open then ClosePhone() return end
     OpenPhone()
 end
 
@@ -747,6 +761,12 @@ lib.addKeybind({
 ---@param deviceHint string|nil the used phone's device identity, read synchronously from its
 ---item metadata: a DIFFERENT device than the last snapshot seeds the switch at reveal time
 RegisterNetEvent('sd-phone:client:openFromItem', function(color, sim, simPending, deviceHint)
+    -- Only the server's item-use handler has proven ownership. Another client resource can raise
+    -- this event locally, and then source is not a number, so that goes through the gate instead.
+    if type(source) ~= 'number' then
+        OpenPhone()
+        return
+    end
     if color and FRAME_COLORS[color] then currentFrameColor = color end
     if sim then
         currentSimState = { hasSim = sim.hasSim == true, number = sim.number }
@@ -763,7 +783,7 @@ RegisterNetEvent('sd-phone:client:openFromItem', function(color, sim, simPending
     else
         currentSimState = nil
     end
-    OpenPhone()
+    RevealPhone()
 end)
 
 ---Live SIM state push (SIM inserted/ejected/moved). Keeps the local snapshot fresh and, while a
@@ -1018,7 +1038,7 @@ end
 -- Exports for other resources: query phone visibility or drive the phone.
 exports('isOpen',   phoneState.isOpen)
 exports('isLocked', phoneState.isLocked)
-exports('open',     OpenPhone)
+exports('open',     function(opts) return OpenPhone(type(opts) == 'table' and opts.silent == true) end)
 exports('close',    ClosePhone)
 exports('openApp',  OpenApp)
 
