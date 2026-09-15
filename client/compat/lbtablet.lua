@@ -35,6 +35,16 @@ registerLbExport('AddDispatch', function(options)
     return lib.callback.await('sd-phone:server:lbtablet:addDispatch', false, options) or false
 end)
 
+-- Shared MDT exports have no client-side job source to trust. Ask the SD server, which resolves
+-- the active framework job and grade before answering permissions or employee status.
+local function sharedMdt(action, mdtName)
+    return lib.callback.await('sd-phone:server:lbtablet:mdtShared', false, action, mdtName)
+end
+registerLbExport('GetMDTs', function() return sharedMdt('GetMDTs') end)
+registerLbExport('GetMDT', function(mdtName) return sharedMdt('GetMDT', mdtName) end)
+registerLbExport('IsEmployeeOfMDT', function(mdtName) return sharedMdt('IsEmployeeOfMDT', mdtName) == true end)
+registerLbExport('GetMDTPermissions', function(mdtName) return sharedMdt('GetMDTPermissions', mdtName) end)
+
 -- Popup helpers with nothing to act on here: dispatches are read on the board, not as an
 -- on-screen notification, so visibility is always on and nothing is ever on screen.
 registerLbExport('ToggleDispatchVisible', function(_visible) end)

@@ -86,6 +86,7 @@ end
 local function shapeOf(row, now)
     local expiry = tonumber(row.expiry) or 0
     return {
+        id             = tonumber(row.id),
         ref            = row.ref,
         citizenid      = row.citizenid,
         subject        = (row.subject_name and row.subject_name ~= '') and row.subject_name or row.citizenid,
@@ -96,6 +97,7 @@ local function shapeOf(row, now)
         infractions    = tonumber(row.infractions) or 0,
         bond           = tonumber(row.bond) or 0,
         officer        = row.issued_name or '',
+        issuedCid      = row.issued_cid,
         callsign       = (row.issued_callsign and row.issued_callsign ~= '') and row.issued_callsign or nil,
         issuedAt       = tonumber(row.issued_at) or 0,
         expiresAt      = expiry,
@@ -151,6 +153,26 @@ function warrants.activeFor(citizenid)
     local out = {}
     for i = 1, #rows do out[i] = shapeOf(rows[i], now) end
     return out
+end
+
+---Trusted resource-facing read for the legacy Police warrant export. The legacy export has no
+---caller source, so this is separate from the permission-gated terminal get handler.
+---@param ref string|number
+---@param domain 'leo'|'ems'
+---@return table|nil warrant
+function warrants.exportWarrant(ref, domain)
+    local value = util.limitedString(type(ref) == 'string' and ref or tostring(ref or ''), 32)
+    if not value or (domain ~= 'leo' and domain ~= 'ems') then return nil end
+    local row
+    if tonumber(value) then
+        row = MySQL.single.await('SELECT * FROM phone_mdt_warrants WHERE id = ? LIMIT 1', { tonumber(value) })
+    else
+        row = MySQL.single.await('SELECT * FROM phone_mdt_warrants WHERE ref = ? LIMIT 1', { value })
+    end
+    if not row then return nil end
+    local dept = access.departmentFor(row.department)
+    if not dept or access.domain({ department = dept }) ~= domain then return nil end
+    return shapeOf(row, os.time())
 end
 
 ---A page of warrants, split into the active ones and the ones that have run out.

@@ -32,3 +32,6 @@ end)
 
 -- Loaded for side effects: registers lb-tablet's dispatch export surface on require.
 require 'server.compat.lbtablet.dispatch'
+-- Loaded for side effects: exposes only the LB MDT portions SD can represent without inventing
+-- tags, properties, named units, jail records or unsupported report relationships.
+require 'server.compat.lbtablet.mdt'

@@ -54,6 +54,9 @@ local sops      = require 'server.mdt.sops'
 local affairs   = require 'server.mdt.affairs'
 ---@type table Docket and expungements (server.mdt.court): the court terminal's paperwork.
 local court     = require 'server.mdt.court'
+---@type table Native MDT exports (server.mdt.public): the stable SD-facing API, also used by the
+---lb-tablet compatibility layer so both surfaces share the same authorization and data rules.
+require 'server.mdt.public'
 
 ---@type table MDT config (configs/mdt.lua): the enable switch and the dispatch sweep interval.
 local MDT = config.Mdt
@@ -341,7 +344,7 @@ end)
 ---@return table|nil weapon
 exports('mdtGetWeapon', function(serial)
     if not ENABLED then return nil end
-    return weapons.find(serial)
+    return weapons.find(type(serial) == 'string' and serial or tostring(serial or ''))
 end)
 
 ---Every firearm registered to a citizen (exports['sd-phone']:mdtGetWeaponsByOwner).

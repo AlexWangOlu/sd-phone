@@ -166,6 +166,7 @@ end
 ---@return table summary
 local function summaryOf(row)
     return {
+        id             = tonumber(row.id),
         ref            = row.ref,
         title          = row.title,
         type           = row.type,
@@ -265,9 +266,9 @@ local function detailOf(me, src, row)
     detail.totalMonths = months
     detail.totalFine   = fine
     detail.caseRef     = caseRef
-    detail.canEdit     = access.can(src, 'reports.edit.any')
-        or (row.author_cid == me.citizenid and access.can(src, 'reports.edit.own'))
-    detail.canDelete   = access.can(src, 'reports.delete')
+    detail.canEdit     = src ~= 0 and (access.can(src, 'reports.edit.any')
+        or (row.author_cid == me.citizenid and access.can(src, 'reports.edit.own'))) or false
+    detail.canDelete   = src ~= 0 and access.can(src, 'reports.delete') or false
     return detail
 end
 
@@ -530,6 +531,72 @@ function paperwork.suspectCharges(me, reportRef, citizenid)
     return report, { citizenid = cid, name = store.namesFor({ cid })[cid] or cid }, rows
 end
 
+---Trusted server-resource read for compatibility exports. LB's GetMDTReport has no caller source,
+---so it cannot be routed through a player's permission gate. The resource boundary is trusted, but
+---the requested domain is still checked so a Police export cannot read an EMS report (or vice
+---versa). The normal terminal path remains reportsGet above.
+---@param ref string|number
+---@param domain 'leo'|'ems'
+---@return table|nil report
+function paperwork.exportReport(ref, domain)
+    local value = util.limitedString(type(ref) == 'string' and ref or tostring(ref or ''), 32)
+    if not value or (domain ~= 'leo' and domain ~= 'ems') then return nil end
+
+    local row
+    if tonumber(value) then
+        row = MySQL.single.await(
+            'SELECT * FROM phone_mdt_reports WHERE id = ? AND domain = ? LIMIT 1',
+            { tonumber(value), domain })
+    else
+        row = MySQL.single.await(
+            'SELECT * FROM phone_mdt_reports WHERE ref = ? AND domain = ? LIMIT 1',
+            { value, domain })
+    end
+    if not row then return nil end
+    return detailOf({ citizenid = row.author_cid }, 0, row)
+end
+
+---Trusted server-resource deletion for the same compatibility boundary. LB's legacy delete export
+---also has no actor argument. It is intentionally separate from reportsDelete, which is audited and
+---permission-gated for terminal users.
+---@param ref string|number
+---@return boolean
+function paperwork.exportDeleteReport(ref)
+    local value = util.limitedString(type(ref) == 'string' and ref or tostring(ref or ''), 32)
+    if not value then return false end
+    local row = tonumber(value)
+        and MySQL.single.await('SELECT id FROM phone_mdt_reports WHERE id = ? LIMIT 1', { tonumber(value) })
+        or MySQL.single.await('SELECT id FROM phone_mdt_reports WHERE ref = ? LIMIT 1', { value })
+    if not row then return false end
+
+    MySQL.transaction.await({
+        { query = 'DELETE FROM phone_mdt_report_charges WHERE report_id = ?',      values = { row.id } },
+        { query = 'DELETE FROM phone_mdt_report_involved WHERE report_id = ?',     values = { row.id } },
+        { query = 'DELETE FROM phone_mdt_report_restrictions WHERE report_id = ?', values = { row.id } },
+        { query = 'DELETE FROM phone_mdt_case_reports WHERE report_id = ?',         values = { row.id } },
+        { query = 'DELETE FROM phone_mdt_reports WHERE id = ?',                     values = { row.id } },
+    })
+    return true
+end
+
+---Charge totals for the trusted legacy police lookup. SD offence codes are strings, whereas the
+---legacy LB result called this field `id` and commonly used numeric charge ids; returning the
+---actual SD code preserves the identity instead of inventing a numeric mapping.
+---@param citizenid string
+---@return table[]
+function paperwork.exportCharges(citizenid)
+    local cid = util.limitedString(citizenid, 64)
+    if not cid then return {} end
+    local rows = MySQL.query.await([[
+        SELECT c.code AS id, CAST(SUM(c.count) AS UNSIGNED) AS charges
+        FROM phone_mdt_report_charges c
+        JOIN phone_mdt_reports r ON r.id = c.report_id
+        WHERE c.citizenid = ? AND c.expunged = 0 AND r.domain = 'leo'
+        GROUP BY c.code
+    ]], { cid }) or {}
+    return rows
+end
+
 ---Officers assigned to a case, with the name and callsign the department knows them by.
 ---@param id integer case id
 ---@return table[] officers
@@ -627,7 +694,7 @@ local CASE_SELECT = [[
 ---MEDIUMTEXT evidence blob per row. Reading a single case through the list projection is what left
 ---every summary blank: the column was never selected, so `row.summary` was always nil.
 local CASE_SELECT_ONE = [[
-    SELECT c.id, c.ref, c.title, c.summary, c.evidence, c.status, c.priority,
+    SELECT c.id, c.ref, c.title, c.summary, c.evidence, c.status, c.priority, c.department,
            c.created_name, c.created_at, c.updated_at,
            (SELECT COUNT(*) FROM phone_mdt_case_officers o WHERE o.case_id = c.id) AS officer_count,
            (SELECT COUNT(*) FROM phone_mdt_case_reports l WHERE l.case_id = c.id) AS report_count
@@ -662,6 +729,27 @@ local function caseDetail(src, row)
     detail.canEdit   = access.can(src, 'cases.edit')
     detail.canDelete = access.can(src, 'cases.delete')
     return detail
+end
+
+---Trusted resource-facing read for the legacy Police case export. SD cases are their own entity,
+---not generic reports, so this intentionally exposes only the common case fields.
+---@param ref string|number
+---@param domain 'leo'|'ems'
+---@return table|nil case
+function paperwork.exportCase(ref, domain)
+    local value = util.limitedString(type(ref) == 'string' and ref or tostring(ref or ''), 32)
+    if not value then return nil end
+
+    local row
+    if tonumber(value) then
+        row = MySQL.single.await((('%s WHERE c.id = ? LIMIT 1'):format(CASE_SELECT_ONE)), { tonumber(value) })
+    else
+        row = MySQL.single.await((('%s WHERE c.ref = ? LIMIT 1'):format(CASE_SELECT_ONE)), { value })
+    end
+    if not row then return nil end
+    local dept = access.departmentFor(row.department)
+    if not dept or access.domain({ department = dept }) ~= domain then return nil end
+    return caseDetail(0, row)
 end
 
 ---A page of cases, filtered by status, priority and a title or ref search.
