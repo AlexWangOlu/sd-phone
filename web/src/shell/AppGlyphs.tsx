@@ -26,14 +26,6 @@ import {
     Wrench, Zap,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { createLucideIcon } from 'lucide-react';
-
-const ScootGlyph = createLucideIcon('ScooterElectric', [
-    ['path', { d: 'M16 17a2 2 0 1 0 4 0a2 2 0 1 0 -4 0', key: 'rear' }],
-    ['path', { d: 'M4 17a2 2 0 1 0 4 0a2 2 0 1 0 -4 0', key: 'front' }],
-    ['path', { d: 'M8 17h5a6 6 0 0 1 5 -5v-5a2 2 0 0 0 -2 -2h-1', key: 'deck' }],
-    ['path', { d: 'M10 4l-2 4h3l-2 4', key: 'bolt' }],
-]);
 
 const APP_GLYPHS: Record<string, LucideIcon> = {
     phone:       Phone,
@@ -50,7 +42,6 @@ const APP_GLYPHS: Record<string, LucideIcon> = {
     findfriends: Radar,
     stocks:      TrendingUp,
     ryde:        Car,
-    scoot:       ScootGlyph,
     camera:      Camera,
     photos:      ImageIcon,
     music:       Music,
