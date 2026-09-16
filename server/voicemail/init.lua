@@ -65,7 +65,7 @@ lib.callback.register('sd-phone:server:voicemail:uploadSlot', function(src)
     if uploading[src] then return util.fail('voicemail.uploadInProgress', 'Upload already in progress') end
 
     local p = promise.new()
-    presign.mint(src, function(url) p:resolve(url) end)
+    presign.mint(src, { maxBytes = math.floor(MAX_AUDIO_BYTES * 0.75) }, function(url) p:resolve(url) end)
     local url = Citizen.Await(p)
     if not url then return util.fail('voicemail.uploadFailed', 'Upload failed') end
     return util.ok({ url = url })
@@ -83,13 +83,6 @@ lib.callback.register('sd-phone:server:voicemail:uploadDone', function(src, payl
     if not res.url then
         print(('^1[sd-phone:voicemail]^0 direct claim refused (%s)'):format(tostring(res.code)))
         return util.fail('voicemail.uploadFailed', 'Upload failed')
-    end
-
-    local okLimit, why = mediaLimit.check(player.getIdentifier(src), res.bytes)
-    if not okLimit then
-        return why == 'cooldown'
-            and util.fail('voicemail.slowDownMoment', 'Slow down a moment')
-            or util.fail('voicemail.uploadLimitReached', 'Upload limit reached, try again later')
     end
 
     local trustedUrl = mediaGuard.rememberVoice(player.getIdentifier(src), res.url)
@@ -118,7 +111,7 @@ lib.callback.register('sd-phone:server:voicemail:upload', function(src, payload)
         return util.fail('voicemail.uploadInProgress', 'Upload already in progress')
     end
 
-    local okLimit, why = mediaLimit.check(player.getIdentifier(src), #audio)
+    local okLimit, why = mediaLimit.charge(src, #audio)
     if not okLimit then
         return why == 'cooldown'
             and util.fail('voicemail.slowDownMoment', 'Slow down a moment')

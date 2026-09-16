@@ -315,8 +315,7 @@ local function finish(src)
     local payload = table.concat(parts)
     local dataUrl = ('data:%s;base64,%s'):format(job.meta.mime, payload)
 
-    local cid = player.getIdentifier(src)
-    local okLimit, why = mediaLimit.check(cid, #dataUrl)
+    local okLimit, why = mediaLimit.charge(src, #dataUrl)
     if not okLimit then
         TriggerClientEvent('sd-phone:client:mdt:recFailed', src,
             why == 'cooldown' and 'Slow down a moment' or 'Upload limit reached, try again later')
@@ -481,7 +480,8 @@ if ENABLED then
         if not meta then return { success = false, code = 'refused', message = reason } end
 
         local p = promise.new()
-        presign.mint(src, function(url, code) p:resolve({ url = url, code = code }) end)
+        presign.mint(src, { maxBytes = MAX_DIRECT_BYTES },
+            function(url, code) p:resolve({ url = url, code = code }) end)
         local res = Citizen.Await(p)
         if not res.url then return { success = false, code = res.code or 'provider' } end
 
@@ -510,14 +510,6 @@ if ENABLED then
             print(('^1[sd-phone:mdt]^0 direct bodycam claim refused (%s) for %s')
                 :format(tostring(res.code), tostring(payload.url)))
             return { success = false, code = res.code }
-        end
-
-        -- The same budget the sliced path is charged, so moving a recording off the game network
-        -- does not move it out of the per-character ceiling on sustained upload.
-        local okLimit, why = mediaLimit.check(player.getIdentifier(src), res.bytes)
-        if not okLimit then
-            return { success = false, code = 'rate-limit',
-                message = why == 'cooldown' and 'Slow down a moment' or 'Upload limit reached, try again later' }
         end
 
         -- The true file size. The sliced path stores #dataUrl, which is the base64 and so about a

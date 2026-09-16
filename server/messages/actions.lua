@@ -1324,8 +1324,9 @@ end
 ---@return table
 function actions.voiceSlot(source)
     if not presign.available() then return fail('messages.uploadFailed', 'Upload failed') end
+    local maxBytes = (config.VoiceMemos and config.VoiceMemos.MaxAudioBytes) or (8 * 1024 * 1024)
     local p = promise.new()
-    presign.mint(source, function(url) p:resolve(url) end)
+    presign.mint(source, { maxBytes = math.floor(maxBytes * 0.75) }, function(url) p:resolve(url) end)
     local url = Citizen.Await(p)
     if not url then return fail('messages.uploadFailed', 'Upload failed') end
     return ok({ url = url })
@@ -1350,12 +1351,6 @@ function actions.voiceDone(source, payload)
         return fail('messages.uploadFailed', 'Upload failed')
     end
 
-    local okLimit, why = mediaLimit.check(player.getIdentifier(source), res.bytes)
-    if not okLimit then
-        if why == 'cooldown' then return fail('messages.slowDownMoment', 'Slow down a moment') end
-        return fail('messages.uploadLimitReached', 'Upload limit reached')
-    end
-
     local trustedUrl = mediaGuard.rememberVoice(player.getIdentifier(source), res.url)
     if not trustedUrl then return fail('messages.uploadFailed', 'Upload failed') end
     return ok({ url = trustedUrl })
@@ -1375,7 +1370,7 @@ function actions.uploadVoice(source, payload)
 
     local maxBytes = (config.VoiceMemos and config.VoiceMemos.MaxAudioBytes) or (8 * 1024 * 1024)
     if #audio > maxBytes then return fail('messages.recordingTooLong', 'Recording is too long') end
-    local okLimit, why = mediaLimit.check(player.getIdentifier(source), #audio)
+    local okLimit, why = mediaLimit.charge(source, #audio)
     if not okLimit then
         if why == 'cooldown' then return fail('messages.slowDownMoment', 'Slow down a moment') end
         return fail('messages.uploadLimitReached', 'Upload limit reached')

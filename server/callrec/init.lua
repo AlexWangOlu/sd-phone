@@ -10,8 +10,6 @@ local uploader   = require 'server.photos.uploader'
 local mediaLimit = require 'server.photos.mediaLimit'
 ---@type table Presigned upload slots (server.photos.presign): mint + claim for the direct path.
 local presign    = require 'server.photos.presign'
----@type table Player bridge (bridge.server.player): citizenid lookups.
-local player     = require 'bridge.server.player'
 ---@type table Call recording config (configs.callrec).
 local cfg        = require 'configs.callrec'
 ---@type table Shared server helpers (server.util): the ok/fail envelopes.
@@ -77,7 +75,8 @@ lib.callback.register('sd-phone:server:callrec:uploadSlot', function(src, payloa
     payload = type(payload) == 'table' and payload or {}
 
     local p = promise.new()
-    presign.mint(src, function(url, code) p:resolve({ url = url, code = code }) end)
+    presign.mint(src, { maxBytes = MAX_DIRECT_BYTES },
+        function(url, code) p:resolve({ url = url, code = code }) end)
     local res = Citizen.Await(p)
     if not res.url then return { success = false, code = res.code or 'provider' } end
 
@@ -107,12 +106,6 @@ lib.callback.register('sd-phone:server:callrec:uploadDone', function(src, payloa
         print(('^1[sd-phone:callrec]^0 direct claim refused (%s) for %s')
             :format(tostring(res.code), tostring(payload.url)))
         return { success = false, code = res.code }
-    end
-
-    local okLimit, why = mediaLimit.check(player.getIdentifier(src), res.bytes)
-    if not okLimit then
-        return { success = false, code = 'rate-limit',
-            message = why == 'cooldown' and 'Slow down a moment' or 'Upload limit reached, try again later' }
     end
 
     local rec = actions.saveUploaded(src, res.url, meta)
@@ -147,7 +140,7 @@ RegisterNetEvent('sd-phone:server:callrec:upload', function(payload)
         return
     end
 
-    local okLimit, why = mediaLimit.check(player.getIdentifier(src), #audio)
+    local okLimit, why = mediaLimit.charge(src, #audio)
     if not okLimit then
         TriggerClientEvent('sd-phone:client:callrec:failed', src,
             why == 'cooldown' and 'Slow down a moment' or 'Upload limit reached, try again later')

@@ -72,7 +72,8 @@ lib.callback.register('sd-phone:server:voice:uploadSlot', function(src, payload)
     payload = type(payload) == 'table' and payload or {}
 
     local p = promise.new()
-    presign.mint(src, function(url, code) p:resolve({ url = url, code = code }) end)
+    presign.mint(src, { maxBytes = MAX_DIRECT_BYTES },
+        function(url, code) p:resolve({ url = url, code = code }) end)
     local res = Citizen.Await(p)
     if not res.url then return { success = false, code = res.code or 'provider' } end
 
@@ -97,12 +98,6 @@ lib.callback.register('sd-phone:server:voice:uploadDone', function(src, payload)
         print(('^1[sd-phone:voice]^0 direct claim refused (%s) for %s')
             :format(tostring(res.code), tostring(payload.url)))
         return { success = false, code = res.code }
-    end
-
-    local okLimit, why = mediaLimit.check(player.getIdentifier(src), res.bytes)
-    if not okLimit then
-        return { success = false, code = 'rate-limit',
-            message = why == 'cooldown' and 'Slow down a moment' or 'Upload limit reached, try again later' }
     end
 
     local memo = actions.saveUploaded(src, res.url, meta.name, meta.duration)
@@ -134,7 +129,7 @@ RegisterNetEvent('sd-phone:server:voice:upload', function(payload)
         TriggerClientEvent('sd-phone:client:voice:uploadFailed', src, 'Upload already in progress')
         return
     end
-    local okLimit, why = mediaLimit.check(player.getIdentifier(src), #audio)
+    local okLimit, why = mediaLimit.charge(src, #audio)
     if not okLimit then
         TriggerClientEvent('sd-phone:client:voice:uploadFailed', src, why == 'cooldown' and 'Slow down a moment' or 'Upload limit reached, try again later')
         return
