@@ -193,23 +193,27 @@ const INBOUND_PER_PEER = 2;
 // will, and would otherwise hold its slot until the peer disconnects.
 const INBOUND_CONNECT_MS = 30000;
 
+const ICE_MAX_AGE_MS = 20 * 60 * 1000;
+
 class VoiceHub {
     private sessions = new Map<string, PeerSession>();
     // Sessions opened by someone else's offer, sid to peer id, oldest first. Ours are excluded so
     // a flood of offers can never evict the mesh we started ourselves.
     private inbound = new Map<string, number>();
     private ice: RTCIceServer[] | null = null;
+    private iceAt = 0;
 
-    setIce(ice?: RTCIceServer[] | null) { if (ice && ice.length) this.ice = ice; }
+    setIce(ice?: RTCIceServer[] | null) { if (ice && ice.length) { this.ice = ice; this.iceAt = Date.now(); } }
 
     async getIce(): Promise<RTCIceServer[]> {
-        if (this.ice) return this.ice;
+        if (this.ice && Date.now() - this.iceAt < ICE_MAX_AGE_MS) return this.ice;
         try {
             const r = await apiData<{ iceServers?: RTCIceServer[] }>('sd-phone:voice:ice');
             this.ice = r?.iceServers ?? [];
         } catch {
             this.ice = [];
         }
+        this.iceAt = Date.now();
         return this.ice;
     }
 

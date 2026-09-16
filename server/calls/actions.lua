@@ -1471,21 +1471,14 @@ function actions.videoStop(src)
     if peer then TriggerClientEvent('sd-phone:client:call:video:stop', peer) end
 end
 
----Returns ICE servers for the browser RTCPeerConnection: the shared STUN + Cloudflare TURN set
----every WebRTC feature uses, plus a static relay when the sd_phone_turn_* convars are set.
+---Returns ICE servers for the browser RTCPeerConnection: STUN, this player's own Cloudflare TURN
+---credential, and the self-hosted relay when the sd_phone_turn_* convars are set.
+---@param src number
 ---@return { iceServers: table }
-function actions.iceConfig()
-    local servers = {}
-    for _, entry in ipairs(ice.servers()) do servers[#servers + 1] = entry end
-
-    local turn = GetConvar('sd_phone_turn_url', '')
-    if turn ~= '' then
-        servers[#servers + 1] = {
-            urls       = turn,
-            username   = GetConvar('sd_phone_turn_username', ''),
-            credential = GetConvar('sd_phone_turn_credential', ''),
-        }
-    end
+function actions.iceConfig(src)
+    local servers = ice.servers(src)
+    local relay = ice.fixedRelay(src)
+    if relay then servers[#servers + 1] = relay end
     return { iceServers = servers }
 end
 

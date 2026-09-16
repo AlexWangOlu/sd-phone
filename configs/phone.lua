@@ -218,8 +218,12 @@ return {
     --     set sd_cf_turn_token_id  "your-cloudflare-turn-token-id"
     --     set sd_cf_turn_api_token "your-cloudflare-turn-api-token"
     --
-    -- A fixed relay of your own (coturn, Metered) can be added for calls on top of that:
-    --     set sd_phone_turn_url        "turn:turn.example.com:3478"
+    -- A relay of your own (coturn) can be added for calls on top of that. Use coturn's
+    -- static-auth-secret so every player gets their own login that expires by itself:
+    --     set sd_phone_turn_url    "turn:turn.example.com:3478"
+    --     set sd_phone_turn_secret "the static-auth-secret from turnserver.conf"
+    -- A fixed username/password still works, but it is ONE login shared by every player, and anyone
+    -- can copy it out of the game and use your relay (and your bandwidth) from anywhere:
     --     set sd_phone_turn_username   "your-username"
     --     set sd_phone_turn_credential "your-password"
     --
