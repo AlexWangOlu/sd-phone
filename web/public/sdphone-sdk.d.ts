@@ -80,7 +80,12 @@ declare global {
      */
     function componentsSupports(name: string): boolean;
 
-    /** Resolves the index of the chosen button, or undefined if dismissed. */
+    /**
+     * Resolves the index of the chosen button, or undefined if dismissed. Drawn with the phone's own
+     * dialogs: up to two buttons is an alert (the first is the cancel side), three or more become an
+     * action sheet, and a pop-up with an input shows its first and last button only. A red button
+     * colour marks the destructive choice; other colours are ignored so every app matches the phone.
+     */
     function SetPopUp(data: PopUpData): Promise<number | undefined>;
     function SetContextMenu(data: ContextMenuData): Promise<number | undefined>;
     /** Not implemented by the host; always resolves null. Check componentsSupports first. */
