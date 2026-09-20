@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { device } from '@device';
 import { fetchNui, hostResource } from '@/core/nui';
 import { apiData } from '@/core/api';
+import { accountsMyEmail, accountsSaveCustomPassword } from '@/core/accountsApi';
 import { apiSavePhotoFromUrl } from '@/core/photosApi';
 import { t, getLocale, getLocaleTag } from '@/i18n';
 import { useNuiEvent } from '@/hooks/useNuiEvent';
@@ -11,6 +12,7 @@ import { useCustomAppsStore } from '@/stores/customAppsStore';
 import { getGameRender } from '@/render';
 import { portalToPhoneScreen } from '@/ui/portal';
 import { Sheet } from '@/ui/Sheet';
+import { AlertDialog } from '@/ui/AlertDialog';
 import { MediaPickerSheet } from '@/shared/MediaPickerSheet';
 import { EmojiPanel } from '@/shared/chat/EmojiPanel';
 import { GifPickerSheet } from '@/shared/chat/GifPickerSheet';
@@ -97,6 +99,7 @@ interface CtxMenuData {
 }
 interface GalleryReq { multiple?: boolean; type?: string; max?: number }
 interface ColorReq { value?: string }
+interface SaveLoginReq { username: string; password: string; email?: string; phone?: string }
 
 const SWATCHES = [
     '#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#00C7BE', '#30B0C7', '#007AFF',
@@ -145,6 +148,7 @@ export function CustomAppFrame({ appId, onClose }: { appId: string; onClose: () 
     const [gifOpen, setGifOpen]     = useState(false);
     const [contactOpen, setContact] = useState(false);
     const [colorReq, setColorReq]   = useState<ColorReq | null>(null);
+    const [saveLogin, setSaveLogin] = useState<SaveLoginReq | null>(null);
     const [fullImage, setFullImage] = useState<string | null>(null);
     const [cameraOpen, setCameraOpen] = useState(false);
 
@@ -155,6 +159,7 @@ export function CustomAppFrame({ appId, onClose }: { appId: string; onClose: () 
     const gifResolve     = useRef<((v: string | null) => void) | null>(null);
     const contactResolve = useRef<((v: unknown) => void) | null>(null);
     const colorResolve   = useRef<((v: string | null) => void) | null>(null);
+    const saveLoginResolve = useRef<((v: boolean) => void) | null>(null);
     const cameraResolve  = useRef<((v: string | null) => void) | null>(null);
 
     const settleEmoji = useCallback((value: string | null) => {
@@ -187,6 +192,14 @@ export function CustomAppFrame({ appId, onClose }: { appId: string; onClose: () 
         setContact(false);
         if (r) r(value);
     }, []);
+    const settleSaveLogin = useCallback((accepted: boolean) => {
+        const r = saveLoginResolve.current; saveLoginResolve.current = null;
+        const req = saveLogin;
+        setSaveLogin(null);
+        if (!r) return;
+        if (!accepted || !req) { r(false); return; }
+        void accountsSaveCustomPassword(appId, { ...req }).then(r, () => r(false));
+    }, [appId, saveLogin]);
     const settleColor = useCallback((value: string | null) => {
         const r = colorResolve.current; colorResolve.current = null;
         setColorReq(null);
@@ -313,6 +326,22 @@ export function CustomAppFrame({ appId, onClose }: { appId: string; onClose: () 
                 return apiData<{ number?: string }>('sd-phone:accounts:myNumber')
                     .then(r => r?.number ?? null)
                     .catch(() => null);
+            case 'GetEmails':
+                return accountsMyEmail().catch(() => []);
+            case 'SavePassword': {
+                const username = typeof data?.username === 'string' ? data.username.trim() : '';
+                const password = typeof data?.password === 'string' ? data.password : '';
+                if (!username || !password || saveLoginResolve.current) return Promise.resolve(false);
+                return new Promise<boolean>(res => {
+                    saveLoginResolve.current = res;
+                    setSaveLogin({
+                        username,
+                        password,
+                        email: typeof data?.email === 'string' ? data.email : undefined,
+                        phone: typeof data?.phone === 'string' ? data.phone : undefined,
+                    });
+                });
+            }
             case 'GetStorage': {
                 const k = storageKey(data?.key);
                 if (!k) return Promise.resolve(null);
@@ -699,6 +728,17 @@ export function CustomAppFrame({ appId, onClose }: { appId: string; onClose: () 
                 >
                     <img src={fullImage} alt="" className="max-h-full max-w-full object-contain" />
                 </div>
+            )}
+
+            {saveLogin && (
+                <AlertDialog
+                    title={t('common.saveToPasswords', 'Save to Passwords?')}
+                    message={t('common.savePasswordsBody', 'Keep your {appName} username and password in the Passwords app so you can always find them.', { appName: def?.name ?? appId })}
+                    confirmLabel={t('common.save', 'Save')}
+                    cancelLabel={t('common.notNow', 'Not Now')}
+                    onCancel={() => settleSaveLogin(false)}
+                    onConfirm={() => settleSaveLogin(true)}
+                />
             )}
 
             {colorReq && (

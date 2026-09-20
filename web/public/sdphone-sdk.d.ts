@@ -99,6 +99,20 @@ declare global {
     function GetLocale(path: string, format?: Record<string, unknown>): Promise<string>;
     /** The acting character's phone number, or null when it cannot be resolved. */
     function GetPhoneNumber(): Promise<string | null>;
+    /**
+     * Every Mail address the acting character is signed into, first one first. Empty when they have
+     * no Mail account. Meant for pre-filling a sign-up form, the way the built-in apps do.
+     * Needs componentsVersion 5.
+     */
+    function GetEmails(): Promise<string[]>;
+    /**
+     * Offers to keep a login in the player's Passwords app. The phone asks the player first, so
+     * this resolves true only when they agreed AND it was stored; false when they declined, the
+     * login was incomplete, or this app already holds 10 logins for the character. Username and
+     * password are capped at 64 characters. The entry is filed under your app, and nothing reads
+     * it back to you: keep your own session. Needs componentsVersion 5.
+     */
+    function SavePassword(data: { username: string; password: string; email?: string; phone?: string }): Promise<boolean>;
 
     /** Device-local, namespaced per app. Budget: 64 KB and 64 keys. */
     function GetStorage<T = unknown>(key: string, fallback?: T): Promise<T | null>;

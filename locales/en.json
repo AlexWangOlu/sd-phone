@@ -42,6 +42,7 @@
     "usernameMust64CharactersFewer": "Username must be 64 characters or fewer",
     "usernameNeedsLeast3Characters": "Username needs at least 3 characters",
     "usernameTaken": "That username is taken",
+    "vaultFull": "This app has saved too many logins. Remove one in Passwords first.",
     "wrongCode": "Wrong code",
     "wrongUsernamePassword": "Wrong username or password"
   },
