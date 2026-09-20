@@ -31,6 +31,8 @@ schema.tables = {
     'phone_mdt_audit',
     'phone_mdt_protocols',
     'phone_mdt_medical',
+    'phone_mdt_shares',
+    'phone_mdt_revisions',
 }
 
 ---@type table[] The shipped treatment protocols, the medical terminal's counterpart to the penal
@@ -626,6 +628,46 @@ function schema.ensureSchema()
     util.ensureColumns('phone_mdt_bodycam_recs', {
         shared_by = '`shared_by` VARCHAR(96) NULL',
     })
+
+    util.ensureColumns('phone_mdt_warrants', {
+        notes = '`notes` TEXT NULL',
+    })
+
+    MySQL.query.await([[
+        CREATE TABLE IF NOT EXISTS phone_mdt_shares (
+            `id`          INT         NOT NULL AUTO_INCREMENT,
+            `entity_type` VARCHAR(16) NOT NULL,
+            `entity_ref`  VARCHAR(16) NOT NULL,
+            `department`  VARCHAR(64) NOT NULL,
+            `access`      VARCHAR(8)  NOT NULL DEFAULT 'view',
+            `shared_cid`  VARCHAR(64) NOT NULL,
+            `shared_name` VARCHAR(96) NOT NULL DEFAULT '',
+            `created_at`  INT         NOT NULL,
+            `revoked_at`  INT         NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY uniq_share (`entity_type`, `entity_ref`, `department`),
+            KEY idx_department (`department`, `entity_type`, `revoked_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ]])
+    migrations.apply('phone_mdt_shares')
+
+    MySQL.query.await([[
+        CREATE TABLE IF NOT EXISTS phone_mdt_revisions (
+            `id`          INT         NOT NULL AUTO_INCREMENT,
+            `entity_type` VARCHAR(16) NOT NULL,
+            `entity_ref`  VARCHAR(16) NOT NULL,
+            `field`       VARCHAR(24) NOT NULL,
+            `before_value` MEDIUMTEXT NULL,
+            `after_value`  MEDIUMTEXT NULL,
+            `editor_cid`  VARCHAR(64) NOT NULL,
+            `editor_name` VARCHAR(96) NOT NULL DEFAULT '',
+            `department`  VARCHAR(64) NOT NULL DEFAULT '',
+            `created_at`  INT         NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY idx_entity (`entity_type`, `entity_ref`, `created_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ]])
+    migrations.apply('phone_mdt_revisions')
 
     -- Referential integrity, added on boot so a later install migrates with no manual SQL. Each
     -- call is a no-op once present, orphans are cleared first, and a type or collation mismatch is

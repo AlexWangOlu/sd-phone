@@ -166,6 +166,16 @@ return {
         ['expunge.rule']     = 1,
         ['warrants.void']    = 2,
 
+        -- Sharing police paperwork with the court. shares.create and shares.revoke are police
+        -- keys: an officer who can read a report, case or warrant may share it with a court
+        -- department as view-only or editable, and take it back. shared.edit is a court key: the
+        -- grade a judge or attorney needs to change paperwork shared with them as editable. It
+        -- ships at 0 because the officer picking "Can edit" is already the grant, and the stock
+        -- judge and lawyer jobs only have grade 0. Raise it to keep editing to senior court staff.
+        ['shares.create']    = 0,
+        ['shares.revoke']    = 0,
+        ['shared.edit']      = 0,
+
         -- Internal Affairs. Filing a complaint is deliberately open to every
         -- sworn grade: a probationer who witnesses misconduct must be able to
         -- report it. Reading and investigating the file is not.

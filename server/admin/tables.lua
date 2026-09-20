@@ -81,6 +81,8 @@ return {
     'phone_mdt_report_involved',
     'phone_mdt_report_restrictions',
     'phone_mdt_reports',
+    'phone_mdt_revisions',
+    'phone_mdt_shares',
     'phone_mdt_vehicles',
     'phone_mdt_warrants',
     'phone_mdt_weapons',

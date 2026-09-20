@@ -54,6 +54,12 @@ local sops      = require 'server.mdt.sops'
 local affairs   = require 'server.mdt.affairs'
 ---@type table Docket and expungements (server.mdt.court): the court terminal's paperwork.
 local court     = require 'server.mdt.court'
+---@type table Live records (server.mdt.live): presence, field locks and in-flight drafts.
+local live      = require 'server.mdt.live'
+---@type table Court shares (server.mdt.shares): police paperwork handed to a court department.
+local shares    = require 'server.mdt.shares'
+---@type table Revision history (server.mdt.revisions): the amendment trail and its restore.
+local revisions = require 'server.mdt.revisions'
 ---@type table Native MDT exports (server.mdt.public): the stable SD-facing API, also used by the
 ---lb-tablet compatibility layer so both surfaces share the same authorization and data rules.
 require 'server.mdt.public'
@@ -138,6 +144,20 @@ local ROUTES = {
     { 'warrants:issue',      warrants,  'issue' },
     { 'warrants:close',      warrants,  'close' },
     { 'warrants:void',       warrants,  'void' },
+    { 'warrants:update',     warrants,  'update' },
+
+    { 'shares:list',         shares,    'list' },
+    { 'shares:create',       shares,    'create' },
+    { 'shares:revoke',       shares,    'revoke' },
+
+    { 'revisions:list',      revisions, 'list' },
+    { 'revisions:restore',   revisions, 'restore' },
+
+    { 'live:join',           live,      'join' },
+    { 'live:leave',          live,      'leave' },
+    { 'live:lock',           live,      'lock' },
+    { 'live:unlock',         live,      'unlock' },
+    { 'live:draft',          live,      'draft' },
 
     { 'offences:list',       offences,  'list' },
 

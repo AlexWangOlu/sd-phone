@@ -20,7 +20,10 @@ local ACTIONS = {
     'cameras:list', 'recordings:list', 'recordings:delete', 'recordings:share',
     'reports:list', 'reports:get', 'reports:save', 'reports:delete',
     'cases:list', 'cases:get', 'cases:save', 'cases:delete', 'cases:note', 'cases:assign', 'cases:linkReport',
-    'warrants:list', 'warrants:get', 'warrants:issue', 'warrants:close', 'warrants:void',
+    'warrants:list', 'warrants:get', 'warrants:issue', 'warrants:close', 'warrants:void', 'warrants:update',
+    'shares:list', 'shares:create', 'shares:revoke',
+    'revisions:list', 'revisions:restore',
+    'live:join', 'live:leave', 'live:lock', 'live:unlock', 'live:draft',
     'offences:list',
     'jail:list', 'jail:quote', 'jail:book',
     'roster:list', 'roster:setCallsign', 'roster:setRadio', 'roster:setGrade', 'roster:dismiss', 'roster:page',
@@ -119,5 +122,17 @@ end)
 ---@param data table { citizenid, wanted }
 RegisterNetEvent('sd-phone:client:mdt:warrant', function(data)
     SendNUIMessage({ action = 'sd-phone:mdt:warrant', data = data })
+end)
+
+---Server -> React: presence, lock, draft and save changes on a record this terminal has open.
+---@param data table
+RegisterNetEvent('sd-phone:client:mdt:live', function(data)
+    SendNUIMessage({ action = 'sd-phone:mdt:live', data = data })
+end)
+
+---Server -> React: paperwork was shared with this court, had its access changed, or was taken back.
+---@param data table { type, ref, access? }
+RegisterNetEvent('sd-phone:client:mdt:shares', function(data)
+    SendNUIMessage({ action = 'sd-phone:mdt:shares', data = data })
 end)
 

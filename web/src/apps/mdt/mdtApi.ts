@@ -1,4 +1,5 @@
 import { apiCall, apiData, failText } from '@/core/api';
+import { t } from '@/i18n';
 import { isFiveM } from '@/core/nui';
 import {
     emptyPage,
@@ -68,6 +69,11 @@ import {
     type PatientRow,
     type EvidenceItem,
     type Protocol,
+    type LiveJoin,
+    type RecordKind,
+    type Revision,
+    type ShareAccess,
+    type ShareState,
     type Warrant,
     type WarrantCharge,
     type HandsetAccounts,
@@ -948,11 +954,6 @@ export async function mdtReport(ref: string): Promise<ReportDetail | null> {
     return (await apiData<{ report: ReportDetail }>('sd-phone:mdt:reports:get', { ref }))?.report ?? null;
 }
 
-export async function mdtSaveReport(draft: ReportDraft): Promise<ReportDetail | null> {
-    if (!isFiveM) return devSaveReport(draft);
-    return (await apiData<{ report: ReportDetail }>('sd-phone:mdt:reports:save', draft))?.report ?? null;
-}
-
 function devSaveReport(draft: ReportDraft): ReportDetail {
     const stamp = Math.floor(Date.now() / 1000);
     const names = new Map(DEV_PERSONS.map(p => [p.citizenid, p.name]));
@@ -1020,6 +1021,7 @@ export interface CaseDraft {
     evidence: EvidenceItem[];
     status:   CaseStatus;
     priority: CasePriority;
+    fields?:  string[];
 }
 
 export async function mdtSaveCase(draft: CaseDraft): Promise<CaseDetail | null> {
@@ -1875,6 +1877,132 @@ export async function mdtPetitionRule(input: { ref: string; grant: boolean; ruli
 export async function mdtWarrantVoid(ref: string): Promise<boolean> {
     if (!isFiveM) return true;
     return apiCall('sd-phone:mdt:warrants:void', { ref }).then(r => r.success === true);
+}
+
+export interface Saved<T> {
+    value: T | null;
+    error: string | null;
+}
+
+export async function mdtPatchReport(draft: ReportDraft): Promise<Saved<ReportDetail>> {
+    if (!isFiveM) return { value: devSaveReport(draft), error: null };
+    const res = await apiCall<{ report: ReportDetail }>('sd-phone:mdt:reports:save', draft);
+    if (res.success && res.data?.report) return { value: res.data.report, error: null };
+    return { value: null, error: failText(res, t('mdt.saveFailedCharges', 'That could not be saved. Check every charge is on a listed suspect.')) };
+}
+
+export async function mdtPatchCase(draft: CaseDraft): Promise<Saved<CaseDetail>> {
+    if (!isFiveM) return { value: await mdtSaveCase(draft), error: null };
+    const res = await apiCall<{ case: CaseDetail }>('sd-phone:mdt:cases:save', draft);
+    if (res.success && res.data?.case) return { value: res.data.case, error: null };
+    return { value: null, error: failText(res, t('mdt.saveFailed', 'That could not be saved.')) };
+}
+
+export interface WarrantPatch {
+    ref:       string;
+    charges:   ChargeInput[];
+    bond:      number;
+    expiresAt: number;
+    notes:     string;
+    fields:    string[];
+}
+
+export async function mdtUpdateWarrant(patch: WarrantPatch): Promise<Saved<Warrant>> {
+    if (!isFiveM) {
+        const at = DEV_WARRANTS.findIndex(w => w.ref === patch.ref);
+        if (at < 0) return { value: null, error: t('mdt.warrantNotEditable', 'That warrant can no longer be edited') };
+        const lines = patch.charges.map(c => line(c.code, c.count));
+        const next: Warrant = {
+            ...DEV_WARRANTS[at],
+            charges: lines,
+            felonies: lines.filter(l => l.class === 'felony').reduce((n, l) => n + l.count, 0),
+            misdemeanors: lines.filter(l => l.class === 'misdemeanor').reduce((n, l) => n + l.count, 0),
+            infractions: lines.filter(l => l.class === 'infraction').reduce((n, l) => n + l.count, 0),
+            bond: patch.bond,
+            expiresAt: patch.expiresAt,
+            notes: patch.notes,
+        };
+        DEV_WARRANTS = DEV_WARRANTS.map((w, i) => (i === at ? next : w));
+        return { value: next, error: null };
+    }
+    const res = await apiCall<{ warrant: Warrant }>('sd-phone:mdt:warrants:update', patch);
+    if (res.success && res.data?.warrant) return { value: res.data.warrant, error: null };
+    return { value: null, error: failText(res, t('mdt.saveFailed', 'That could not be saved.')) };
+}
+
+let DEV_SHARES: Record<string, ShareState['shares']> = {};
+
+const DEV_SHARE_TARGETS: ShareState['targets'] = [
+    { job: 'judge', label: 'San Andreas Superior Court', short: 'SASC', bench: true },
+    { job: 'lawyer', label: 'San Andreas Bar Association', short: 'SABA', bench: false },
+];
+
+export async function mdtShares(kind: RecordKind, ref: string): Promise<ShareState | null> {
+    if (!isFiveM) return { targets: DEV_SHARE_TARGETS, shares: DEV_SHARES[`${kind}:${ref}`] ?? [], canRevoke: true };
+    return apiData<ShareState>('sd-phone:mdt:shares:list', { type: kind, ref });
+}
+
+export async function mdtShare(kind: RecordKind, ref: string, department: string, access: ShareAccess): Promise<Saved<ShareState['shares']>> {
+    if (!isFiveM) {
+        const key = `${kind}:${ref}`;
+        const target = DEV_SHARE_TARGETS.find(d => d.job === department);
+        const rest = (DEV_SHARES[key] ?? []).filter(s => s.department !== department);
+        const row = { department, label: target?.label ?? department, access, sharedBy: DEV_BOOTSTRAP.me.name, createdAt: Math.floor(Date.now() / 1000) };
+        DEV_SHARES = { ...DEV_SHARES, [key]: [...rest, row] };
+        return { value: DEV_SHARES[key], error: null };
+    }
+    const res = await apiCall<{ shares: ShareState['shares'] }>('sd-phone:mdt:shares:create', { type: kind, ref, department, access });
+    if (res.success && res.data) return { value: res.data.shares, error: null };
+    return { value: null, error: failText(res, t('mdt.shareFailed', 'That could not be shared.')) };
+}
+
+export async function mdtRevokeShare(kind: RecordKind, ref: string, department: string): Promise<Saved<ShareState['shares']>> {
+    if (!isFiveM) {
+        const key = `${kind}:${ref}`;
+        DEV_SHARES = { ...DEV_SHARES, [key]: (DEV_SHARES[key] ?? []).filter(s => s.department !== department) };
+        return { value: DEV_SHARES[key], error: null };
+    }
+    const res = await apiCall<{ shares: ShareState['shares'] }>('sd-phone:mdt:shares:revoke', { type: kind, ref, department });
+    if (res.success && res.data) return { value: res.data.shares, error: null };
+    return { value: null, error: failText(res, t('mdt.actionFailed', 'That could not be done.')) };
+}
+
+export async function mdtRevisions(kind: RecordKind, ref: string): Promise<{ rows: Revision[]; canRestore: boolean }> {
+    if (!isFiveM) return { rows: [], canRestore: true };
+    return (await apiData<{ rows: Revision[]; canRestore: boolean }>('sd-phone:mdt:revisions:list', { type: kind, ref }))
+        ?? { rows: [], canRestore: false };
+}
+
+export async function mdtRestoreRevision(id: number): Promise<string | null> {
+    if (!isFiveM) return null;
+    const res = await apiCall<unknown>('sd-phone:mdt:revisions:restore', { id });
+    return res.success ? null : failText(res, t('mdt.actionFailed', 'That could not be done.'));
+}
+
+export async function mdtLiveJoin(kind: RecordKind, ref: string): Promise<LiveJoin | null> {
+    if (!isFiveM) return { viewers: [{ citizenid: DEV_BOOTSTRAP.me.citizenid, name: DEV_BOOTSTRAP.me.name, department: 'LSPD' }], locks: {}, drafts: {}, fields: [], canEdit: true };
+    return apiData<LiveJoin>('sd-phone:mdt:live:join', { type: kind, ref });
+}
+
+export function mdtLiveLeave(kind: RecordKind, ref: string): void {
+    if (!isFiveM) return;
+    void apiCall('sd-phone:mdt:live:leave', { type: kind, ref });
+}
+
+export async function mdtLiveLock(kind: RecordKind, ref: string, field: string): Promise<string | null> {
+    if (!isFiveM) return null;
+    const res = await apiCall<unknown>('sd-phone:mdt:live:lock', { type: kind, ref, field });
+    return res.success ? null : failText(res, t('mdt.fieldBusy', 'Someone else is editing that'));
+}
+
+export function mdtLiveUnlock(kind: RecordKind, ref: string, field: string): void {
+    if (!isFiveM) return;
+    void apiCall('sd-phone:mdt:live:unlock', { type: kind, ref, field });
+}
+
+export function mdtLiveDraft(kind: RecordKind, ref: string, field: string, value: unknown): void {
+    if (!isFiveM) return;
+    void apiCall('sd-phone:mdt:live:draft', { type: kind, ref, field, value });
 }
 
 const DEV_SOPS: Sop[] = [

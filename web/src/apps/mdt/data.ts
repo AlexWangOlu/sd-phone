@@ -109,6 +109,9 @@ export type MdtPermission =
     | 'expunge.file'
     | 'expunge.rule'
     | 'warrants.void'
+    | 'shares.create'
+    | 'shares.revoke'
+    | 'shared.edit'
     | 'sops.view';
 
 export const SECTION_PERMISSION: Record<MdtSection, MdtPermission> = {
@@ -415,16 +418,85 @@ export interface Involved {
     notes?:    string;
 }
 
+export type RecordKind = 'report' | 'case' | 'warrant';
+export type ShareAccess = 'view' | 'edit';
+
+export interface ShareTarget {
+    job:   string;
+    label: string;
+    short?: string;
+    bench: boolean;
+}
+
+export interface ShareRow {
+    department: string;
+    label:      string;
+    access:     ShareAccess;
+    sharedBy:   string;
+    createdAt:  number;
+}
+
+export interface ShareState {
+    targets:   ShareTarget[];
+    shares:    ShareRow[];
+    canRevoke: boolean;
+}
+
+export interface Revision {
+    id:         number;
+    field:      string;
+    before:     string;
+    after:      string;
+    editor:     string;
+    department: string;
+    court:      boolean;
+    createdAt:  number;
+}
+
+export interface LiveViewer {
+    citizenid:  string;
+    name:       string;
+    department: string;
+}
+
+export interface LiveHolder {
+    citizenid: string;
+    name:      string;
+}
+
+export interface LiveJoin {
+    viewers: LiveViewer[];
+    locks:   Record<string, LiveHolder>;
+    drafts:  Record<string, unknown>;
+    fields:  string[];
+    canEdit: boolean;
+}
+
+export interface LiveEvent {
+    key:        string;
+    type:       RecordKind;
+    ref:        string;
+    kind:       'presence' | 'lock' | 'draft' | 'saved' | 'closed' | 'revoked';
+    viewers?:   LiveViewer[];
+    field?:     string;
+    holder?:    LiveHolder | null;
+    value?:     unknown;
+    citizenid?: string;
+    fields?:    string[];
+    by?:        string;
+}
+
 export interface ReportSummary {
-    ref:         string;
-    title:       string;
-    type:        AnyReportType;
-    author:      string;
-    authorCid:   string;
-    callsign?:   string;
-    chargeCount: number;
-    createdAt:   number;
-    updatedAt:   number;
+    ref:           string;
+    title:         string;
+    type:          AnyReportType;
+    author:        string;
+    authorCid:     string;
+    callsign?:     string;
+    chargeCount:   number;
+    createdAt:     number;
+    updatedAt:     number;
+    sharedAccess?: ShareAccess;
 }
 
 export interface ReportDetail extends ReportSummary {
@@ -437,6 +509,7 @@ export interface ReportDetail extends ReportSummary {
     caseRef?:    string;
     canEdit:     boolean;
     canDelete:   boolean;
+    canShare?:   boolean;
 }
 
 export interface ReportDraft {
@@ -447,18 +520,20 @@ export interface ReportDraft {
     evidence: EvidenceItem[];
     involved: { citizenid: string; role: AnyInvolvedRole; notes?: string }[];
     charges:  ChargeInput[];
+    fields?:  string[];
 }
 
 export interface CaseSummary {
-    ref:       string;
-    title:     string;
-    status:    CaseStatus;
-    priority:  CasePriority;
-    officers:  number;
-    reports:   number;
-    createdBy: string;
-    createdAt: number;
-    updatedAt: number;
+    ref:           string;
+    title:         string;
+    status:        CaseStatus;
+    priority:      CasePriority;
+    officers:      number;
+    reports:       number;
+    createdBy:     string;
+    createdAt:     number;
+    updatedAt:     number;
+    sharedAccess?: ShareAccess;
 }
 
 export interface CaseOfficer {
@@ -491,6 +566,9 @@ export interface CaseDetail {
     reports:   { ref: string; title: string; type: AnyReportType }[];
     canEdit:   boolean;
     canDelete: boolean;
+    canManage?:    boolean;
+    canShare?:     boolean;
+    sharedAccess?: ShareAccess;
 }
 
 export interface WarrantCharge {
@@ -517,6 +595,10 @@ export interface Warrant {
     issuedAt:     number;
     expiresAt:    number;
     active:       boolean;
+    notes?:       string;
+    canEdit?:     boolean;
+    canShare?:    boolean;
+    sharedAccess?: ShareAccess;
 }
 
 export interface ArrestRow {
