@@ -186,6 +186,7 @@ html, body, #root {
                 stroke           0.3s ease !important;
 }
 @keyframes admin-toast { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes spotlight-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .animate-admin-toast { animation: admin-toast 0.22s ease; }
 /* Admin panel scroll areas: slim rounded thumb on a transparent track, matching the dark theme. */
 .admin-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
