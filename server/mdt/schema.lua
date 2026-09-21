@@ -30,6 +30,8 @@ schema.tables = {
     'phone_mdt_bulletins',
     'phone_mdt_audit',
     'phone_mdt_protocols',
+    'phone_mdt_penal_overrides',
+    'phone_mdt_sop_overrides',
     'phone_mdt_medical',
     'phone_mdt_shares',
     'phone_mdt_revisions',
@@ -473,6 +475,43 @@ function schema.ensureSchema()
             i = last + 1
         end
     end
+
+    -- The penal code itself stays in configs/penalcode.lua. This table holds only what a server
+    -- changed from the terminal: a retuned charge, a charge of its own, or a shipped one it hid.
+    MySQL.query.await([[
+        CREATE TABLE IF NOT EXISTS phone_mdt_penal_overrides (
+            `code`         VARCHAR(16)  NOT NULL,
+            `label`        VARCHAR(120) NOT NULL,
+            `class`        VARCHAR(16)  NOT NULL,
+            `months`       INT UNSIGNED NOT NULL DEFAULT 0,
+            `fine`         INT UNSIGNED NOT NULL DEFAULT 0,
+            `description`  VARCHAR(255) NOT NULL DEFAULT '',
+            `removed`      TINYINT(1)   NOT NULL DEFAULT 0,
+            `updated_name` VARCHAR(96)  NULL,
+            `updated_at`   INT UNSIGNED NOT NULL DEFAULT 0,
+            PRIMARY KEY (`code`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ]])
+    migrations.apply('phone_mdt_penal_overrides')
+
+    -- Standing orders stay in configs/sops.lua. This table holds what ONE department changed from
+    -- its terminal, keyed by that department, so a force only ever rewrites its own orders.
+    MySQL.query.await([[
+        CREATE TABLE IF NOT EXISTS phone_mdt_sop_overrides (
+            `department`   VARCHAR(64)  NOT NULL,
+            `code`         VARCHAR(16)  NOT NULL,
+            `title`        VARCHAR(160) NOT NULL,
+            `category`     VARCHAR(40)  NOT NULL DEFAULT 'General',
+            `summary`      VARCHAR(255) NOT NULL DEFAULT '',
+            `revised`      VARCHAR(60)  NOT NULL DEFAULT '',
+            `body`         MEDIUMTEXT   NULL,
+            `removed`      TINYINT(1)   NOT NULL DEFAULT 0,
+            `updated_name` VARCHAR(96)  NULL,
+            `updated_at`   INT UNSIGNED NOT NULL DEFAULT 0,
+            PRIMARY KEY (`department`, `code`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ]])
+    migrations.apply('phone_mdt_sop_overrides')
 
     MySQL.query.await([[
         CREATE TABLE IF NOT EXISTS phone_mdt_ia_cases (

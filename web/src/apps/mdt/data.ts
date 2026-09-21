@@ -76,6 +76,7 @@ export type MdtPermission =
     | 'warrants.issue'
     | 'warrants.close'
     | 'offences.view'
+    | 'offences.manage'
     | 'roster.view'
     | 'employees.view'
     | 'roster.callsign'
@@ -112,7 +113,8 @@ export type MdtPermission =
     | 'shares.create'
     | 'shares.revoke'
     | 'shared.edit'
-    | 'sops.view';
+    | 'sops.view'
+    | 'sops.manage';
 
 export const SECTION_PERMISSION: Record<MdtSection, MdtPermission> = {
     home:      'home.view',
@@ -257,6 +259,16 @@ export interface Offence {
     months:      number;
     fine:        number;
     description: string;
+    custom?:        boolean;
+    edited?:        boolean;
+    defaultMonths?: number;
+    defaultFine?:   number;
+}
+
+export interface OffenceCatalog {
+    rows:      Offence[];
+    removed:   Offence[];
+    canManage: boolean;
 }
 
 export interface MdtBootstrap {
@@ -951,4 +963,12 @@ export interface Sop {
     summary:  string;
     revised:  string;
     body:     string;
+    custom?:  boolean;
+    edited?:  boolean;
+}
+
+export interface SopCatalog {
+    rows:      Sop[];
+    removed:   Sop[];
+    canManage: boolean;
 }

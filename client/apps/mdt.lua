@@ -24,7 +24,7 @@ local ACTIONS = {
     'shares:list', 'shares:create', 'shares:revoke',
     'revisions:list', 'revisions:restore',
     'live:join', 'live:leave', 'live:lock', 'live:unlock', 'live:draft',
-    'offences:list',
+    'offences:list', 'offences:save', 'offences:remove', 'offences:reset',
     'jail:list', 'jail:quote', 'jail:book',
     'roster:list', 'roster:setCallsign', 'roster:setRadio', 'roster:setGrade', 'roster:dismiss', 'roster:page',
     'me:update',
@@ -35,7 +35,7 @@ local ACTIONS = {
     'phone:media', 'phone:notes', 'phone:note', 'phone:accounts',
     'patients:search', 'patients:get', 'patients:update',
     'protocols:list', 'protocols:save', 'protocols:delete',
-    'sops:list',
+    'sops:list', 'sops:save', 'sops:remove', 'sops:reset',
     'affairs:list', 'affairs:get', 'affairs:officer', 'affairs:file', 'affairs:update',
     'affairs:note', 'affairs:close',
     'court:list', 'court:get', 'court:citizen', 'court:file', 'court:manage', 'court:note', 'court:rule',
@@ -128,6 +128,16 @@ end)
 ---@param data table
 RegisterNetEvent('sd-phone:client:mdt:live', function(data)
     SendNUIMessage({ action = 'sd-phone:mdt:live', data = data })
+end)
+
+---Server -> React: this department's standing orders were changed from a terminal.
+RegisterNetEvent('sd-phone:client:mdt:sops', function()
+    SendNUIMessage({ action = 'sd-phone:mdt:sops', data = {} })
+end)
+
+---Server -> React: the penal code was retuned from a terminal, so open ones read it again.
+RegisterNetEvent('sd-phone:client:mdt:offences', function()
+    SendNUIMessage({ action = 'sd-phone:mdt:offences', data = {} })
 end)
 
 ---Server -> React: paperwork was shared with this court, had its access changed, or was taken back.

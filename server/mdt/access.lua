@@ -39,6 +39,8 @@ local SHIPPED_PERMISSIONS = {
     ['shares.create'] = 0,
     ['shares.revoke'] = 0,
     ['shared.edit']   = 0,
+    ['offences.manage'] = 4,
+    ['sops.manage']     = 4,
 }
 
 ---@type table<string, number> Permission key -> minimum grade. An absent key is denied. Built as a
@@ -91,6 +93,7 @@ local KEY_DOMAIN = {
     ['profiles.view']       = { leo = true, doj = true },
     ['warrants.view']       = { leo = true, doj = true },
     ['offences.view']       = { leo = true, doj = true },
+    ['offences.manage']     = { leo = true, doj = true },
 
     ['court.view']          = { doj = true },
     ['court.file']          = { doj = true },

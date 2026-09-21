@@ -75,6 +75,8 @@ return {
     'phone_mdt_person_records',
     'phone_mdt_profile_sessions',
     'phone_mdt_profiles',
+    'phone_mdt_penal_overrides',
+    'phone_mdt_sop_overrides',
     'phone_mdt_protocols',
     'phone_mdt_refs',
     'phone_mdt_report_charges',

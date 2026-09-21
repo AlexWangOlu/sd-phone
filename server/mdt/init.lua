@@ -160,6 +160,9 @@ local ROUTES = {
     { 'live:draft',          live,      'draft' },
 
     { 'offences:list',       offences,  'list' },
+    { 'offences:save',       offences,  'save' },
+    { 'offences:remove',     offences,  'remove' },
+    { 'offences:reset',      offences,  'reset' },
 
     { 'jail:list',           jail,      'list' },
     { 'jail:quote',          jail,      'quote' },
@@ -201,6 +204,9 @@ local ROUTES = {
     { 'phone:accounts',      handset,   'accounts' },
 
     { 'sops:list',           sops,      'list' },
+    { 'sops:save',           sops,      'save' },
+    { 'sops:remove',         sops,      'remove' },
+    { 'sops:reset',          sops,      'reset' },
 
     { 'affairs:list',        affairs,   'list' },
     { 'affairs:get',         affairs,   'get' },

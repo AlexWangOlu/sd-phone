@@ -24,6 +24,7 @@ import {
     type MdtBootstrap,
     type MdtHome,
     type Offence,
+    type OffenceCatalog,
     type OfficerRow,
     type Page,
     type PersonDetail,
@@ -63,6 +64,7 @@ import {
     type Petition,
     type PetitionStatus,
     type Sop,
+    type SopCatalog,
     type MedicalFile,
     type PatientDetail,
     type PatientPaperwork,
@@ -132,7 +134,7 @@ const DEV_BOOTSTRAP: MdtBootstrap = {
         'reports.view', 'reports.create', 'reports.edit.own', 'reports.edit.any', 'reports.delete',
         'cases.view', 'cases.create', 'cases.edit', 'cases.delete',
         'warrants.view', 'warrants.issue', 'warrants.close',
-        'offences.view',
+        'offences.view', 'offences.manage',
         'roster.view', 'employees.view', 'roster.callsign', 'roster.radio', 'roster.grade', 'roster.dismiss',
         'dispatch.view', 'dispatch.attach', 'dispatch.status',
         'chat.view', 'chat.send',
@@ -142,7 +144,7 @@ const DEV_BOOTSTRAP: MdtBootstrap = {
         'patients.view', 'patients.edit', 'protocols.view', 'protocols.manage',
         'affairs.view', 'affairs.file', 'affairs.investigate', 'affairs.close',
         'court.view', 'court.file', 'court.manage', 'court.rule',
-        'expunge.view', 'expunge.file', 'expunge.rule', 'warrants.void', 'sops.view',
+        'expunge.view', 'expunge.file', 'expunge.rule', 'warrants.void', 'sops.view', 'sops.manage',
     ],
     offences: DEV_OFFENCES,
     protocols: [],
@@ -1234,9 +1236,50 @@ export async function mdtDeleteProtocol(code: string): Promise<boolean> {
     return (await apiCall('sd-phone:mdt:protocols:delete', { code })).success;
 }
 
-export async function mdtOffences(): Promise<Offence[]> {
-    if (!isFiveM) return [...DEV_OFFENCES];
-    return (await apiData<{ rows: Offence[] }>('sd-phone:mdt:offences:list'))?.rows ?? [];
+const DEV_REMOVED_OFFENCES: Offence[] = [];
+
+export async function mdtOffenceCatalog(): Promise<OffenceCatalog> {
+    if (!isFiveM) return { rows: [...DEV_OFFENCES], removed: [...DEV_REMOVED_OFFENCES], canManage: true };
+    const data = await apiData<{ rows?: Offence[]; removed?: Offence[]; canManage?: boolean }>('sd-phone:mdt:offences:list');
+    return {
+        rows:      Array.isArray(data?.rows) ? data.rows : [],
+        removed:   Array.isArray(data?.removed) ? data.removed : [],
+        canManage: data?.canManage === true,
+    };
+}
+
+export async function mdtSaveOffence(offence: Offence): Promise<string | null> {
+    if (!isFiveM) {
+        const at = DEV_OFFENCES.findIndex(o => o.code === offence.code);
+        if (at >= 0) DEV_OFFENCES[at] = { ...offence, edited: !DEV_OFFENCES[at].custom, custom: DEV_OFFENCES[at].custom };
+        else DEV_OFFENCES.push({ ...offence, custom: true });
+        return null;
+    }
+    const res = await apiCall('sd-phone:mdt:offences:save', {
+        code: offence.code, label: offence.label, class: offence.class,
+        months: offence.months, fine: offence.fine, description: offence.description,
+    });
+    return res.success ? null : failText(res, t('mdt.offenceSaveFailed', 'That charge could not be saved.'));
+}
+
+export async function mdtRemoveOffence(code: string): Promise<boolean> {
+    if (!isFiveM) {
+        const at = DEV_OFFENCES.findIndex(o => o.code === code);
+        if (at < 0) return false;
+        const [gone] = DEV_OFFENCES.splice(at, 1);
+        if (!gone.custom) DEV_REMOVED_OFFENCES.push(gone);
+        return true;
+    }
+    return (await apiCall('sd-phone:mdt:offences:remove', { code })).success;
+}
+
+export async function mdtResetOffence(code: string): Promise<boolean> {
+    if (!isFiveM) {
+        const at = DEV_REMOVED_OFFENCES.findIndex(o => o.code === code);
+        if (at >= 0) DEV_OFFENCES.push(...DEV_REMOVED_OFFENCES.splice(at, 1));
+        return true;
+    }
+    return (await apiCall('sd-phone:mdt:offences:reset', { code })).success;
 }
 
 
@@ -2043,9 +2086,50 @@ const DEV_SOPS: Sop[] = [
     },
 ];
 
-export async function mdtSops(): Promise<Sop[]> {
-    if (!isFiveM) return [...DEV_SOPS];
-    return (await apiData<{ rows: Sop[] }>('sd-phone:mdt:sops:list'))?.rows ?? [];
+const DEV_REMOVED_SOPS: Sop[] = [];
+
+export async function mdtSopCatalog(): Promise<SopCatalog> {
+    if (!isFiveM) return { rows: [...DEV_SOPS], removed: [...DEV_REMOVED_SOPS], canManage: true };
+    const data = await apiData<{ rows?: Sop[]; removed?: Sop[]; canManage?: boolean }>('sd-phone:mdt:sops:list');
+    return {
+        rows:      Array.isArray(data?.rows) ? data.rows : [],
+        removed:   Array.isArray(data?.removed) ? data.removed : [],
+        canManage: data?.canManage === true,
+    };
+}
+
+export async function mdtSaveSop(sop: Sop): Promise<string | null> {
+    if (!isFiveM) {
+        const at = DEV_SOPS.findIndex(s => s.code === sop.code);
+        if (at >= 0) DEV_SOPS[at] = { ...sop, custom: DEV_SOPS[at].custom, edited: !DEV_SOPS[at].custom };
+        else DEV_SOPS.push({ ...sop, custom: true });
+        return null;
+    }
+    const res = await apiCall('sd-phone:mdt:sops:save', {
+        code: sop.code, title: sop.title, category: sop.category,
+        summary: sop.summary, revised: sop.revised, body: sop.body,
+    });
+    return res.success ? null : failText(res, t('mdt.sopSaveFailed', 'That order could not be saved.'));
+}
+
+export async function mdtRemoveSop(code: string): Promise<boolean> {
+    if (!isFiveM) {
+        const at = DEV_SOPS.findIndex(s => s.code === code);
+        if (at < 0) return false;
+        const [gone] = DEV_SOPS.splice(at, 1);
+        if (!gone.custom) DEV_REMOVED_SOPS.push(gone);
+        return true;
+    }
+    return (await apiCall('sd-phone:mdt:sops:remove', { code })).success;
+}
+
+export async function mdtResetSop(code: string): Promise<boolean> {
+    if (!isFiveM) {
+        const at = DEV_REMOVED_SOPS.findIndex(s => s.code === code);
+        if (at >= 0) DEV_SOPS.push(...DEV_REMOVED_SOPS.splice(at, 1));
+        return true;
+    }
+    return (await apiCall('sd-phone:mdt:sops:reset', { code })).success;
 }
 
 export interface CctvCamera {
